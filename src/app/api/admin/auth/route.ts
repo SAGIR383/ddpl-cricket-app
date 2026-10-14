@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const SUPERADMIN_IDENTIFIER = 'superadmin@cricpluse.com';
-const SUPERADMIN_PASSWORD = 'SuperAdmin@2026';
+const SUPERADMIN_IDENTIFIER = process.env.SUPERADMIN_IDENTIFIER || 'superadmin@cricpluse.com';
+const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@2026';
 
 export async function POST(req: NextRequest) {
   try {

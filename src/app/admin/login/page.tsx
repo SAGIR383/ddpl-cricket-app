@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function SuperAdminLoginPage() {
   const router = useRouter();
   const { refreshProfile } = useAuth();
-  const [username, setUsername] = useState('superadmin@cricpluse.com');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -95,7 +95,7 @@ export default function SuperAdminLoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="superadmin@cricpluse.com"
+                placeholder="Enter username or email"
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-amber-400 transition-colors"
               />
             </div>
@@ -125,19 +125,6 @@ export default function SuperAdminLoginPage() {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Quick Hint Card */}
-        <div className="p-3.5 rounded-xl bg-[#070d1e]/80 border border-amber-500/20 text-[11px] text-gray-400 space-y-1">
-          <p className="text-amber-300 font-bold">Dedicated Credentials:</p>
-          <div className="flex justify-between text-gray-300 font-mono">
-            <span>Username:</span>
-            <code className="text-white">superadmin@cricpluse.com</code>
-          </div>
-          <div className="flex justify-between text-gray-300 font-mono">
-            <span>Password:</span>
-            <code className="text-white">SuperAdmin@2026</code>
-          </div>
-        </div>
 
         <div className="text-center pt-2">
           <Link
