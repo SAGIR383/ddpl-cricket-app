@@ -4,6 +4,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
   title: 'CricPluse — Corporate Cricket Tournament Management Platform',
@@ -40,6 +41,7 @@ export default function RootLayout({
       </head>
       <body className="bg-[#040814] text-gray-100 flex flex-col min-h-screen antialiased selection:bg-cricket-teal selection:text-cricket-dark">
         <AuthProvider>
+          <ServiceWorkerRegister />
           {/* Full-bleed fixed stadium visual reaching all edges of any display (including ultra-wide) */}
           <div className="stadium-bg-fixed" />
           <div className="stadium-overlay-fixed" />
