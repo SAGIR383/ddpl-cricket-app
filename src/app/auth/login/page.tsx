@@ -118,18 +118,27 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Trigger Supabase password recovery / OTP
-      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail);
+      // Trigger Supabase password recovery / OTP with dynamic live redirect URL
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://ddpl-cricket-app.vercel.app';
+      const redirectUrl = `${origin}/auth/reset-password`;
+
+      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo: redirectUrl,
+      });
+
       if (error) {
         // Fallback to signInWithOtp if resetPasswordForEmail fails
         const fallback = await supabase.auth.signInWithOtp({
           email: targetEmail,
-          options: { shouldCreateUser: false },
+          options: {
+            shouldCreateUser: false,
+            emailRedirectTo: redirectUrl,
+          },
         });
         if (fallback.error) throw fallback.error;
       }
 
-      setSuccessMsg(`A 6-digit verification code was sent to ${targetEmail}. Check your inbox and spam folder.`);
+      setSuccessMsg(`Reset instructions sent to ${targetEmail}! You can tap the "Reset password" button in your email OR enter the 6-digit code below.`);
       setResetStep('verify_otp');
       setResendCountdown(60);
     } catch (err: any) {
