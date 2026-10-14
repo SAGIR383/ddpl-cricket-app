@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "CricPluse — Corporate Cricket Platform",
-  "short_name": "CricPluse",
+  "name": "CricPlus — Corporate Cricket Platform",
+  "short_name": "CricPlus",
   "description": "Enterprise Corporate Cricket Tournament Management, Auctions, and Live Scoring",
   "start_url": "/",
   "scope": "/",
@@ -35,7 +35,7 @@
       "sizes": "1376x768",
       "type": "image/jpeg",
       "form_factor": "wide",
-      "label": "CricPluse Tournament Hub"
+      "label": "CricPlus Tournament Hub"
     },
     {
       "src": "/images/cricket-ball-blast.jpg",

@@ -34,15 +34,15 @@ export default function HomePage() {
             <div className="flex items-center gap-4">
               <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-cricket-teal/60 shadow-2xl shadow-teal-500/30 shrink-0 bg-[#070d1e]">
                 <Image
-                  src="/images/cricpluse-logo.jpg"
-                  alt="CricPluse Championship Logo"
+                  src="/images/cricplus-logo.jpg"
+                  alt="CricPlus Championship Logo"
                   fill
                   className="object-cover object-center"
                   priority
                 />
               </div>
               <h1 className="font-display font-black text-4xl sm:text-7xl text-white tracking-tight leading-[0.95] drop-shadow-2xl">
-                Cric<span className="text-cricket-teal glow-teal">Pluse</span>
+                Cric<span className="text-cricket-teal glow-teal">Plus</span>
                 <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-100 to-amber-300">
                   Tournament Hub
@@ -130,7 +130,7 @@ export default function HomePage() {
               <h2 className="font-display font-black text-2xl sm:text-4xl text-white tracking-tight">
                 Flagship Tournaments
               </h2>
-              <p className="text-[11px] sm:text-xs text-cricket-muted">Independent multi-edition leagues running on CricPluse</p>
+              <p className="text-[11px] sm:text-xs text-cricket-muted">Independent multi-edition leagues running on CricPlus</p>
             </div>
           </div>
           <Link href="/tournaments" className="text-xs sm:text-sm font-bold text-cricket-teal hover:underline flex items-center gap-1">

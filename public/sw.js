@@ -1,10 +1,11 @@
-// CricPluse Service Worker
-const CACHE_NAME = 'cricpluse-cache-v1';
+// CricPlus Service Worker
+const CACHE_NAME = 'cricplus-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/images/cricplus-logo.jpg',
   '/images/cricpluse-logo.jpg'
 ];
 

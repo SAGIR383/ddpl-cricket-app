@@ -32,8 +32,8 @@ export function Navbar() {
               <div className="relative w-11 h-11 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 via-cricket-teal to-amber-400 p-0.5 shadow-xl shadow-teal-500/20 group-hover:scale-105 transition-transform shrink-0">
                 <div className="w-full h-full bg-[#070d1e] rounded-2xl overflow-hidden relative">
                   <Image
-                    src="/images/cricpluse-logo.jpg"
-                    alt="CricPluse Logo"
+                    src="/images/cricplus-logo.jpg"
+                    alt="CricPlus Logo"
                     fill
                     className="object-cover object-center"
                     priority
@@ -42,7 +42,7 @@ export function Navbar() {
               </div>
               <div className="flex flex-col">
                 <span className="font-display font-extrabold text-2xl tracking-wide text-white group-hover:text-cricket-teal transition-colors leading-none">
-                  Cric<span className="text-cricket-teal glow-teal">Pluse</span>
+                  Cric<span className="text-cricket-teal glow-teal">Plus</span>
                 </span>
                 <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mt-0.5">
                   Corporate Sports Platform

@@ -163,7 +163,7 @@ export default function ResetPasswordPage() {
           </div>
           <h2 className="font-display font-bold text-3xl text-white">Create New Password</h2>
           <p className="text-xs text-cricket-muted max-w-xs mx-auto">
-            Choose a new strong password to secure your CricPluse account.
+            Choose a new strong password to secure your CricPlus account.
           </p>
         </div>
 

@@ -454,7 +454,7 @@ export default function MatchDetailPage() {
 
               <button
                 onClick={() => {
-                  const shareText = `🏏 *DDPL (Desk to Dugout Premier League) Live Match Update*\n*Teoco Knight Riders vs Aircom Avengers*\nScore: *${totalRuns}/${wickets}* (${calculateOversString(legalBalls)} ov)\nCRR: ${currentRunRate}\nStriker: ${batters[strikerIndex]?.name} ${batters[strikerIndex]?.runs}* (${batters[strikerIndex]?.balls})\nBowler: ${currentBowler.name} ${currentBowler.wickets}/${currentBowler.runsConceded}\n\nLive on CricPluse Platform!`;
+                  const shareText = `🏏 *DDPL (Desk to Dugout Premier League) Live Match Update*\n*Teoco Knight Riders vs Aircom Avengers*\nScore: *${totalRuns}/${wickets}* (${calculateOversString(legalBalls)} ov)\nCRR: ${currentRunRate}\nStriker: ${batters[strikerIndex]?.name} ${batters[strikerIndex]?.runs}* (${batters[strikerIndex]?.balls})\nBowler: ${currentBowler.name} ${currentBowler.wickets}/${currentBowler.runsConceded}\n\nLive on CricPlus Platform!`;
                   const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
                   window.open(url, '_blank');
                 }}

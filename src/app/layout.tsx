@@ -7,13 +7,13 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
-  title: 'CricPluse — Corporate Cricket Tournament Management Platform',
+  title: 'CricPlus — Corporate Cricket Tournament Management Platform',
   description: 'Enterprise Cricket Tournament Platform: DDPL, Game of RUN, live scoring, player auctions, and historical tournament archive.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black',
-    title: 'CricPluse',
+    title: 'CricPlus',
   },
 };
 

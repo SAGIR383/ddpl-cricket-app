@@ -9,7 +9,7 @@ export function Footer() {
             CP
           </div>
           <span className="text-sm font-semibold text-gray-300">
-            CricPluse © {new Date().getFullYear()} Corporate Sports Community
+            CricPlus © {new Date().getFullYear()} Corporate Sports Community
           </span>
         </div>
         <div className="flex items-center gap-6 text-xs">

@@ -14,7 +14,7 @@ const DEFAULT_DDPL_RULES = {
   noBallPenalty: '+1 Run + Free Hit',
   pointsPerWin: 2,
   lastUpdated: new Date().toISOString(),
-  updatedBy: 'superadmin@cricpluse.com',
+  updatedBy: 'superadmin@cricplus.com',
 };
 
 const DEFAULT_GOR_RULES = {
@@ -30,7 +30,7 @@ const DEFAULT_GOR_RULES = {
   noBallPenalty: '+1 Run + Free Hit',
   pointsPerWin: 2,
   lastUpdated: new Date().toISOString(),
-  updatedBy: 'superadmin@cricpluse.com',
+  updatedBy: 'superadmin@cricplus.com',
 };
 
 async function readAllRules(): Promise<Record<string, any>> {
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
       noBallPenalty: noBallPenalty || currentRules.noBallPenalty || '+1 Run + Free Hit',
       pointsPerWin: pointsPerWin !== undefined ? Number(pointsPerWin) : (currentRules.pointsPerWin || 2),
       lastUpdated: new Date().toISOString(),
-      updatedBy: updaterEmail || 'superadmin@cricpluse.com',
+      updatedBy: updaterEmail || 'superadmin@cricplus.com',
     };
 
     container.tournaments[tournament] = updated;

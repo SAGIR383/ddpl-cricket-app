@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>CricPluse</title>
+<title>CricPlus</title>
 <meta name="theme-color" content="#12306b">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Nunito+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -46,7 +46,7 @@ let user=null,V={v:'home'},LS=[],lg=null,fx=[],pl=[],ad=[],AU=[],AR=[],TM=[],AA=
 const own=()=>!!(user&&lg&&lg.owner==user.id);
 const isA=u=>!!lg&&(lg.owner==u||ad.some(a=>a.user_id==u));
 const adm=()=>!!user&&isA(user.id);
-const bar=()=>`<div class="top"><div onclick="nav('home')" style="cursor:pointer;display:flex;align-items:center;gap:10px"><img src="${LOGO}" alt="DDPL" style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.75)"><div><div class="fd" style="font-weight:700;font-size:24px;line-height:1">CricPluse</div><div style="font-size:12px;opacity:.8">Cricket scoring &amp; auctions</div></div></div><div style="text-align:right;font-size:12px">${user?`${esc(user.email.split('@')[0])}<br><a href="#" onclick="out();return false">Logout</a>`:`<a href="#" onclick="nav('auth');return false">Login</a>`}</div></div>`;
+const bar=()=>`<div class="top"><div onclick="nav('home')" style="cursor:pointer;display:flex;align-items:center;gap:10px"><img src="${LOGO}" alt="DDPL" style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.75)"><div><div class="fd" style="font-weight:700;font-size:24px;line-height:1">CricPlus</div><div style="font-size:12px;opacity:.8">Cricket scoring &amp; auctions</div></div></div><div style="text-align:right;font-size:12px">${user?`${esc(user.email.split('@')[0])}<br><a href="#" onclick="out();return false">Logout</a>`:`<a href="#" onclick="nav('auth');return false">Login</a>`}</div></div>`;
 const pill=x=>x=='live'?'<span class="pill pl">● Live</span>':x=='done'?'<span class="pill pd">Completed</span>':'<span class="pill pu">Upcoming</span>';
 const put=h=>app.innerHTML=bar()+h;
 const back=(t,f)=>`<button style="width:100%;padding:10px;margin-top:8px" onclick="${f}">${t}</button>`;
