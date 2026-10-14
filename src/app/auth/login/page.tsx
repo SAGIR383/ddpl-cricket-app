@@ -249,8 +249,8 @@ export default function LoginPage() {
           <p className="text-xs text-cricket-muted max-w-xs mx-auto">
             {authMode === 'forgot_password'
               ? resetStep === 'send_otp'
-                ? 'Enter your registered email to receive a 6-digit verification code.'
-                : 'Enter the 6-digit code sent to your email and your new password.'
+                ? 'Enter your registered email to receive a secure password reset link.'
+                : 'Follow the link sent to your email to reset your password.'
               : authMode === 'register'
               ? 'Create your player profile for corporate tournaments'
               : 'Sign in to manage teams, enter auction bids, or score matches'}
@@ -293,8 +293,8 @@ export default function LoginPage() {
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Sign In</span>
             </button>
-            <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              {resetStep === 'send_otp' ? 'Step 1 of 2' : 'Step 2 of 2'}
+            <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              Account Recovery
             </span>
           </div>
         )}
