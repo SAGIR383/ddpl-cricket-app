@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.ddpl_cricket_app.twa",
+    "sha256_cert_fingerprints": ["0E:DC:6C:E2:90:64:CF:FB:08:B3:74:4A:01:98:C7:91:EE:E3:AB:FF:E6:FD:A5:F9:26:6A:AB:12:A9:CD:53:AD"]
+  }
+}]
