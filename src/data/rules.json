@@ -1,0 +1,44 @@
+{
+  "tournaments": {
+    "ddpl": {
+      "basePurse": 10000,
+      "ownerBlockedPrice": 500,
+      "defaultPlayerBasePrice": 500,
+      "bidSteps": [
+        50,
+        100,
+        200,
+        500
+      ],
+      "maxSquadSize": 11,
+      "minSquadSize": 7,
+      "matchOvers": 15,
+      "maxBowlerOvers": 3,
+      "wideBallPenalty": "+1 Run & Extra Ball",
+      "noBallPenalty": "+1 Run + Free Hit",
+      "pointsPerWin": 2,
+      "lastUpdated": "2026-10-13T21:12:52.363Z",
+      "updatedBy": "superadmin@cricpluse.com"
+    },
+    "game-of-run": {
+      "basePurse": 10000,
+      "ownerBlockedPrice": 500,
+      "defaultPlayerBasePrice": 500,
+      "bidSteps": [
+        50,
+        100,
+        200,
+        500
+      ],
+      "maxSquadSize": 11,
+      "minSquadSize": 7,
+      "matchOvers": 15,
+      "maxBowlerOvers": 3,
+      "wideBallPenalty": "+1 Run & Extra Ball",
+      "noBallPenalty": "+1 Run + Free Hit",
+      "pointsPerWin": 2,
+      "lastUpdated": "2026-10-13T21:13:24.822Z",
+      "updatedBy": "superadmin@cricpluse.com"
+    }
+  }
+}

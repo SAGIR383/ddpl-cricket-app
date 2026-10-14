@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-gradient: radial-gradient(circle at 50% 0%, rgba(18, 48, 107, 0.35) 0%, rgba(5, 9, 20, 1) 75%);
+}
+
+body {
+  background: #020612;
+  color: #eaf0fb;
+  font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Vivid, clearly visible stadium background covering the entire screen */
+.stadium-bg-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url('/images/cricket-hero.jpg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.72;
+  filter: contrast(1.15) brightness(0.95);
+}
+
+/* Lighter, atmospheric stadium floodlight & color grading overlay */
+.stadium-overlay-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: 
+    /* Floodlight glows at top corners */
+    radial-gradient(circle 500px at 5% 0%, rgba(255, 255, 255, 0.25), transparent 70%),
+    radial-gradient(circle 500px at 95% 0%, rgba(255, 255, 255, 0.25), transparent 70%),
+    /* Electric teal and gold stadium pitch ambiance */
+    radial-gradient(circle 900px at 20% 40%, rgba(0, 245, 212, 0.15), transparent 75%),
+    radial-gradient(circle 900px at 80% 40%, rgba(255, 159, 28, 0.15), transparent 75%),
+    /* Balanced vertical fade so lower sections remain readable */
+    linear-gradient(to bottom, rgba(4, 8, 20, 0.35) 0%, rgba(4, 8, 20, 0.55) 45%, rgba(4, 8, 20, 0.88) 100%);
+}
+
+/* Typography utilities */
+.font-display {
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+}
+
+.table-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Enhanced Glass Cards with higher backdrop blur so content pops over the visible background */
+.glass-card {
+  background: rgba(8, 16, 38, 0.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(45, 75, 140, 0.65);
+  border-radius: 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.6);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card-hover:hover {
+  border-color: rgba(0, 245, 212, 0.6);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -8px rgba(0, 245, 212, 0.25), 0 0 0 1px rgba(0, 245, 212, 0.35);
+}
+
+/* Glowing text and element accents */
+.glow-teal {
+  text-shadow: 0 0 24px rgba(0, 245, 212, 0.7);
+}
+
+.glow-gold {
+  text-shadow: 0 0 24px rgba(255, 159, 28, 0.7);
+}
+
+/* Mobile tap feel */
+@media (max-width: 768px) {
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ========================================================================= */
+/* 3D MASCOT WALKING & FIRECRACKER CELEBRATION ANIMATIONS */
+/* ========================================================================= */
+@keyframes mascotWalkIn {
+  0% {
+    opacity: 0;
+    transform: translateY(80px) scale(0.65) rotate(-6deg);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-16px) scale(1.08) rotate(4deg);
+  }
+  55% {
+    transform: translateY(6px) scale(0.96) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-4px) scale(1.02) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0px) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes mascotSadSlump {
+  0% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(15px) scale(1.02);
+  }
+  70% {
+    transform: translateY(-6px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes crackerBurst {
+  0% {
+    transform: scale(0.2);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes floatBob {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(2deg);
+  }
+}
+
+@keyframes sadSigh {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.animate-mascot-walk {
+  animation: mascotWalkIn 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, floatBob 3s ease-in-out 0.85s infinite;
+}
+
+.animate-mascot-sad {
+  animation: mascotSadSlump 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards, sadSigh 3.5s ease-in-out 0.9s infinite;
+}
+
+.animate-cracker {
+  animation: crackerBurst 1.2s ease-out infinite;
+}
