@@ -120,7 +120,7 @@ export default function LoginPage() {
     try {
       // Trigger Supabase password recovery / OTP with dynamic live redirect URL
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://ddpl-cricket-app.vercel.app';
-      const redirectUrl = `${origin}/auth/reset-password`;
+      const redirectUrl = `${origin}/auth/callback?next=/auth/reset-password`;
 
       const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
         redirectTo: redirectUrl,
