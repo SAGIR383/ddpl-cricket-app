@@ -317,7 +317,7 @@ export default function LoginPage() {
         {/* FORGOT PASSWORD FORM */}
         {authMode === 'forgot_password' ? (
           resetStep === 'send_otp' ? (
-            /* STEP 1: ENTER EMAIL TO RECEIVE OTP */
+            /* STEP 1: ENTER EMAIL TO RECEIVE RESET LINK */
             <form onSubmit={handleSendOtp} className="space-y-4 text-sm">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-300">Registered Email Address</label>
@@ -339,74 +339,30 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-sm shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>{loading ? 'Sending Verification Code…' : 'Send 6-Digit Code'}</span>
+                <span>{loading ? 'Sending Reset Instructions…' : 'Send Password Reset Link'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
           ) : (
-            /* STEP 2: ENTER OTP & NEW PASSWORD */
-            <form onSubmit={handleVerifyOtpAndResetPassword} className="space-y-4 text-sm">
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-semibold text-gray-300">6-Digit Verification Code</label>
-                  <span className="text-[11px] text-gray-400">Sent to: <b className="text-white">{resetEmail}</b></span>
+            /* STEP 2: INSTRUCTIONS & RESEND */
+            <div className="space-y-5 text-sm">
+              <div className="p-5 rounded-2xl bg-[#060b19] border border-cricket-teal/30 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/30 text-cricket-teal flex items-center justify-center mx-auto shadow-inner">
+                  <Mail className="w-6 h-6" />
                 </div>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-amber-400 absolute left-3 top-3.5" />
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    placeholder="123456"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-amber-300 font-mono tracking-widest text-base font-bold placeholder-gray-500 focus:outline-none focus:border-amber-400 transition-colors"
-                  />
+                <div className="space-y-1">
+                  <h3 className="font-display font-bold text-lg text-white">Check Your Email</h3>
+                  <p className="text-xs text-gray-300">
+                    We sent a secure password reset link to:
+                  </p>
+                  <p className="font-mono text-sm text-cricket-teal font-bold">{resetEmail}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-cricket-dark/90 border border-cricket-border text-xs text-gray-300 leading-relaxed text-left">
+                  👉 Open your email app (Gmail, Apple Mail, etc.) and tap the <strong className="text-white">"Reset password"</strong> button. It will open CricPluse directly to set your new password.
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">New Password</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-cricket-muted absolute left-3 top-3.5" />
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder="Minimum 6 characters"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 text-sm transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Confirm New Password</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-cricket-muted absolute left-3 top-3.5" />
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder="Re-enter new password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 text-sm transition-colors"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-sm shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>{loading ? 'Verifying & Updating…' : 'Verify & Set New Password'}</span>
-                <CheckCircle2 className="w-4 h-4" />
-              </button>
-
-              <div className="pt-1 flex items-center justify-between text-xs text-gray-400">
+              <div className="flex items-center justify-between text-xs text-gray-400">
                 <button
                   type="button"
                   onClick={() => setResetStep('send_otp')}
@@ -421,14 +377,14 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => handleSendOtp()}
-                    className="text-amber-400 hover:underline font-bold inline-flex items-center gap-1"
+                    className="text-amber-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
                   >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Resend Code</span>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Resend Link</span>
                   </button>
                 )}
               </div>
-            </form>
+            </div>
           )
         ) : (
           /* STANDARD SIGN IN / CREATE ACCOUNT FORM */
