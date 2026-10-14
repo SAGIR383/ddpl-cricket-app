@@ -23,9 +23,9 @@ export function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-[#040814]/90 backdrop-blur-xl border-b border-cricket-border/80 shadow-2xl">
+    <header className="sticky top-0 z-50 bg-[#040814]/98 backdrop-blur-xl border-b border-cricket-border/80 shadow-2xl pt-safe">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 py-2">
+        <div className="flex items-center justify-between min-h-[4.25rem] py-2">
           {/* Brand Logo & Organization Tag */}
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-3 group">
@@ -126,13 +126,36 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Toggle Button */}
-          <div className="flex lg:hidden">
+          {/* Mobile Right Controls: Sign In / Profile Quick Button + 3-line Menu Button */}
+          <div className="flex lg:hidden items-center gap-2">
+            {user ? (
+              <Link
+                href="/profile"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-cricket-card/90 border border-cricket-teal/30 text-cricket-teal text-xs font-bold shadow-sm"
+              >
+                <User className="w-4 h-4" />
+                <span className="max-w-[70px] truncate">{user.email?.split('@')[0]}</span>
+              </Link>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-teal-400 text-cricket-dark font-display font-extrabold text-xs tracking-wide shadow-md"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </Link>
+            )}
+
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2.5 rounded-xl text-gray-300 hover:text-white hover:bg-cricket-card border border-cricket-border"
+              aria-label="Toggle navigation menu"
+              className="p-2.5 rounded-xl text-white bg-cricket-card/95 hover:bg-cricket-card border border-cricket-border/90 shadow-md active:scale-95 transition-all flex items-center justify-center shrink-0"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? (
+                <X className="w-6 h-6 text-amber-400" />
+              ) : (
+                <Menu className="w-6 h-6 text-cricket-teal" />
+              )}
             </button>
           </div>
         </div>
