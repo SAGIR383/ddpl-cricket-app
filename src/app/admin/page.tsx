@@ -22,7 +22,12 @@ import {
   ChevronDown,
   ChevronUp,
   UserCheck,
-  Award
+  Award,
+  KeyRound,
+  Copy,
+  Check,
+  Lock,
+  X
 } from 'lucide-react';
 
 interface TeamItem {
@@ -80,6 +85,13 @@ export default function AdminDashboardPage() {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
   };
+
+  // Super Admin Password Management State
+  const [resetModalUser, setResetModalUser] = useState<{ id: string; email: string; name: string } | null>(null);
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [adminResetLoading, setAdminResetLoading] = useState(false);
+  const [generatedBypassLink, setGeneratedBypassLink] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
 
   // --- 1. TEAMS STATE ---
@@ -518,6 +530,56 @@ export default function AdminDashboardPage() {
     await handleUpdateUserRole(newUserEmail.trim(), newUserRole);
     setNewUserEmail('');
     setNewUserName('');
+  };
+
+  const handleAdminResetPassword = async (email: string, newPassword: string) => {
+    if (!newPassword || newPassword.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+    setAdminResetLoading(true);
+    try {
+      const res = await fetch('/api/admin/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showNotification(data.message || `Password for ${email} reset successfully!`);
+        setResetModalUser(null);
+        setAdminNewPassword('');
+        setGeneratedBypassLink(null);
+      } else {
+        alert(data.error || 'Failed to reset password');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating password');
+    } finally {
+      setAdminResetLoading(false);
+    }
+  };
+
+  const handleAdminGenerateBypassLink = async (email: string) => {
+    setAdminResetLoading(true);
+    try {
+      const res = await fetch('/api/admin/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, generateLinkOnly: true }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.actionLink) {
+        setGeneratedBypassLink(data.actionLink);
+        showNotification(`Bypass link generated for ${email}!`);
+      } else {
+        alert(data.error || 'Failed to generate bypass link');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error generating link');
+    } finally {
+      setAdminResetLoading(false);
+    }
   };
 
   // If user does not have Organizer or Super Admin privileges, block access with RBAC shield
@@ -1685,7 +1747,8 @@ export default function AdminDashboardPage() {
                     <th className="px-5 py-3">Registered Email</th>
                     <th className="px-5 py-3">Joined Date</th>
                     <th className="px-5 py-3">Current System Role</th>
-                    <th className="px-5 py-3 text-right">Change Role</th>
+                    <th className="px-5 py-3">Change Role</th>
+                    <th className="px-5 py-3 text-right">Password Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cricket-border/60">
@@ -1718,7 +1781,7 @@ export default function AdminDashboardPage() {
                             {u.role.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-right">
+                        <td className="px-5 py-3.5">
                           <select
                             value={u.role}
                             disabled={!isSuperAdmin}
@@ -1734,11 +1797,144 @@ export default function AdminDashboardPage() {
                             <option value="super_admin">Set Super Admin</option>
                           </select>
                         </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setResetModalUser(u);
+                              setAdminNewPassword('');
+                              setGeneratedBypassLink(null);
+                              setCopiedLink(false);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
+                            title="Reset password or generate instant bypass link"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                            <span>Reset Password</span>
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin Password Reset Modal */}
+      {resetModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-md glass-card p-6 border border-amber-500/30 shadow-2xl space-y-5 rounded-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-cricket-border">
+              <div className="flex items-center gap-2 text-amber-400">
+                <KeyRound className="w-5 h-5" />
+                <h3 className="font-display font-extrabold text-lg text-white">Reset User Password</h3>
+              </div>
+              <button
+                onClick={() => setResetModalUser(null)}
+                className="p-1 rounded-lg hover:bg-cricket-card text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border space-y-1 text-xs">
+              <div className="flex justify-between text-gray-400">
+                <span>Target User:</span>
+                <b className="text-white">{resetModalUser.name}</b>
+              </div>
+              <div className="flex justify-between text-gray-400 font-mono">
+                <span>Email:</span>
+                <b className="text-cricket-teal">{resetModalUser.email}</b>
+              </div>
+            </div>
+
+            {/* Option 1: Direct Password Change */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-gray-300 block">Set New Password (Instant Update):</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Cricket@2026"
+                    value={adminNewPassword}
+                    onChange={(e) => setAdminNewPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-mono focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={adminResetLoading || !adminNewPassword.trim()}
+                  onClick={() => handleAdminResetPassword(resetModalUser.email, adminNewPassword)}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-xs tracking-wide shadow disabled:opacity-40 cursor-pointer"
+                >
+                  {adminResetLoading ? 'Updating…' : 'Set Password'}
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Instantly updates their password in the Supabase database. Zero email limits.
+              </p>
+            </div>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-cricket-border"></div>
+              <span className="flex-shrink mx-3 text-[10px] text-gray-400 uppercase font-mono tracking-widest">OR</span>
+              <div className="flex-grow border-t border-cricket-border"></div>
+            </div>
+
+            {/* Option 2: 1-Click Bypass Link */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={adminResetLoading}
+                onClick={() => handleAdminGenerateBypassLink(resetModalUser.email)}
+                className="w-full py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-card/80 border border-cricket-teal/40 text-cricket-teal font-display font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Generate 1-Click Recovery Link</span>
+              </button>
+
+              {generatedBypassLink && (
+                <div className="p-3 rounded-xl bg-[#040814] border border-emerald-500/30 space-y-2 animate-fade-in">
+                  <p className="text-[11px] text-emerald-400 font-bold">1-Click Link Ready (Bypasses all email rate limits):</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={generatedBypassLink}
+                      className="flex-1 py-1 px-2 rounded-lg bg-cricket-dark border border-cricket-border text-gray-300 font-mono text-[10px] select-all truncate"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedBypassLink);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2000);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold shrink-0 flex items-center gap-1 cursor-pointer"
+                    >
+                      {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedLink ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    Send this link to the user on WhatsApp or Email. It bypasses all rate limits.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 text-right">
+              <button
+                type="button"
+                onClick={() => setResetModalUser(null)}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
