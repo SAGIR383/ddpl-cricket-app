@@ -34,7 +34,6 @@ export default function TournamentDetailPage() {
     battingStyle: 'Right-hand bat',
     bowlingStyle: 'Right-arm medium',
     avatarUrl: '',
-    employeeId: '',
   });
   const [isSubmittingReg, setIsSubmittingReg] = useState(false);
   const [regSuccessMsg, setRegSuccessMsg] = useState<string | null>(null);
@@ -115,7 +114,6 @@ export default function TournamentDetailPage() {
           battingStyle: data.batting_style || 'Right-hand bat',
           bowlingStyle: data.bowling_style || 'Right-arm medium',
           avatarUrl: data.avatar_url || '',
-          employeeId: data.employee_id || '',
         });
       } else {
         setRegForm((prev: any) => ({
@@ -601,17 +599,6 @@ export default function TournamentDetailPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Employee ID</label>
-                  <input
-                    type="text"
-                    value={regForm.employeeId}
-                    placeholder="e.g. TEC1024"
-                    onChange={(e) => setRegForm({ ...regForm, employeeId: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
-                  />
-                </div>
-
-                <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-300">Primary Role</label>
                   <select
                     value={regForm.role}
@@ -637,7 +624,7 @@ export default function TournamentDetailPage() {
                   </select>
                 </div>
 
-                <div className="space-y-1 sm:col-span-2">
+                <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-300">Bowling Style</label>
                   <select
                     value={regForm.bowlingStyle}
