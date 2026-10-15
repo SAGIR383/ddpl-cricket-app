@@ -1,13 +1,16 @@
 /**
  * CricPlus 3D Mascot Articulated Model & Procedural Rig
  * 
- * Refined athletic character proportions:
- * - Perfectly grounded feet (y = 0)
- * - Athletic boy-cricketer proportions (balanced head-to-body ratio, no bobblehead)
- * - Authentic 3-rib cricket batting pads, spiked athletic shoes, willow bat, gloves, cap with peak
- * - Expressive animated eyes, smile/sad mouth, rosy cheeks
+ * Official CricPlus visual reference:
+ * - Royal Blue & Vibrant Orange CricPlus uniform
+ * - Blue helmet with orange crest & curved visor
+ * - White batting pads with orange knee-roll bolsters
+ * - White batting gloves with orange wrist trim
+ * - English willow cricket bat with sky-blue grip
+ * - Perfectly grounded feet (y = 0) with spiked cricket athletic shoes
+ * - Expressive animated eyes, smile/sad mouth, and cheerful rosy cheeks
  * - Props: Golden championship cup (SOLD) & broken glowing heart (UNSOLD)
- * - Smooth pose interpolation, natural walk cycles, and full 24 reaction compatibility
+ * - Full 24-reaction articulated kinematics engine
  */
 
 import * as THREE from 'three';
@@ -45,7 +48,7 @@ export interface MascotRig {
 export function createProceduralMascotRig(): MascotRig {
   const materials: Record<string, THREE.Material> = {};
 
-  // High quality PBR-tuned materials
+  // High quality PBR-tuned materials matching official CricPlus design sheet
   const jerseyBlue = new THREE.MeshStandardMaterial({
     color: 0x1d4ed8, // CricPlus Royal Blue
     roughness: 0.35,
@@ -54,10 +57,19 @@ export function createProceduralMascotRig(): MascotRig {
   materials.jersey = jerseyBlue;
 
   const jerseyDarkBlue = new THREE.MeshStandardMaterial({
-    color: 0x0f2356, // Deep Navy shorts & cap trim
+    color: 0x0f2b6b, // Deep Navy shorts & cap trim
     roughness: 0.45,
   });
   materials.jerseyDark = jerseyDarkBlue;
+
+  const orangeAccent = new THREE.MeshStandardMaterial({
+    color: 0xff6600, // Official CricPlus Vibrant Orange
+    roughness: 0.25,
+    metalness: 0.2,
+    emissive: 0x7c2d12,
+    emissiveIntensity: 0.15,
+  });
+  materials.orange = orangeAccent;
 
   const skinTone = new THREE.MeshStandardMaterial({
     color: 0xfbd0a2, // Warm peach skin
@@ -71,13 +83,6 @@ export function createProceduralMascotRig(): MascotRig {
     roughness: 0.7,
   });
   materials.hair = darkHair;
-
-  const goldAccent = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b, // CricPlus Gold Accent
-    roughness: 0.25,
-    metalness: 0.5,
-  });
-  materials.gold = goldAccent;
 
   const padWhite = new THREE.MeshStandardMaterial({
     color: 0xf8fafc, // Batting pad white
@@ -145,10 +150,17 @@ export function createProceduralMascotRig(): MascotRig {
   hips.position.y = 0.62;
   root.add(hips);
 
-  // Pelvis / Shorts (Athletic cut)
+  // Pelvis / Shorts (Athletic Navy Cut with Orange Side-Stripes)
   const pelvisGeo = new THREE.CylinderGeometry(0.18, 0.15, 0.15, 16);
   const pelvisMesh = new THREE.Mesh(pelvisGeo, jerseyDarkBlue);
   hips.add(pelvisMesh);
+
+  // Orange stripe on shorts
+  const shortStripeGeo = new THREE.TorusGeometry(0.16, 0.012, 6, 20);
+  const shortStripe = new THREE.Mesh(shortStripeGeo, orangeAccent);
+  shortStripe.rotation.x = Math.PI / 2;
+  shortStripe.position.y = -0.04;
+  hips.add(shortStripe);
 
   // Torso / Jersey (Tapered athletic build)
   const torso = new THREE.Group();
@@ -160,12 +172,17 @@ export function createProceduralMascotRig(): MascotRig {
   chestMesh.position.y = 0.16;
   torso.add(chestMesh);
 
-  // Gold Trim Collar & Chest Stripe
-  const collarGeo = new THREE.TorusGeometry(0.21, 0.015, 8, 20);
-  const collarMesh = new THREE.Mesh(collarGeo, goldAccent);
+  // Official CricPlus Orange V-Collar & Chest Chevron
+  const collarGeo = new THREE.TorusGeometry(0.21, 0.016, 8, 20);
+  const collarMesh = new THREE.Mesh(collarGeo, orangeAccent);
   collarMesh.rotation.x = Math.PI / 2;
   collarMesh.position.y = 0.28;
   torso.add(collarMesh);
+
+  const chevronGeo = new THREE.CylinderGeometry(0.212, 0.208, 0.04, 16);
+  const chevronMesh = new THREE.Mesh(chevronGeo, orangeAccent);
+  chevronMesh.position.y = 0.18;
+  torso.add(chevronMesh);
 
   // Head & Neck (Proportionate: radius 0.22, realistic athletic ratio)
   const head = new THREE.Group();
@@ -184,7 +201,7 @@ export function createProceduralMascotRig(): MascotRig {
   hairMesh.position.set(0, 0.16, -0.01);
   head.add(hairMesh);
 
-  // CricPlus Cricket Cap / Helmet
+  // CricPlus Cricket Helmet / Cap
   const cap = new THREE.Group();
   cap.position.y = 0.22;
   head.add(cap);
@@ -193,16 +210,22 @@ export function createProceduralMascotRig(): MascotRig {
   const capDome = new THREE.Mesh(capDomeGeo, jerseyBlue);
   cap.add(capDome);
 
-  // Cap Visor (Curved Peak)
+  // Orange piping across the helmet crown
+  const capPipingGeo = new THREE.TorusGeometry(0.231, 0.01, 8, 24, Math.PI);
+  const capPiping = new THREE.Mesh(capPipingGeo, orangeAccent);
+  capPiping.rotation.x = Math.PI / 2;
+  cap.add(capPiping);
+
+  // Curved Helmet Visor
   const visorGeo = new THREE.CylinderGeometry(0.25, 0.26, 0.025, 16, 1, false, -Math.PI * 0.4, Math.PI * 0.8);
   const visor = new THREE.Mesh(visorGeo, jerseyDarkBlue);
   visor.position.set(0, -0.01, 0.12);
   visor.rotation.x = 0.22;
   cap.add(visor);
 
-  // Gold Crest Badge on Cap
+  // Orange CricPlus Crest Badge on Helmet
   const emblemGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.015, 16);
-  const emblem = new THREE.Mesh(emblemGeo, goldAccent);
+  const emblem = new THREE.Mesh(emblemGeo, orangeAccent);
   emblem.rotation.x = Math.PI / 2;
   emblem.position.set(0, 0.08, 0.23);
   cap.add(emblem);
@@ -248,7 +271,7 @@ export function createProceduralMascotRig(): MascotRig {
   head.add(mouth);
 
   // --------------------------------------------------------------------------
-  // ARMS & HANDS
+  // ARMS & HANDS (Gloves with Orange Trim)
   // --------------------------------------------------------------------------
   const upperArmGeo = new THREE.CylinderGeometry(0.055, 0.05, 0.20, 12);
   const forearmGeo = new THREE.CylinderGeometry(0.05, 0.045, 0.18, 12);
@@ -279,6 +302,12 @@ export function createProceduralMascotRig(): MascotRig {
   const leftGloveMesh = new THREE.Mesh(gloveGeo, gloveWhite);
   leftHand.add(leftGloveMesh);
 
+  // Orange glove wristband
+  const wristbandGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.03, 12);
+  const leftWristband = new THREE.Mesh(wristbandGeo, orangeAccent);
+  leftWristband.position.y = 0.05;
+  leftHand.add(leftWristband);
+
   // Right Arm
   const rightArm = new THREE.Group();
   rightArm.position.set(0.25, 0.28, 0);
@@ -303,6 +332,10 @@ export function createProceduralMascotRig(): MascotRig {
   const rightGloveMesh = new THREE.Mesh(gloveGeo, gloveWhite);
   rightHand.add(rightGloveMesh);
 
+  const rightWristband = new THREE.Mesh(wristbandGeo, orangeAccent);
+  rightWristband.position.y = 0.05;
+  rightHand.add(rightWristband);
+
   // --------------------------------------------------------------------------
   // CRICKET BAT (Proportionate English Willow)
   // --------------------------------------------------------------------------
@@ -310,7 +343,7 @@ export function createProceduralMascotRig(): MascotRig {
   bat.position.set(0, -0.03, 0.05);
   rightHand.add(bat);
 
-  // Rubber Spiral Grip
+  // Sky blue rubber spiral grip
   const batHandleGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.22, 10);
   const batHandleMesh = new THREE.Mesh(batHandleGeo, batGrip);
   batHandleMesh.position.y = 0.10;
@@ -322,10 +355,9 @@ export function createProceduralMascotRig(): MascotRig {
   batBladeMesh.position.y = -0.24;
   bat.add(batBladeMesh);
 
-  // CricPlus Cyan Decal on Bat
+  // Orange & Cyan CricPlus Decal on Bat
   const batStripeGeo = new THREE.PlaneGeometry(0.065, 0.18);
-  const batStripeMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-  const batStripeMesh = new THREE.Mesh(batStripeGeo, batStripeMat);
+  const batStripeMesh = new THREE.Mesh(batStripeGeo, orangeAccent);
   batStripeMesh.position.set(0, -0.18, 0.018);
   bat.add(batStripeMesh);
 
@@ -354,7 +386,8 @@ export function createProceduralMascotRig(): MascotRig {
   leftPadMesh.position.set(0, -0.14, 0.015);
   leftShin.add(leftPadMesh);
 
-  const leftKneeRoll = new THREE.Mesh(kneeRollGeo, goldAccent);
+  // Vibrant Orange Knee Roll
+  const leftKneeRoll = new THREE.Mesh(kneeRollGeo, orangeAccent);
   leftKneeRoll.rotation.z = Math.PI / 2;
   leftKneeRoll.position.set(0, -0.03, 0.055);
   leftShin.add(leftKneeRoll);
@@ -385,7 +418,7 @@ export function createProceduralMascotRig(): MascotRig {
   rightPadMesh.position.set(0, -0.14, 0.015);
   rightShin.add(rightPadMesh);
 
-  const rightKneeRoll = new THREE.Mesh(kneeRollGeo, goldAccent);
+  const rightKneeRoll = new THREE.Mesh(kneeRollGeo, orangeAccent);
   rightKneeRoll.rotation.z = Math.PI / 2;
   rightKneeRoll.position.set(0, -0.03, 0.055);
   rightShin.add(rightKneeRoll);

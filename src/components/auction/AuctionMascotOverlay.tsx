@@ -7,9 +7,7 @@ import {
   Trophy, 
   HeartCrack, 
   Sparkles, 
-  X, 
-  ShieldCheck, 
-  DollarSign
+  X
 } from 'lucide-react';
 import { 
   MascotReactionEngine, 
@@ -65,11 +63,10 @@ export default function AuctionMascotOverlay({
   const eventQueueRef = useRef<MascotEventData[]>([]);
   const isAnimatingRef = useRef(false);
 
-  // Horizontal motion inside the compact 320x340 stage
-  const mascotPosRef = useRef({ x: 2.2, y: 0.0, z: 0 }); // Enters from offstage right
-  const targetXRef = useRef(0.0); // Centers in the compact stage
+  // Centered stage kinematics
+  const mascotPosRef = useRef({ x: 0.0, y: 0.0, z: 0 });
   const walkProgressRef = useRef(0);
-  const isWalkingRef = useRef(true);
+  const isWalkingRef = useRef(false);
 
   // --------------------------------------------------------------------------
   // TASTEFUL PARTICLES ON SOLD
@@ -78,12 +75,12 @@ export default function AuctionMascotOverlay({
     if (intensity === 'subtle') return;
 
     try {
-      // Localized golden-green confetti burst from bottom-right stage
+      // Centered golden-green celebration burst
       confetti({
-        particleCount: intensity === 'high' ? 65 : 40,
-        spread: 60,
-        origin: { x: 0.88, y: 0.82 },
-        colors: ['#10B981', '#F59E0B', '#3B82F6', '#FFD700', '#34D399'],
+        particleCount: intensity === 'high' ? 80 : 50,
+        spread: 80,
+        origin: { x: 0.5, y: 0.52 },
+        colors: ['#10B981', '#F59E0B', '#3B82F6', '#FFD700', '#FF6600'],
         disableForReducedMotion: true,
         zIndex: 9999,
       });
@@ -91,11 +88,11 @@ export default function AuctionMascotOverlay({
       const t1 = setTimeout(() => {
         try {
           confetti({
-            particleCount: intensity === 'high' ? 45 : 25,
-            angle: 110,
-            spread: 50,
-            origin: { x: 0.92, y: 0.85 },
-            colors: ['#F59E0B', '#10B981', '#60A5FA'],
+            particleCount: intensity === 'high' ? 50 : 30,
+            angle: 90,
+            spread: 70,
+            origin: { x: 0.5, y: 0.58 },
+            colors: ['#F59E0B', '#10B981', '#FF6600'],
             disableForReducedMotion: true,
             zIndex: 9999,
           });
@@ -111,7 +108,7 @@ export default function AuctionMascotOverlay({
   }, []);
 
   // --------------------------------------------------------------------------
-  // INITIALIZE THREE.JS ON COMPACT STAGE (300-340px)
+  // INITIALIZE THREE.JS ON CENTERED STAGE (280-340px)
   // --------------------------------------------------------------------------
   useEffect(() => {
     if (!visible || !canvasRef.current) return;
@@ -127,7 +124,7 @@ export default function AuctionMascotOverlay({
       const scene = new THREE.Scene();
       sceneRef.current = scene;
 
-      // 2. Camera framing character from head (y=1.34) to feet (y=0)
+      // 2. Camera framing character from head (y=1.34) down to feet (y=0)
       const camera = new THREE.PerspectiveCamera(27, width / height, 0.1, 50);
       camera.position.set(0, 0.65, 3.1);
       cameraRef.current = camera;
@@ -143,7 +140,7 @@ export default function AuctionMascotOverlay({
       renderer.setSize(width, height, false);
       rendererRef.current = renderer;
 
-      // 4. Studio Lighting
+      // 4. Studio Lighting tailored for stadium character depth
       const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
       scene.add(ambientLight);
 
@@ -155,14 +152,18 @@ export default function AuctionMascotOverlay({
       rimLight.position.set(-2, 2, -2);
       scene.add(rimLight);
 
-      const goldFillLight = new THREE.PointLight(0xf59e0b, 1.8, 8);
+      const orangeRimLight = new THREE.DirectionalLight(0xff6600, 1.8);
+      orangeRimLight.position.set(2, 1, -2);
+      scene.add(orangeRimLight);
+
+      const goldFillLight = new THREE.PointLight(0xf59e0b, 1.6, 8);
       goldFillLight.position.set(0.5, 0.8, 1.5);
       scene.add(goldFillLight);
 
       // 5. Procedural Articulated Mascot Rig
       const rig = createProceduralMascotRig();
-      rig.root.position.set(mascotPosRef.current.x, mascotPosRef.current.y, mascotPosRef.current.z);
-      rig.root.rotation.y = -0.22; // Natural angle towards user
+      rig.root.position.set(0, 0, 0);
+      rig.root.rotation.y = -0.15; // Natural 3/4 front angle
       scene.add(rig.root);
       rigRef.current = rig;
 
@@ -190,12 +191,6 @@ export default function AuctionMascotOverlay({
         if (!rigRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return;
 
         walkProgressRef.current += delta;
-
-        // Smooth horizontal walk interpolation (entering / holding / exiting)
-        const currentPos = mascotPosRef.current;
-        const targetX = targetXRef.current;
-        currentPos.x = THREE.MathUtils.lerp(currentPos.x, targetX, isWalkingRef.current ? 0.09 : 0.04);
-        rigRef.current.root.position.x = currentPos.x;
 
         // Update Kinematic Articulated Pose
         const currentReaction = activeReactionRef.current;
@@ -255,10 +250,6 @@ export default function AuctionMascotOverlay({
 
       setActiveReaction(reaction);
       setMascotState('entering');
-
-      // 1. Enter from right edge
-      mascotPosRef.current.x = 2.2;
-      targetXRef.current = 0.0;
       isWalkingRef.current = true;
 
       // Confetti burst on sold
@@ -268,22 +259,20 @@ export default function AuctionMascotOverlay({
 
       if (stateTimeoutRef.current) clearTimeout(stateTimeoutRef.current);
 
-      // 2. Stop and perform reaction pose
+      // Transition smoothly into center reaction pose
       stateTimeoutRef.current = setTimeout(() => {
         isWalkingRef.current = false;
         setMascotState('reacting');
 
-        // 3. Hold pose and message
+        // Hold reaction pose and result message in center
         stateTimeoutRef.current = setTimeout(() => {
           setMascotState('holding');
 
-          // 4. Smooth exit
+          // Smooth fade-out and exit
           stateTimeoutRef.current = setTimeout(() => {
             setMascotState('exiting');
-            isWalkingRef.current = true;
-            targetXRef.current = 2.4; // Steps off to the right
 
-            // 5. Complete and cleanup
+            // Complete cleanup
             stateTimeoutRef.current = setTimeout(() => {
               setVisible(false);
               setMascotState('idle');
@@ -291,7 +280,7 @@ export default function AuctionMascotOverlay({
               setCurrentEvent(null);
               isAnimatingRef.current = false;
 
-              // Check if another event was queued
+              // Process any queued events
               if (eventQueueRef.current.length > 0) {
                 const nextEvent = eventQueueRef.current.shift();
                 if (nextEvent) {
@@ -300,10 +289,10 @@ export default function AuctionMascotOverlay({
               } else if (onDismiss) {
                 onDismiss();
               }
-            }, 1000);
-          }, 4200); // Hold time
-        }, 600);
-      }, 1200); // Entrance duration
+            }, 700);
+          }, 3800); // Hold celebration in center for 3.8s
+        }, 500);
+      }, 700); // Entrance transition
     },
     [onDismiss, triggerCelebrationParticles]
   );
@@ -353,29 +342,33 @@ export default function AuctionMascotOverlay({
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-40 pointer-events-none flex flex-col items-end gap-2.5 max-w-[92vw]"
+      style={{
+        position: 'fixed',
+        top: '52%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+      }}
+      className={`z-40 pointer-events-none flex flex-col items-center justify-center transition-all duration-500 ${
+        mascotState === 'entering'
+          ? 'opacity-0 scale-90 -translate-y-[45%]'
+          : mascotState === 'exiting'
+          ? 'opacity-0 scale-90 -translate-y-[48%]'
+          : 'opacity-100 scale-100'
+      }`}
       aria-live="polite"
     >
       {/* ------------------------------------------------------------------- */}
-      {/* 1. COMPACT RESULT NOTIFICATION BANNER (Positioned Directly Adjacent) */}
+      {/* 1. COMPACT RESULT NOTIFICATION BANNER (Centered Above Mascot) */}
       {/* ------------------------------------------------------------------- */}
-      <div
-        className={`transition-all duration-500 transform pointer-events-auto w-[290px] sm:w-[340px] ${
-          mascotState === 'entering'
-            ? 'opacity-0 translate-x-10 scale-95'
-            : mascotState === 'exiting'
-            ? 'opacity-0 translate-x-12 scale-95'
-            : 'opacity-100 translate-x-0 scale-100'
-        }`}
-      >
+      <div className="w-[300px] sm:w-[350px] pointer-events-auto mb-2 animate-fade-in">
         <div
           className={`relative rounded-2xl p-3 sm:p-4 shadow-2xl backdrop-blur-xl border transition-all ${
             isSold
-              ? 'bg-[#041a17]/95 border-emerald-400/80 shadow-[0_10px_35px_rgba(16,185,129,0.35)]'
-              : 'bg-[#180911]/95 border-red-500/80 shadow-[0_10px_35px_rgba(239,68,68,0.3)]'
+              ? 'bg-[#041a17]/95 border-emerald-400/90 shadow-[0_12px_40px_rgba(16,185,129,0.45)]'
+              : 'bg-[#180911]/95 border-red-500/90 shadow-[0_12px_40px_rgba(239,68,68,0.4)]'
           }`}
         >
-          {/* Subtle Close Button */}
+          {/* Close Button */}
           <button
             onClick={handleManualClose}
             className="absolute top-2.5 right-2.5 p-1 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
@@ -401,7 +394,7 @@ export default function AuctionMascotOverlay({
             </div>
 
             {/* Marquee & Message Typography */}
-            <div className="space-y-0.5 min-w-0 flex-1 pr-4">
+            <div className="space-y-0.5 min-w-0 flex-1 pr-3">
               <div className="flex items-center gap-1.5">
                 <span
                   className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
@@ -425,7 +418,7 @@ export default function AuctionMascotOverlay({
                 {isSold ? (
                   teamNameString && teamNameString !== 'Franchise' ? (
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-yellow-200 to-emerald-400">
-                      WELCOME TO TEAM {teamNameString.toUpperCase()}!
+                      ★ WELCOME TO TEAM {teamNameString.toUpperCase()}! ★
                     </span>
                   ) : (
                     <span>WELCOME TO THE TEAM!</span>
@@ -459,15 +452,19 @@ export default function AuctionMascotOverlay({
       </div>
 
       {/* ------------------------------------------------------------------- */}
-      {/* 2. COMPACT MASCOT STAGE (30-35% Viewport Height, ~300-340px) */}
+      {/* 2. MEDIUM-SIZED CENTERED MASCOT STAGE (280-340px, min(40vh, 340px)) */}
       {/* ------------------------------------------------------------------- */}
-      <div className="relative w-[260px] sm:w-[320px] h-[280px] sm:h-[340px] pointer-events-none flex items-end justify-center">
+      <div 
+        style={{
+          height: 'min(40vh, 340px)',
+          width: 'min(85vw, 320px)',
+        }}
+        className="relative pointer-events-none flex items-end justify-center"
+      >
         {/* Soft Radial Stadium Ground Reflection */}
         <div
-          className={`absolute bottom-0 w-44 h-16 rounded-full blur-xl pointer-events-none transition-opacity duration-700 ${
-            isSold
-              ? 'bg-emerald-400/25'
-              : 'bg-red-500/20'
+          className={`absolute bottom-0 w-48 h-14 rounded-full blur-xl pointer-events-none transition-opacity duration-700 ${
+            isSold ? 'bg-emerald-400/30' : 'bg-red-500/25'
           }`}
         />
 
@@ -478,39 +475,39 @@ export default function AuctionMascotOverlay({
             style={{ width: '100%', height: '100%' }}
           />
         ) : (
-          /* High-Fidelity 2D SVG Mascot Fallback (Exact Matching Scale) */
+          /* High-Fidelity 2D SVG Mascot Fallback (Blue & Orange CricPlus Kit) */
           <div className="relative w-44 h-56 sm:w-52 sm:h-64 filter drop-shadow-[0_15px_25px_rgba(0,0,0,0.5)] flex items-end justify-center">
             <svg viewBox="0 0 200 200" className="w-full h-full">
               <defs>
-                <radialGradient id="fbHead2" cx="35%" cy="30%" r="70%">
+                <radialGradient id="fbHead3" cx="35%" cy="30%" r="70%">
                   <stop offset="0%" stopColor="#FFF3C4" />
                   <stop offset="65%" stopColor="#FDE68A" />
                   <stop offset="100%" stopColor="#F59E0B" />
                 </radialGradient>
-                <radialGradient id="fbCap2" cx="40%" cy="30%" r="70%">
+                <radialGradient id="fbCap3" cx="40%" cy="30%" r="70%">
                   <stop offset="0%" stopColor="#2563EB" />
                   <stop offset="60%" stopColor="#1D4ED8" />
                   <stop offset="100%" stopColor="#0F172A" />
                 </radialGradient>
-                <linearGradient id="fbBat2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <linearGradient id="fbBat3" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#FDE68A" />
                   <stop offset="100%" stopColor="#D97706" />
                 </linearGradient>
               </defs>
 
-              {/* Legs with Batting Pads */}
+              {/* Legs with Batting Pads & Orange Knee Rolls */}
               <rect x="75" y="132" width="18" height="46" rx="6" fill="#F8FAFC" stroke="#0284C7" strokeWidth="2" />
               <rect x="107" y="132" width="18" height="46" rx="6" fill="#F8FAFC" stroke="#0284C7" strokeWidth="2" />
-              <rect x="73" y="148" width="22" height="6" rx="2" fill="#F59E0B" />
-              <rect x="105" y="148" width="22" height="6" rx="2" fill="#F59E0B" />
+              <rect x="73" y="148" width="22" height="6" rx="2" fill="#FF6600" />
+              <rect x="105" y="148" width="22" height="6" rx="2" fill="#FF6600" />
 
-              {/* CricPlus Royal Blue Jersey */}
-              <path d="M 68 85 L 132 85 L 126 132 L 74 132 Z" fill="url(#fbCap2)" />
-              <circle cx="100" cy="100" r="14" fill="#F59E0B" opacity="0.3" />
-              <text x="100" y="104" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="bold">CRICPLUS</text>
+              {/* Blue & Orange CricPlus Jersey */}
+              <path d="M 68 85 L 132 85 L 126 132 L 74 132 Z" fill="url(#fbCap3)" />
+              <path d="M 85 85 L 100 102 L 115 85 Z" fill="#FF6600" />
+              <text x="100" y="118" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="bold">CRICPLUS</text>
 
               {/* Head */}
-              <ellipse cx="100" cy="65" rx="26" ry="25" fill="url(#fbHead2)" />
+              <ellipse cx="100" cy="65" rx="26" ry="25" fill="url(#fbHead3)" />
               <circle cx="84" cy="74" r="4.5" fill="#F472B6" opacity="0.6" />
               <circle cx="116" cy="74" r="4.5" fill="#F472B6" opacity="0.6" />
 
@@ -527,21 +524,21 @@ export default function AuctionMascotOverlay({
                 <path d="M 93 77 Q 100 70 107 77" stroke="#991B1B" strokeWidth="2.5" fill="none" strokeLinecap="round" />
               )}
 
-              {/* Cap with Visor */}
-              <path d="M 70 54 Q 100 24 130 54 Z" fill="url(#fbCap2)" />
+              {/* Cap with Visor & Orange Crest */}
+              <path d="M 70 54 Q 100 24 130 54 Z" fill="url(#fbCap3)" />
               <path d="M 66 55 Q 100 50 138 57" stroke="#0F172A" strokeWidth="4.5" fill="none" strokeLinecap="round" />
-              <circle cx="100" cy="42" r="4" fill="#F59E0B" />
+              <circle cx="100" cy="42" r="4.5" fill="#FF6600" />
 
               {/* Arms & Bat */}
               {isSold ? (
                 <>
-                  <rect x="125" y="45" width="8" height="50" rx="3" fill="url(#fbBat2)" transform="rotate(22 125 45)" />
+                  <rect x="125" y="45" width="8" height="50" rx="3" fill="url(#fbBat3)" transform="rotate(22 125 45)" />
                   <circle cx="136" cy="98" r="7" fill="#FFFFFF" />
                   <circle cx="64" cy="95" r="7" fill="#FFFFFF" />
                 </>
               ) : (
                 <>
-                  <rect x="120" y="88" width="7" height="50" rx="3" fill="url(#fbBat2)" transform="rotate(45 120 88)" />
+                  <rect x="120" y="88" width="7" height="50" rx="3" fill="url(#fbBat3)" transform="rotate(45 120 88)" />
                   <circle cx="122" cy="95" r="7" fill="#FFFFFF" />
                   <circle cx="78" cy="98" r="7" fill="#FFFFFF" />
                 </>
