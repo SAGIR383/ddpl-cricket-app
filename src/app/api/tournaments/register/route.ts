@@ -360,6 +360,153 @@ export async function POST(req: Request) {
       });
     }
 
+    // 3.1 DELETE INDIVIDUAL FRANCHISE (Super Admin)
+    if (action === 'delete_franchise') {
+      const { teamId, teamName } = body;
+      if (!teamId && !teamName) {
+        return NextResponse.json({ success: false, error: 'Team ID or Name is required' }, { status: 400 });
+      }
+
+      // 1. Update Auction Data
+      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      const currentTourneyData = allAuction.tournaments?.[tSlug] || { teams: [], soldTransactions: [] };
+
+      const targetTeam = (currentTourneyData.teams || []).find(
+        (t: any) => t.id === teamId || (teamName && t.name.toLowerCase() === teamName.toLowerCase())
+      );
+      const resolvedName = targetTeam?.name || teamName;
+
+      // Remove team
+      const updatedTeams = (currentTourneyData.teams || []).filter(
+        (t: any) => t.id !== teamId && t.name.toLowerCase() !== (resolvedName || '').toLowerCase()
+      );
+
+      // Remove team sold transactions
+      const updatedSold = (currentTourneyData.soldTransactions || []).filter(
+        (tx: any) => tx.team.toLowerCase() !== (resolvedName || '').toLowerCase()
+      );
+
+      // If current lot is leading by this team, reset leading
+      if (currentTourneyData.currentLot?.leadingTeam?.toLowerCase() === (resolvedName || '').toLowerCase()) {
+        currentTourneyData.currentLot.leadingTeam = null;
+        currentTourneyData.currentLot.currentBid = currentTourneyData.currentLot.basePrice;
+      }
+
+      currentTourneyData.teams = updatedTeams;
+      currentTourneyData.soldTransactions = updatedSold;
+      currentTourneyData.lastUpdated = new Date().toISOString();
+
+      if (currentTourneyData.teamBiddingAccess && teamId) {
+        delete currentTourneyData.teamBiddingAccess[teamId];
+      }
+
+      allAuction.tournaments = {
+        ...allAuction.tournaments,
+        [tSlug]: currentTourneyData,
+      };
+      await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+
+      // 2. Free up owner in registrations
+      const registrations = await getStoreData<TournamentPlayerRegistration[]>(
+        `tournament_registrations_${tSlug}`,
+        `registrations_${tSlug}.json`,
+        []
+      );
+      const updatedRegs = registrations.map((r) => {
+        if (
+          (resolvedName && r.franchiseTeam?.toLowerCase() === resolvedName.toLowerCase()) ||
+          (targetTeam?.ownerEmail && r.email.toLowerCase() === targetTeam.ownerEmail.toLowerCase())
+        ) {
+          return { ...r, isOwner: false, franchiseTeam: undefined };
+        }
+        return r;
+      });
+      await setStoreData(`tournament_registrations_${tSlug}`, updatedRegs, `registrations_${tSlug}.json`);
+
+      // 3. Clean up matches involving this team
+      const schedule = await getStoreData<any>(`tournament_schedule_${tSlug}`, `schedule_${tSlug}.json`, { matches: [] });
+      if (schedule.matches) {
+        schedule.matches = schedule.matches.filter(
+          (m: any) =>
+            m.teamA?.name?.toLowerCase() !== (resolvedName || '').toLowerCase() &&
+            m.teamB?.name?.toLowerCase() !== (resolvedName || '').toLowerCase() &&
+            (typeof m.teamA === 'string' ? m.teamA.toLowerCase() !== (resolvedName || '').toLowerCase() : true) &&
+            (typeof m.teamB === 'string' ? m.teamB.toLowerCase() !== (resolvedName || '').toLowerCase() : true)
+        );
+        schedule.lastUpdated = new Date().toISOString();
+        await setStoreData(`tournament_schedule_${tSlug}`, schedule, `schedule_${tSlug}.json`);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Franchise "${resolvedName}" deleted successfully. Owner freed to player pool.`,
+        teams: updatedTeams,
+        registrations: updatedRegs,
+      });
+    }
+
+    // 3.2 RESET ALL TOURNAMENT DATA (Super Admin Clean Slate)
+    if (action === 'reset_tournament_data') {
+      const { resetRegistrations = false } = body;
+
+      // 1. Wipe Auction Data for this tournament
+      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      allAuction.tournaments = {
+        ...allAuction.tournaments,
+        [tSlug]: {
+          teams: [],
+          playerPool: [],
+          soldTransactions: [],
+          unsoldPlayers: [],
+          currentLot: null,
+          currentLotIndex: 0,
+          auctionStatus: 'live',
+          timerSeconds: 30,
+          timerRunning: true,
+          timerLastReset: new Date().toISOString(),
+          biddingAccessEnabled: true,
+          teamBiddingAccess: {},
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+      await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+
+      // 2. Wipe Matches & Schedule
+      const cleanSchedule = {
+        tournament: tSlug,
+        startDate: null,
+        endDate: null,
+        format: 'round-robin-playoffs',
+        matches: [],
+        lastUpdated: new Date().toISOString(),
+      };
+      await setStoreData(`tournament_schedule_${tSlug}`, cleanSchedule, `schedule_${tSlug}.json`);
+
+      // 3. Reset Registrations (either clear all or reset isOwner)
+      let finalRegistrations: TournamentPlayerRegistration[] = [];
+      if (!resetRegistrations) {
+        const existingRegs = await getStoreData<TournamentPlayerRegistration[]>(
+          `tournament_registrations_${tSlug}`,
+          `registrations_${tSlug}.json`,
+          []
+        );
+        finalRegistrations = existingRegs.map((r) => ({
+          ...r,
+          isOwner: false,
+          franchiseTeam: undefined,
+        }));
+      }
+      await setStoreData(`tournament_registrations_${tSlug}`, finalRegistrations, `registrations_${tSlug}.json`);
+
+      return NextResponse.json({
+        success: true,
+        message: `Tournament ${tSlug.toUpperCase()} data has been completely wiped and reset to a clean slate!`,
+        teams: [],
+        matches: [],
+        registrations: finalRegistrations,
+      });
+    }
+
     // 4. SYNC REGISTERED PLAYERS TO LIVE AUCTION POOL
     if (action === 'sync_to_auction') {
       const registrations = await getStoreData<TournamentPlayerRegistration[]>(

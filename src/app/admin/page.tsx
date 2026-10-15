@@ -220,12 +220,7 @@ export default function AdminDashboardPage() {
 
 
   // --- 1. TEAMS STATE ---
-  const [teams, setTeams] = useState<TeamItem[]>([
-    { id: 't1', name: 'Teoco Knight Riders', short: 'TKR', owner: 'Gour Singha Roy', captain: 'Gour Singha Roy', viceCaptain: 'To be assigned', budget: 10000, squadCount: 1 },
-    { id: 't2', name: 'Aircom Avengers', short: 'AA', owner: 'Yubaraj Roy', captain: 'Yubaraj Roy', viceCaptain: 'To be assigned', budget: 10000, squadCount: 1 },
-    { id: 't3', name: 'Teoco Blues', short: 'TB', owner: 'Sunam Banerjee', captain: 'Sunam Banerjee', viceCaptain: 'To be assigned', budget: 10000, squadCount: 1 },
-    { id: 't4', name: 'Aircom Superstar', short: 'AS', owner: 'Surojit Das', captain: 'Surojit Das', viceCaptain: 'To be assigned', budget: 10000, squadCount: 1 },
-  ]);
+  const [teams, setTeams] = useState<TeamItem[]>([]);
 
   const [soldTransactions, setSoldTransactions] = useState<any[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
@@ -422,10 +417,103 @@ export default function AdminDashboardPage() {
     setNewTeamOwner('');
   };
 
-  const handleDeleteTeam = (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
-    setTeams(teams.filter((t) => t.id !== id));
-    showNotification(`Team "${name}" deleted.`);
+  const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
+
+  const handleDeleteTeam = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"? This will also remove the franchise from the auction, release its assigned owner, and clear its scheduled matches.`)) return;
+
+    setIsDeletingTeamId(id);
+    try {
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete_franchise',
+          tournament: selectedTournament,
+          teamId: id,
+          teamName: name,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setTeams((prev) => prev.filter((t) => t.id !== id));
+        if (data.teams) {
+          setTeams(
+            data.teams.map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              short: t.short,
+              owner: t.owner || 'Franchise Owner',
+              ownerEmail: t.ownerEmail,
+              captain: t.captain || `${t.owner || t.name} (C)`,
+              viceCaptain: t.viceCaptain || 'To be assigned',
+              budget: t.allocated || 10000,
+              squadCount: t.playersBought || 1,
+            }))
+          );
+        }
+        // Refresh registered players to release owner badge
+        const regRes = await fetch(`/api/tournaments/register?tournament=${selectedTournament}`);
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          if (regData.registrations) setTournamentRegistrations(regData.registrations);
+        }
+        showNotification(`Franchise "${name}" and all related auction data deleted.`);
+      } else {
+        alert(data.error || 'Failed to delete franchise');
+      }
+    } catch (err: any) {
+      alert(`Error deleting franchise: ${err.message}`);
+    } finally {
+      setIsDeletingTeamId(null);
+    }
+  };
+
+  // --- Reset Tournament Data State & Handler ---
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetRegistrationsCheck, setResetRegistrationsCheck] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetTournamentData = async () => {
+    setIsResetting(true);
+    try {
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reset_tournament_data',
+          tournament: selectedTournament,
+          resetRegistrations: resetRegistrationsCheck,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setTeams([]);
+        setSoldTransactions([]);
+        setMatches([]);
+        if (resetRegistrationsCheck) {
+          setTournamentRegistrations([]);
+          setPlayers([]);
+        } else {
+          // Re-fetch registrations to show owners unlinked
+          const regRes = await fetch(`/api/tournaments/register?tournament=${selectedTournament}`);
+          if (regRes.ok) {
+            const regData = await regRes.json();
+            if (regData.registrations) setTournamentRegistrations(regData.registrations);
+          }
+        }
+        setIsResetModalOpen(false);
+        showNotification(`Tournament data wiped cleanly! Ready for fresh entries or Excel sheet import.`);
+      } else {
+        alert(data.error || 'Failed to reset tournament data');
+      }
+    } catch (err: any) {
+      alert(`Error resetting tournament data: ${err.message}`);
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   // --- AUCTION LIVE CONTROLS & FRANCHISE BIDDING ACCESS ---
@@ -489,10 +577,7 @@ export default function AdminDashboardPage() {
   // --- 2. MATCH FIXTURES & TOURNAMENT SCHEDULING STATE ---
   const [tournamentStartDate, setTournamentStartDate] = useState<string>('');
   const [tournamentEndDate, setTournamentEndDate] = useState<string>('');
-  const [matches, setMatches] = useState<MatchItem[]>([
-    { id: 'm1', matchNumber: 1, teamA: 'Teoco Knight Riders', teamB: 'Aircom Avengers', round: 'League Match 1', venue: 'Arena Ground 1', overs: 10, matchDate: '2026-11-20', matchTime: '10:00 AM', status: 'upcoming' },
-    { id: 'm2', matchNumber: 2, teamA: 'Teoco Blues', teamB: 'Aircom Superstar', round: 'League Match 2', venue: 'Arena Ground 1', overs: 10, matchDate: '2026-11-20', matchTime: '02:00 PM', status: 'upcoming' },
-  ]);
+  const [matches, setMatches] = useState<MatchItem[]>([]);
 
   const [manualTeamA, setManualTeamA] = useState('');
   const [manualTeamB, setManualTeamB] = useState('');
@@ -704,28 +789,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // --- 3. PLAYERS & REGISTRATIONS STATE (19 Official Tournament Players) ---
-  const [players, setPlayers] = useState<PlayerItem[]>([
-    { id: 'p1', name: 'Gour Singha Roy', role: 'All-rounder', batting: 'Right-hand bat', bowling: 'Right-arm medium', basePrice: 500, status: 'approved' },
-    { id: 'p2', name: 'Arinday Roy', role: 'Bowler', batting: 'Right-hand bat', bowling: 'Right-arm fast', basePrice: 500, status: 'approved' },
-    { id: 'p3', name: 'Md Sagir Hossain', role: 'All-rounder', batting: 'Right-hand bat', bowling: 'Right-arm medium', basePrice: 500, status: 'approved' },
-    { id: 'p4', name: 'Akash Chakraborty', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p5', name: 'Aman Manna', role: 'Bowler', batting: 'Right-hand bat', bowling: 'Right-arm medium', basePrice: 500, status: 'approved' },
-    { id: 'p6', name: 'Apurba Mukherjee', role: 'All-rounder', batting: 'Right-hand bat', bowling: 'Right-arm off-spin', basePrice: 500, status: 'approved' },
-    { id: 'p7', name: 'Chanchal Chakraborty', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p8', name: 'Mritin Ghosh', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p9', name: 'Partha Roy', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p10', name: 'Yubaraj Roy', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p11', name: 'Prantik Bose', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p12', name: 'Samaresh Das', role: 'Bowler', batting: 'Right-hand bat', bowling: 'Right-arm fast', basePrice: 500, status: 'approved' },
-    { id: 'p13', name: 'Sudipto Chowdhury', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p14', name: 'Sunam Banerjee', role: 'Wicket-keeper', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p15', name: 'Surojit Das', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p16', name: 'Wali Haider', role: 'Bowler', batting: 'Right-hand bat', bowling: 'Right-arm medium', basePrice: 500, status: 'approved' },
-    { id: 'p17', name: 'Zeeshan', role: 'Bowler', batting: 'Right-hand bat', bowling: 'Right-arm fast', basePrice: 500, status: 'approved' },
-    { id: 'p18', name: 'Saikat Das', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-    { id: 'p19', name: 'Ranjit', role: 'Batter', batting: 'Right-hand bat', bowling: 'None', basePrice: 500, status: 'approved' },
-  ]);
+  // --- 3. PLAYERS & REGISTRATIONS STATE ---
+  const [players, setPlayers] = useState<PlayerItem[]>([]);
 
   const handleUpdatePlayerStatus = (id: string, newStatus: 'approved' | 'rejected') => {
     setPlayers(players.map((p) => (p.id === id ? { ...p, status: newStatus } : p)));
@@ -853,10 +918,13 @@ export default function AdminDashboardPage() {
                 squadCount: soldTransactionsList.filter((tx: any) => tx.team === t.name).length || t.playersBought || 1,
               }));
               setTeams(mappedTeams);
+            } else {
+              setTeams([]);
+              setSoldTransactions([]);
             }
 
             // 2. Sync Registered Players Queue (Auction Pool) directly from active auction state
-            if (aData.data.playerPool && Array.isArray(aData.data.playerPool)) {
+            if (aData.data.playerPool && Array.isArray(aData.data.playerPool) && aData.data.playerPool.length > 0) {
               const mappedPoolPlayers: PlayerItem[] = aData.data.playerPool.map((p: any) => ({
                 id: p.id,
                 name: p.name,
@@ -867,7 +935,13 @@ export default function AdminDashboardPage() {
                 status: 'approved',
               }));
               setPlayers(mappedPoolPlayers);
+            } else {
+              setPlayers([]);
             }
+          } else {
+            setTeams([]);
+            setSoldTransactions([]);
+            setPlayers([]);
           }
         }
 
@@ -894,7 +968,11 @@ export default function AdminDashboardPage() {
                   status: m.status || 'upcoming',
                 }))
               );
+            } else {
+              setMatches([]);
             }
+          } else {
+            setMatches([]);
           }
         }
       } catch (err) {
@@ -1434,9 +1512,22 @@ export default function AdminDashboardPage() {
 
           {/* Teams Table */}
           <div className="glass-card overflow-hidden border border-cricket-border shadow-2xl">
-            <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex items-center justify-between">
-              <span className="font-display font-bold text-xl text-white">Registered Teams in {selectedTournament.toUpperCase()}</span>
-              <span className="text-xs text-cricket-muted font-bold">Default Purse: ₹10,000 • Owner Price: ₹500 Blocked</span>
+            <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <span className="font-display font-bold text-xl text-white">Registered Teams in {selectedTournament.toUpperCase()}</span>
+                <span className="block sm:inline sm:ml-3 text-xs text-cricket-muted font-bold">Default Purse: ₹10,000 • Owner Price: ₹500 Blocked</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  title="Wipe tournament auction, teams, and matches data clean for fresh entry"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  <span>Reset Tournament Data</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1455,7 +1546,27 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cricket-border">
-                  {teams.map((t) => {
+                  {teams.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-12 text-center text-cricket-muted">
+                        <div className="max-w-md mx-auto space-y-2">
+                          <p className="text-base font-bold text-gray-300">No franchise teams registered yet</p>
+                          <p className="text-xs">
+                            Create teams above by assigning registered owners, or open the Live Auction room to import an entire tournament from an Excel sheet.
+                          </p>
+                          <div className="pt-2 flex justify-center gap-3">
+                            <Link
+                              href="/auction"
+                              className="px-4 py-2 rounded-xl bg-cricket-teal/20 text-cricket-teal border border-cricket-teal/40 text-xs font-bold hover:bg-cricket-teal/30 transition-all"
+                            >
+                              📊 Import Excel Sheet in Auction Room
+                            </Link>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    teams.map((t) => {
                     const isExpanded = expandedTeamId === t.id;
                     const teamSquad = soldTransactions.filter((tx) => tx.team === t.name);
                     const isBiddingAllowed = teamBiddingAccess[t.id] !== false && biddingAccessEnabled;
@@ -1510,10 +1621,15 @@ export default function AdminDashboardPage() {
                           <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => handleDeleteTeam(t.id, t.name)}
-                              className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
-                              title="Delete Team"
+                              disabled={isDeletingTeamId === t.id}
+                              className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50 cursor-pointer"
+                              title="Delete Franchise"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {isDeletingTeamId === t.id ? (
+                                <RefreshCw className="w-4 h-4 animate-spin text-red-400" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </button>
                           </td>
                         </tr>
@@ -1670,8 +1786,9 @@ export default function AdminDashboardPage() {
                         )}
                       </React.Fragment>
                     );
-                  })}
-                </tbody>
+                  })
+                )}
+              </tbody>
               </table>
             </div>
           </div>
@@ -3040,6 +3157,86 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Tournament Data Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="glass-card max-w-md w-full p-6 space-y-5 border border-red-500/40 bg-cricket-dark/95 shadow-2xl relative">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30">
+                  <AlertCircle className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-xl text-white">Reset Tournament Data</h3>
+                  <p className="text-xs text-red-300 font-bold uppercase tracking-wider">
+                    {selectedTournament.toUpperCase()} • Clean Slate
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-xs text-gray-300 space-y-2 leading-relaxed bg-red-950/20 border border-red-500/20 p-4 rounded-xl">
+              <p className="font-bold text-red-200">
+                Are you sure you want to delete and reset tournament data?
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-gray-300">
+                <li>All franchise teams and squad allocations will be removed.</li>
+                <li>All live auction bids, sold records, and unsold pools will be wiped.</li>
+                <li>All match fixtures and schedule will be cleared.</li>
+                <li>Franchise owners will be released from their team bindings.</li>
+              </ul>
+            </div>
+
+            <label className="flex items-center gap-2.5 p-3 rounded-xl bg-cricket-card border border-cricket-border hover:border-cricket-teal/50 cursor-pointer select-none transition-all">
+              <input
+                type="checkbox"
+                checked={resetRegistrationsCheck}
+                onChange={(e) => setResetRegistrationsCheck(e.target.checked)}
+                className="w-4 h-4 rounded text-cricket-teal accent-cricket-teal focus:ring-0 cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-gray-200">
+                Also clear player registrations list completely
+              </span>
+            </label>
+
+            <div className="pt-2 flex items-center justify-end gap-3 border-t border-cricket-border">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-gray-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleResetTournamentData}
+                disabled={isResetting}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-display font-extrabold text-xs shadow-lg shadow-red-500/30 disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Wiping Tournament Data...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Confirm Wipe &amp; Reset</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
