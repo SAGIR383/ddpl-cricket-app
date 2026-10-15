@@ -21,7 +21,8 @@ import {
   X, 
   ArrowRight,
   RefreshCw,
-  Info
+  Info,
+  Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { createClient } from '@/lib/supabase/client';
@@ -487,8 +488,64 @@ export default function AuctionPage() {
       unsoldPlayers: newUnsold,
       mascotEvent: unsoldEvent,
     });
+  }
 
-    showToast(`Passed: ${passedPlayer} moved to Unsold pool.`);
+  // Handle Phase 2: Accelerated Unsold Round
+  function handleStartPhase2() {
+    if (unsoldPlayers.length === 0) return;
+
+    const reAuctionPool: ParsedPlayer[] = unsoldPlayers.map((name, idx) => {
+      const existing = playerPool.find((p) => p.name === name);
+      return {
+        id: `p-phase2-${idx + 1}`,
+        name,
+        role: existing?.role || 'All Rounder',
+        basePrice: existing?.basePrice || rules.defaultPlayerBasePrice || 500,
+      };
+    });
+
+    const firstLot: PlayerLot = {
+      id: reAuctionPool[0].id,
+      name: reAuctionPool[0].name,
+      role: reAuctionPool[0].role,
+      basePrice: reAuctionPool[0].basePrice,
+      currentBid: reAuctionPool[0].basePrice,
+      leadingTeam: null,
+      history: [],
+    };
+
+    setPlayerPool(reAuctionPool);
+    setUnsoldPlayers([]);
+    setCurrentLot(firstLot);
+
+    broadcastAuctionState({
+      playerPool: reAuctionPool,
+      unsoldPlayers: [],
+      currentLot: firstLot,
+    });
+  }
+
+  // Handle Sync Registered Players from Tournament Registration
+  async function handleSyncRegisteredPlayers() {
+    try {
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sync_to_auction',
+          tournament: activeTournament,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to sync registered players');
+      }
+    } catch (e: any) {
+      alert(`Sync error: ${e.message}`);
+    }
   }
 
   // Handle File Change in Import Modal
@@ -592,14 +649,6 @@ export default function AuctionPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative">
-      {/* Toast Notification */}
-      {notification && (
-        <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-cricket-dark/95 border border-cricket-teal/50 text-white font-bold text-sm shadow-2xl flex items-center gap-3 backdrop-blur-md animate-bounce">
-          <CheckCircle2 className="w-5 h-5 text-cricket-teal shrink-0" />
-          <span>{notification}</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-cricket-border pb-6">
         <div>
@@ -638,6 +687,16 @@ export default function AuctionPage() {
         <div className="flex flex-wrap items-center gap-3">
           {isAccessAllowed ? (
             <>
+              {/* Sync Registered Players */}
+              <button
+                onClick={handleSyncRegisteredPlayers}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 text-blue-300 font-bold text-xs shadow-md transition-all active:scale-95"
+                title="Sync all self-registered players into this tournament auction pool"
+              >
+                <Users className="w-4 h-4 text-blue-400" />
+                <span>Sync Registered Players</span>
+              </button>
+
               {/* Import Button */}
               <button
                 onClick={() => setIsImportModalOpen(true)}
@@ -956,35 +1015,65 @@ export default function AuctionPage() {
                   </div>
                 </div>
               ) : (
-                <div className="glass-card p-12 text-center space-y-4 border border-cricket-border">
-                  <div className="w-16 h-16 rounded-2xl bg-cricket-teal/10 text-cricket-teal flex items-center justify-center mx-auto">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-                  <h3 className="font-display font-black text-2xl text-white">
-                    Auction Lot Completed
-                  </h3>
-                  <p className="text-sm text-cricket-muted max-w-md mx-auto">
-                    All players in the current queue have been processed. You can import new rosters or review squads.
-                  </p>
-                  <button
-                    onClick={() => {
-                      if (playerPool.length > 0) {
-                        const p0 = playerPool[0];
-                        setCurrentLot({
-                          id: p0.id,
-                          name: p0.name,
-                          role: p0.role,
-                          basePrice: p0.basePrice,
-                          currentBid: p0.basePrice,
-                          leadingTeam: null,
-                          history: [],
-                        });
-                      }
-                    }}
-                    className="px-6 py-2.5 rounded-xl bg-cricket-teal text-cricket-dark font-display font-extrabold text-sm shadow transition-all active:scale-95"
-                  >
-                    Restart Queue with Player Pool
-                  </button>
+                <div className="glass-card p-10 text-center space-y-5 border border-cricket-gold/40 shadow-2xl">
+                  {unsoldPlayers.length > 0 ? (
+                    <>
+                      <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-cricket-gold flex items-center justify-center mx-auto border border-amber-500/30">
+                        <Gavel className="w-8 h-8" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="px-3 py-1 rounded-full bg-amber-500/20 text-cricket-gold text-xs font-bold uppercase tracking-wider border border-amber-500/30">
+                          Phase 1 Completed
+                        </span>
+                        <h3 className="font-display font-black text-2xl sm:text-3xl text-white pt-2">
+                          {unsoldPlayers.length} Unsold Players in Pool
+                        </h3>
+                        <p className="text-sm text-cricket-muted max-w-md mx-auto">
+                          Phase 1 is complete! You can now start <strong>Phase 2: Accelerated Unsold Round</strong> to allow franchise owners with remaining purse to bid on the unsold pool.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        {isAccessAllowed && (
+                          <button
+                            onClick={handleStartPhase2}
+                            className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-cricket-dark font-display font-black text-sm shadow-xl shadow-amber-500/25 active:scale-95 transition-all flex items-center gap-2"
+                          >
+                            <Zap className="w-4 h-4" />
+                            <span>Launch Phase 2: Unsold Players Round ({unsoldPlayers.length})</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={handleSyncRegisteredPlayers}
+                          className="px-5 py-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 text-blue-300 font-bold text-sm transition-all"
+                        >
+                          Sync Registered Players
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 rounded-2xl bg-cricket-teal/10 text-cricket-teal flex items-center justify-center mx-auto">
+                        <CheckCircle2 className="w-8 h-8" />
+                      </div>
+                      <h3 className="font-display font-black text-2xl text-white">
+                        Auction Lot Completed
+                      </h3>
+                      <p className="text-sm text-cricket-muted max-w-md mx-auto">
+                        All players in the current queue have been processed. All teams and squads are finalized!
+                      </p>
+                      {isAccessAllowed && (
+                        <div className="flex flex-wrap justify-center gap-3 pt-2">
+                          <button
+                            onClick={handleSyncRegisteredPlayers}
+                            className="px-6 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-teal/40 text-cricket-teal font-display font-bold text-sm transition-all"
+                          >
+                            Sync Newly Registered Players
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 

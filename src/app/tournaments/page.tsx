@@ -55,11 +55,13 @@ export default function TournamentsPage() {
   useEffect(() => {
     async function loadTournamentsData() {
       try {
-        const [ddplRulesRes, gorRulesRes, ddplRes, gorRes] = await Promise.all([
+        const [ddplRulesRes, gorRulesRes, ddplRes, gorRes, ddplRegRes, gorRegRes] = await Promise.all([
           fetch('/api/admin/rules?tournament=ddpl'),
           fetch('/api/admin/rules?tournament=game-of-run'),
           fetch('/api/auction/data?tournament=ddpl'),
           fetch('/api/auction/data?tournament=game-of-run'),
+          fetch('/api/tournaments/register?tournament=ddpl'),
+          fetch('/api/tournaments/register?tournament=game-of-run'),
         ]);
 
         let ddplOvers = 10;
@@ -91,20 +93,51 @@ export default function TournamentsPage() {
           gorTeamsCount = gorData.data?.teams?.length || 0;
         }
 
+        let ddplConfigStatus = 'open';
+        let gorConfigStatus = 'upcoming';
+
+        if (ddplRegRes.ok) {
+          const ddplRegData = await ddplRegRes.json();
+          if (ddplRegData.config?.status) ddplConfigStatus = ddplRegData.config.status;
+        }
+
+        if (gorRegRes.ok) {
+          const gorRegData = await gorRegRes.json();
+          if (gorRegData.config?.status) gorConfigStatus = gorRegData.config.status;
+        }
+
+        const getStatusBadge = (status: string) => {
+          switch (status) {
+            case 'open':
+              return { label: '● Registration Open', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse' };
+            case 'upcoming':
+              return { label: 'Upcoming Tournament', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
+            case 'auction':
+              return { label: '● Auction Live', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30 animate-pulse' };
+            case 'ongoing':
+              return { label: '● Tournament Ongoing', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30 animate-pulse' };
+            default:
+              return { label: 'Upcoming', color: 'bg-gray-500/20 text-gray-300 border-gray-500/30' };
+          }
+        };
+
+        const ddplBadge = getStatusBadge(ddplConfigStatus);
+        const gorBadge = getStatusBadge(gorConfigStatus);
+
         setTournaments([
           {
             id: 'ddpl',
             name: 'DDPL',
             logo: '/images/ddpl-logo.jpg',
             fullName: 'Desk to Dugout Premier League (DDPL)',
-            tagline: 'High-octane inter-departmental cricket tournament',
+            tagline: 'High-octane inter-departmental corporate cricket tournament',
             activeSeason: '2026',
             totalSeasons: 2,
             teamsCount: ddplTeamsCount,
             overs: ddplOvers,
-            bannerColor: 'from-blue-900 to-indigo-950',
-            badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-            status: ddplTeamsCount > 0 ? 'Live & Active' : 'Upcoming',
+            bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
+            badgeColor: ddplBadge.color,
+            status: ddplBadge.label,
           },
           {
             id: 'game-of-run',
@@ -116,9 +149,9 @@ export default function TournamentsPage() {
             totalSeasons: 2,
             teamsCount: gorTeamsCount,
             overs: gorOvers,
-            bannerColor: 'from-amber-950 to-orange-950',
-            badgeColor: 'bg-amber-500/20 text-cricket-gold border-amber-500/30',
-            status: gorTeamsCount > 0 ? 'Live & Active' : 'Registrations Open',
+            bannerColor: 'from-amber-950 via-orange-950 to-cricket-dark',
+            badgeColor: gorBadge.color,
+            status: gorBadge.label,
           },
         ]);
       } catch (err) {

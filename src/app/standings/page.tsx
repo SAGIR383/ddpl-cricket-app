@@ -149,39 +149,56 @@ export default function StandingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cricket-border">
-                {standings.map((team) => (
-                  <tr
-                    key={team.name}
-                    className="hover:bg-cricket-card/40 transition-colors"
-                  >
-                    <td className="px-4 py-3.5 text-center font-display font-black text-base text-gray-300">
-                      {team.rank}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="font-bold text-white text-sm">{team.name}</div>
-                      <div className="text-[11px] text-cricket-muted flex items-center gap-1.5">
-                        <span className="font-semibold text-cricket-teal">{team.short}</span>
-                        {team.owner && <span>• Owner: {team.owner}</span>}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3.5 text-center">
-                      <span className="px-2 py-0.5 rounded-md bg-cricket-dark text-xs font-bold text-cricket-gold border border-cricket-border">
-                        {team.squadCount} Players
-                      </span>
-                    </td>
-                    <td className="px-3 py-3.5 text-center font-semibold text-gray-300">{team.played}</td>
-                    <td className="px-3 py-3.5 text-center text-emerald-400 font-bold">{team.won}</td>
-                    <td className="px-3 py-3.5 text-center text-rose-400 font-bold">{team.lost}</td>
-                    <td className="px-3 py-3.5 text-center text-gray-400">{team.tied}</td>
-                    <td className="px-3 py-3.5 text-center text-gray-400">{team.noResult}</td>
-                    <td className="px-4 py-3.5 text-center font-display font-black text-xl text-cricket-gold">
-                      {team.points}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-display font-bold text-base text-cricket-teal">
-                      {team.nrr > 0 ? `+${team.nrr.toFixed(3)}` : team.nrr.toFixed(3)}
-                    </td>
-                  </tr>
-                ))}
+                {standings.map((team) => {
+                  const isPlayoffZone = team.rank <= 4;
+                  return (
+                    <tr
+                      key={team.name}
+                      className={`hover:bg-cricket-card/40 transition-colors ${
+                        isPlayoffZone ? 'bg-emerald-500/[0.04]' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-3.5 text-center font-display font-black text-base text-gray-300">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span>{team.rank}</span>
+                          {isPlayoffZone && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Playoff Qualification Zone" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">{team.name}</span>
+                          {isPlayoffZone && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] font-bold uppercase tracking-wider">
+                              Playoff Zone
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-cricket-muted flex items-center gap-1.5 mt-0.5">
+                          <span className="font-semibold text-cricket-teal">{team.short}</span>
+                          {team.owner && <span>• Owner: {team.owner}</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3.5 text-center">
+                        <span className="px-2 py-0.5 rounded-md bg-cricket-dark text-xs font-bold text-cricket-gold border border-cricket-border">
+                          {team.squadCount} Players
+                        </span>
+                      </td>
+                      <td className="px-3 py-3.5 text-center font-semibold text-gray-300">{team.played}</td>
+                      <td className="px-3 py-3.5 text-center text-emerald-400 font-bold">{team.won}</td>
+                      <td className="px-3 py-3.5 text-center text-rose-400 font-bold">{team.lost}</td>
+                      <td className="px-3 py-3.5 text-center text-gray-400">{team.tied}</td>
+                      <td className="px-3 py-3.5 text-center text-gray-400">{team.noResult}</td>
+                      <td className="px-4 py-3.5 text-center font-display font-black text-xl text-cricket-gold">
+                        {team.points}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-display font-bold text-base text-cricket-teal">
+                        {team.nrr > 0 ? `+${team.nrr.toFixed(3)}` : team.nrr.toFixed(3)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
@@ -200,6 +217,51 @@ export default function StandingsPage() {
               </Link>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Tournament Playoff & Knockout Stage Pathway */}
+      <div className="glass-card p-6 border border-cricket-border space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 font-display font-bold text-xl text-white">
+            <Trophy className="w-5 h-5 text-cricket-gold" />
+            <span>Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final</span>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-500/30">
+            Tournament Format
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl bg-cricket-dark/80 border border-emerald-500/40 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-emerald-400 uppercase tracking-wider">Stage 1: Group League</span>
+              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">Round Robin</span>
+            </div>
+            <p className="text-xs text-gray-300">
+              Franchises play round-robin matches. Top teams on points and NRR advance to the Playoffs.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-cricket-dark/80 border border-blue-500/40 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-blue-400 uppercase tracking-wider">Stage 2: Playoffs</span>
+              <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold">Top 4 Teams</span>
+            </div>
+            <p className="text-xs text-gray-300">
+              Semi-Final 1 (Rank 1 vs 4) and Semi-Final 2 (Rank 2 vs 3). The 2 victorious teams advance to the Final.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-cricket-dark/80 border border-amber-500/40 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-cricket-gold uppercase tracking-wider">Stage 3: Grand Final</span>
+              <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">Top 2 Teams</span>
+            </div>
+            <p className="text-xs text-gray-300">
+              The two playoff champions compete in the Grand Final for the official corporate tournament trophy!
+            </p>
+          </div>
         </div>
       </div>
 

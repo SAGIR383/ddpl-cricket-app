@@ -195,27 +195,106 @@ export default function AdminDashboardPage() {
   const [newTeamName, setNewTeamName] = useState('');
   const [newTeamShort, setNewTeamShort] = useState('');
   const [newTeamOwner, setNewTeamOwner] = useState('');
+  const [tournamentStatus, setTournamentStatus] = useState<string>('open');
+  const [tournamentRegistrations, setTournamentRegistrations] = useState<any[]>([]);
 
-  const handleAddTeam = (e: React.FormEvent) => {
+  const handleUpdateTournamentStatus = async (newStatus: string) => {
+    try {
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_status',
+          tournament: selectedTournament,
+          status: newStatus,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTournamentStatus(newStatus);
+        showNotification(`Tournament status updated to "${newStatus.toUpperCase()}"!`);
+      }
+    } catch (err: any) {
+      alert(`Error updating tournament status: ${err.message}`);
+    }
+  };
+
+  const handleAddTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamShort.trim()) return;
 
-    const newTeam: TeamItem = {
-      id: `t-${Date.now()}`,
-      name: newTeamName.trim(),
-      short: newTeamShort.trim().toUpperCase(),
-      owner: newTeamOwner.trim() || 'Team Management',
-      captain: 'To be assigned',
-      viceCaptain: 'To be assigned',
-      budget: 10000,
-      squadCount: 0,
-    };
+    // Check if owner was selected from registered players
+    const selectedPlayer = tournamentRegistrations.find(
+      (r) =>
+        r.name.toLowerCase() === newTeamOwner.trim().toLowerCase() ||
+        r.email.toLowerCase() === newTeamOwner.trim().toLowerCase()
+    );
 
-    setTeams([...teams, newTeam]);
+    const ownerName = selectedPlayer?.name || newTeamOwner.trim() || 'Team Management';
+    const ownerEmail = selectedPlayer?.email || `${ownerName.toLowerCase().replace(/\s+/g, '')}@cricplus.com`;
+
+    try {
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'assign_franchise',
+          tournament: selectedTournament,
+          teamName: newTeamName.trim(),
+          shortName: newTeamShort.trim().toUpperCase(),
+          ownerName,
+          ownerEmail,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.teams) {
+        setTeams(
+          data.teams.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            short: t.short,
+            owner: t.owner,
+            captain: t.owner ? `${t.owner} (C)` : `${t.name} (C)`,
+            viceCaptain: 'To be assigned',
+            budget: t.allocated || 10000,
+            squadCount: t.playersBought || 1,
+          }))
+        );
+        showNotification(
+          `Franchise "${newTeamName.trim()}" created! ${ownerName} assigned as Owner & Player #1 (₹500 blocked, ₹9,500 purse).`
+        );
+      } else {
+        const newTeam: TeamItem = {
+          id: `t-${Date.now()}`,
+          name: newTeamName.trim(),
+          short: newTeamShort.trim().toUpperCase(),
+          owner: ownerName,
+          captain: `${ownerName} (C)`,
+          viceCaptain: 'To be assigned',
+          budget: 10000,
+          squadCount: 1,
+        };
+        setTeams([...teams, newTeam]);
+        showNotification(`Franchise "${newTeam.name}" created!`);
+      }
+    } catch {
+      const newTeam: TeamItem = {
+        id: `t-${Date.now()}`,
+        name: newTeamName.trim(),
+        short: newTeamShort.trim().toUpperCase(),
+        owner: ownerName,
+        captain: `${ownerName} (C)`,
+        viceCaptain: 'To be assigned',
+        budget: 10000,
+        squadCount: 1,
+      };
+      setTeams([...teams, newTeam]);
+    }
+
     setNewTeamName('');
     setNewTeamShort('');
     setNewTeamOwner('');
-    showNotification(`Franchise "${newTeam.name}" successfully created!`);
   };
 
   const handleDeleteTeam = (id: string, name: string) => {
@@ -376,11 +455,18 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function loadAdminData() {
       try {
-        const [rolesRes, rulesRes, auctionRes] = await Promise.all([
+        const [rolesRes, rulesRes, auctionRes, regRes] = await Promise.all([
           fetch('/api/admin/roles'),
           fetch(`/api/admin/rules?tournament=${selectedTournament}`),
           fetch(`/api/auction/data?tournament=${selectedTournament}`),
+          fetch(`/api/tournaments/register?tournament=${selectedTournament}`),
         ]);
+
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          if (regData.config?.status) setTournamentStatus(regData.config.status);
+          if (regData.registrations) setTournamentRegistrations(regData.registrations);
+        }
 
         if (rolesRes.ok) {
           const data = await rolesRes.json();
@@ -667,6 +753,29 @@ export default function AdminDashboardPage() {
             <option value="2026">Season 2026 (Active)</option>
             <option value="2025">Season 2025 (Archive)</option>
           </select>
+
+          {/* Tournament Registration Gatekeeper (Super Admin) */}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cricket-dark border border-cricket-border text-xs">
+            <span className="text-cricket-muted font-bold">Status:</span>
+            <select
+              value={tournamentStatus}
+              onChange={(e) => handleUpdateTournamentStatus(e.target.value)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                tournamentStatus === 'open'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                  : tournamentStatus === 'upcoming'
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  : 'bg-cricket-card text-gray-300 border-cricket-border'
+              }`}
+            >
+              <option value="open">● Registration Open</option>
+              <option value="upcoming">Upcoming Tournament</option>
+              <option value="closed">Registration Closed</option>
+              <option value="auction">● Auction Live</option>
+              <option value="ongoing">● Tournament Ongoing</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -800,14 +909,32 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Franchise Owner</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Tariq Ahmed"
-                  value={newTeamOwner}
-                  onChange={(e) => setNewTeamOwner(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
-                />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-300">Franchise Owner</label>
+                  <span className="text-[10px] text-amber-300 font-bold">Player #1 (₹500 blocked)</span>
+                </div>
+                {tournamentRegistrations.length > 0 ? (
+                  <select
+                    value={newTeamOwner}
+                    onChange={(e) => setNewTeamOwner(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
+                  >
+                    <option value="">-- Select from Registered Players --</option>
+                    {tournamentRegistrations.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name} ({p.role}) {p.isOwner ? '• (Assigned)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="e.g. Tariq Ahmed"
+                    value={newTeamOwner}
+                    onChange={(e) => setNewTeamOwner(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
+                  />
+                )}
               </div>
 
               <div className="sm:col-span-4 flex justify-end pt-2">

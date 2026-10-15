@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Shield, CheckCircle2, AlertCircle, LogOut, Save, Trophy } from 'lucide-react';
+import { User, Shield, CheckCircle2, AlertCircle, LogOut, Save, Trophy, Camera, UploadCloud } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { compressImageUnder100KB } from '@/lib/imageCompressor';
 import type { Profile } from '@/types/database.types';
 
 export default function ProfilePage() {
@@ -13,7 +14,10 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Partial<Profile>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [compressing, setCompressing] = useState(false);
+  const [photoInfo, setPhotoInfo] = useState<{ sizeInKb: number } | null>(null);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
 
@@ -34,6 +38,13 @@ export default function ProfilePage() {
 
       if (data) {
         setProfile(data);
+        if (data.avatar_url) {
+          // Estimate current size if data URL
+          if (data.avatar_url.startsWith('data:')) {
+            const kb = Math.round((data.avatar_url.length - 22) * 0.75 / 1024);
+            setPhotoInfo({ sizeInKb: kb });
+          }
+        }
       } else {
         setProfile({
           id: user.id,
@@ -49,6 +60,23 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setCompressing(true);
+      const { dataUrl, sizeInKb } = await compressImageUnder100KB(file);
+      setProfile((prev) => ({ ...prev, avatar_url: dataUrl }));
+      setPhotoInfo({ sizeInKb });
+      setMsg({ type: 'success', text: `Photo optimized (${sizeInKb} KB / 100 KB max). Remember to click "Save Profile" below!` });
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message || 'Failed to process photo' });
+    } finally {
+      setCompressing(false);
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -62,6 +90,7 @@ export default function ProfilePage() {
 
       const updateData = {
         full_name: profile.full_name,
+        avatar_url: profile.avatar_url,
         employee_id: profile.employee_id,
         phone: profile.phone,
         primary_role: profile.primary_role,
@@ -116,27 +145,68 @@ export default function ProfilePage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-8">
       {/* Profile Header */}
       <div className="glass-card p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-cricket-teal p-1 shadow-xl">
-            <div className="w-full h-full bg-cricket-card rounded-xl flex items-center justify-center font-display font-bold text-3xl text-cricket-teal">
-              {profile.full_name?.charAt(0).toUpperCase() || 'P'}
+        <div className="flex flex-col sm:flex-row items-center gap-5">
+          {/* Avatar with Photo Upload (Max 100 KB) */}
+          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-tr from-blue-600 via-cricket-teal to-amber-400 p-1 shadow-2xl">
+              <div className="w-full h-full bg-cricket-card rounded-xl overflow-hidden flex items-center justify-center font-display font-bold text-3xl text-cricket-teal relative">
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.full_name || 'Player'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  profile.full_name?.charAt(0).toUpperCase() || 'P'
+                )}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white text-[10px] font-bold gap-1">
+                  <Camera className="w-5 h-5 text-cricket-gold" />
+                  <span>Change</span>
+                </div>
+              </div>
             </div>
+            <button
+              type="button"
+              className="absolute -bottom-1.5 -right-1.5 p-1.5 rounded-full bg-cricket-teal text-cricket-dark shadow-lg hover:scale-110 transition-transform"
+              title="Upload photo (≤100 KB)"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
           </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoChange}
+          />
+
           <div>
-            <h1 className="font-display font-bold text-3xl text-white">
-              {profile.full_name || 'Player Profile'}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-display font-bold text-3xl text-white">
+                {profile.full_name || 'Player Profile'}
+              </h1>
+              {photoInfo && (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono">
+                  {photoInfo.sizeInKb} KB / 100 KB max
+                </span>
+              )}
+            </div>
             <p className="text-sm text-cricket-muted">{profile.email}</p>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold uppercase">
                 {profile.primary_role || 'All-rounder'}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase">
-                Corporate Athlete
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold uppercase">
-                System Role: {profile.system_role || 'User'}
-              </span>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={compressing}
+                className="px-2.5 py-1 rounded-xl bg-cricket-gold/15 hover:bg-cricket-gold/25 text-cricket-gold border border-cricket-gold/40 text-xs font-bold flex items-center gap-1.5 transition-all"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>{compressing ? 'Compressing…' : profile.avatar_url ? 'Change Photo (≤100 KB)' : 'Upload Photo (≤100 KB)'}</span>
+              </button>
             </div>
           </div>
         </div>
