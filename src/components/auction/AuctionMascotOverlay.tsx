@@ -51,12 +51,15 @@ export default function AuctionMascotOverlay({
 
   // Active state machine
   const [activeReaction, setActiveReaction] = useState<ReactionConfig | null>(null);
+  const activeReactionRef = useRef<ReactionConfig | null>(null);
+  activeReactionRef.current = activeReaction;
+
   const [mascotState, setMascotState] = useState<MascotState>('idle');
   const [visible, setVisible] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<MascotEventData | null>(null);
   const [webglSupported, setWebglSupported] = useState(true);
 
-  // Internal references for animation loop
+  // Internal references for Three.js instance
   const rigRef = useRef<MascotRig | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -68,7 +71,7 @@ export default function AuctionMascotOverlay({
 
   // Animation motion variables
   const mascotPosRef = useRef({ x: 3.5, y: -0.6, z: 0 }); // Enters from right
-  const targetXRef = useRef(1.1); // Stops near center-right
+  const targetXRef = useRef(1.15); // Stops near center-right
   const walkProgressRef = useRef(0);
   const isWalkingRef = useRef(true);
 
@@ -78,154 +81,171 @@ export default function AuctionMascotOverlay({
   const triggerCelebrationParticles = useCallback((intensity: 'high' | 'medium' | 'subtle') => {
     if (intensity === 'subtle') return;
 
-    // First burst: Gold and Emerald
-    confetti({
-      particleCount: intensity === 'high' ? 90 : 50,
-      spread: 75,
-      origin: { x: 0.65, y: 0.55 },
-      colors: ['#10B981', '#F59E0B', '#3B82F6', '#FFD700', '#34D399'],
-      disableForReducedMotion: true,
-      zIndex: 9999,
-    });
-
-    // Second delayed burst from bottom right
-    const t1 = setTimeout(() => {
+    try {
+      // First burst: Gold and Emerald
       confetti({
-        particleCount: intensity === 'high' ? 70 : 40,
-        angle: 120,
-        spread: 60,
-        origin: { x: 0.85, y: 0.65 },
-        colors: ['#F59E0B', '#10B981', '#60A5FA'],
+        particleCount: intensity === 'high' ? 90 : 50,
+        spread: 75,
+        origin: { x: 0.65, y: 0.55 },
+        colors: ['#10B981', '#F59E0B', '#3B82F6', '#FFD700', '#34D399'],
         disableForReducedMotion: true,
         zIndex: 9999,
       });
-    }, 280);
 
-    return () => clearTimeout(t1);
+      // Second delayed burst from bottom right
+      const t1 = setTimeout(() => {
+        try {
+          confetti({
+            particleCount: intensity === 'high' ? 70 : 40,
+            angle: 120,
+            spread: 60,
+            origin: { x: 0.85, y: 0.65 },
+            colors: ['#F59E0B', '#10B981', '#60A5FA'],
+            disableForReducedMotion: true,
+            zIndex: 9999,
+          });
+        } catch (e) {
+          console.warn('[Confetti] Secondary blast skipped', e);
+        }
+      }, 280);
+
+      return () => clearTimeout(t1);
+    } catch (e) {
+      console.warn('[Confetti] Skipped due to browser constraint', e);
+    }
   }, []);
 
   // --------------------------------------------------------------------------
-  // THREE.JS SCENE SETUP & RENDER LOOP
+  // INITIALIZE THREE.JS ONCE WHEN OVERLAY MOUNTS
   // --------------------------------------------------------------------------
   useEffect(() => {
-    if (!canvasRef.current) return;
-
-    // Check WebGL availability
-    try {
-      const gl = canvasRef.current.getContext('webgl') || canvasRef.current.getContext('experimental-webgl');
-      if (!gl) {
-        setWebglSupported(false);
-        return;
-      }
-    } catch {
-      setWebglSupported(false);
-      return;
-    }
+    if (!visible || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
-    const width = canvas.clientWidth || 800;
-    const height = canvas.clientHeight || 600;
+    let renderer: THREE.WebGLRenderer | null = null;
 
-    // 1. Scene with transparent background
-    const scene = new THREE.Scene();
-    sceneRef.current = scene;
+    try {
+      const width = canvas.clientWidth || window.innerWidth || 800;
+      const height = canvas.clientHeight || window.innerHeight || 600;
 
-    // 2. Camera with responsive FOV
-    const isMobile = window.innerWidth < 768;
-    const camera = new THREE.PerspectiveCamera(isMobile ? 36 : 30, width / height, 0.1, 100);
-    camera.position.set(0, 0.6, 5.0);
-    cameraRef.current = camera;
+      // 1. Scene with transparent background
+      const scene = new THREE.Scene();
+      sceneRef.current = scene;
 
-    // 3. WebGL Renderer with Alpha: true for crisp transparency
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance',
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(width, height, false);
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
-    rendererRef.current = renderer;
+      // 2. Camera with responsive FOV
+      const isMobile = window.innerWidth < 768;
+      const camera = new THREE.PerspectiveCamera(isMobile ? 38 : 30, width / height, 0.1, 100);
+      camera.position.set(0, 0.6, 5.0);
+      cameraRef.current = camera;
 
-    // 4. Studio Lighting tailored for Stadium Character Depth
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
-    scene.add(ambientLight);
+      // 3. WebGL Renderer with Alpha: true for crisp transparency
+      // NOTE: Never call getContext('webgl') beforehand so Three.js can cleanly acquire webgl2
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+        powerPreference: 'default',
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(width, height, false);
+      rendererRef.current = renderer;
 
-    const mainKeyLight = new THREE.DirectionalLight(0xfff5e6, 2.2);
-    mainKeyLight.position.set(3, 4, 3);
-    scene.add(mainKeyLight);
+      // 4. Studio Lighting tailored for Stadium Character Depth
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
+      scene.add(ambientLight);
 
-    const stadiumRimLight = new THREE.DirectionalLight(0x00f0ff, 2.6); // Cyan rim light
-    stadiumRimLight.position.set(-3, 2, -2);
-    scene.add(stadiumRimLight);
+      const mainKeyLight = new THREE.DirectionalLight(0xfff5e6, 2.2);
+      mainKeyLight.position.set(3, 4, 3);
+      scene.add(mainKeyLight);
 
-    const fillGoldLight = new THREE.PointLight(0xf59e0b, 2.0, 10); // Warm gold fill
-    fillGoldLight.position.set(1, 1, 2);
-    scene.add(fillGoldLight);
+      const stadiumRimLight = new THREE.DirectionalLight(0x00f0ff, 2.6); // Cyan rim light
+      stadiumRimLight.position.set(-3, 2, -2);
+      scene.add(stadiumRimLight);
 
-    // 5. Procedural 3D Articulated Mascot Rig
-    const rig = createProceduralMascotRig();
-    rig.root.scale.setScalar(isMobile ? 0.95 : 1.15);
-    rig.root.position.set(mascotPosRef.current.x, mascotPosRef.current.y, mascotPosRef.current.z);
-    rig.root.rotation.y = -0.3; // Slight 3/4 turn towards viewer
-    scene.add(rig.root);
-    rigRef.current = rig;
+      const fillGoldLight = new THREE.PointLight(0xf59e0b, 2.0, 10); // Warm gold fill
+      fillGoldLight.position.set(1, 1, 2);
+      scene.add(fillGoldLight);
 
-    // 6. Handle Window Resizing
-    const handleResize = () => {
-      if (!canvas || !rendererRef.current || !cameraRef.current) return;
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (w === 0 || h === 0) return;
+      // 5. Procedural 3D Articulated Mascot Rig
+      const rig = createProceduralMascotRig();
+      rig.root.scale.setScalar(isMobile ? 0.95 : 1.15);
+      rig.root.position.set(mascotPosRef.current.x, mascotPosRef.current.y, mascotPosRef.current.z);
+      rig.root.rotation.y = -0.3; // Slight 3/4 turn towards viewer
+      scene.add(rig.root);
+      rigRef.current = rig;
 
-      cameraRef.current.aspect = w / h;
-      cameraRef.current.fov = window.innerWidth < 768 ? 38 : 30;
-      cameraRef.current.updateProjectionMatrix();
-      rendererRef.current.setSize(w, h, false);
-    };
+      // 6. Handle Window Resizing
+      const handleResize = () => {
+        if (!canvas || !rendererRef.current || !cameraRef.current) return;
+        const w = canvas.clientWidth || window.innerWidth;
+        const h = canvas.clientHeight || window.innerHeight;
+        if (w === 0 || h === 0) return;
 
-    window.addEventListener('resize', handleResize);
+        cameraRef.current.aspect = w / h;
+        cameraRef.current.fov = window.innerWidth < 768 ? 38 : 30;
+        cameraRef.current.updateProjectionMatrix();
+        rendererRef.current.setSize(w, h, false);
+      };
 
-    // 7. Core Three.js Animation Loop
-    let lastTime = performance.now();
-    const animate = (time: number) => {
+      window.addEventListener('resize', handleResize);
+
+      // 7. Core Three.js Animation Loop
+      let lastTime = performance.now();
+      const animate = (time: number) => {
+        animFrameIdRef.current = requestAnimationFrame(animate);
+        const delta = Math.min((time - lastTime) / 1000, 0.1);
+        lastTime = time;
+
+        if (!rigRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return;
+
+        walkProgressRef.current += delta;
+
+        // Smooth Mascot Position Lerp (Entering / Exiting)
+        const currentPos = mascotPosRef.current;
+        const targetX = targetXRef.current;
+        currentPos.x = THREE.MathUtils.lerp(currentPos.x, targetX, isWalkingRef.current ? 0.08 : 0.04);
+        rigRef.current.root.position.x = currentPos.x;
+
+        // Update Kinematic Articulated Pose from active reaction ref
+        const currentReaction = activeReactionRef.current;
+        if (currentReaction) {
+          rigRef.current.updatePose(
+            currentReaction.pose,
+            walkProgressRef.current,
+            isWalkingRef.current
+          );
+        }
+
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      };
+
       animFrameIdRef.current = requestAnimationFrame(animate);
-      const delta = Math.min((time - lastTime) / 1000, 0.1);
-      lastTime = time;
 
-      if (!rigRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return;
-
-      walkProgressRef.current += delta;
-
-      // Smooth Mascot Position Lerp (Entering / Exiting)
-      const currentPos = mascotPosRef.current;
-      const targetX = targetXRef.current;
-      currentPos.x = THREE.MathUtils.lerp(currentPos.x, targetX, isWalkingRef.current ? 0.08 : 0.04);
-      rigRef.current.root.position.x = currentPos.x;
-
-      // Update Kinematic Articulated Pose
-      if (activeReaction) {
-        rigRef.current.updatePose(
-          activeReaction.pose,
-          walkProgressRef.current,
-          isWalkingRef.current
-        );
-      }
-
-      rendererRef.current.render(sceneRef.current, cameraRef.current);
-    };
-
-    animFrameIdRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
-      if (rigRef.current) rigRef.current.dispose();
-      if (rendererRef.current) rendererRef.current.dispose();
-    };
-  }, [activeReaction]);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+        if (rigRef.current) {
+          try {
+            rigRef.current.dispose();
+          } catch (e) {
+            console.warn('[ThreeMascot] Rig disposal error', e);
+          }
+          rigRef.current = null;
+        }
+        if (rendererRef.current) {
+          try {
+            rendererRef.current.dispose();
+          } catch (e) {
+            console.warn('[ThreeMascot] Renderer disposal error', e);
+          }
+          rendererRef.current = null;
+        }
+      };
+    } catch (err) {
+      console.warn('[AuctionMascotOverlay] WebGL initialization failed; switching to 2D SVG mascot fallback:', err);
+      setWebglSupported(false);
+    }
+  }, [visible]);
 
   // --------------------------------------------------------------------------
   // EVENT QUEUE & STATE TRANSITIONS
@@ -291,7 +311,7 @@ export default function AuctionMascotOverlay({
                 onDismiss();
               }
             }, 1200);
-          }, 3800); // Hold time
+          }, 4500); // Hold time
         }, 800);
       }, 1400); // Entrance walk duration
     },
@@ -336,7 +356,11 @@ export default function AuctionMascotOverlay({
   }
 
   const isSold = currentEvent.type === 'sold';
-  const teamName = currentEvent.team || 'Franchise';
+  const teamNameString = String(currentEvent.team || 'Franchise').trim();
+  const playerNameString = String(currentEvent.player || 'Player').trim();
+  const priceFormatted = currentEvent.price !== undefined 
+    ? Number(currentEvent.price).toLocaleString('en-IN')
+    : null;
 
   return (
     <div
@@ -358,21 +382,93 @@ export default function AuctionMascotOverlay({
       {/* ------------------------------------------------------------------- */}
       {/* 2. THREE.JS TRANSPARENT 3D CANVAS */}
       {/* ------------------------------------------------------------------- */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none"
-      />
+      {webglSupported ? (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+        />
+      ) : (
+        /* ----------------------------------------------------------------- */
+        /* 3. HIGH-FIDELITY 2D SVG/CSS MASCOT FALLBACK */
+        /* ----------------------------------------------------------------- */
+        <div className="absolute right-6 sm:right-32 bottom-28 w-56 sm:w-72 h-72 sm:h-96 pointer-events-none flex flex-col items-center justify-center animate-fade-in">
+          <div className="relative w-48 h-48 sm:w-60 sm:h-60 filter drop-shadow-[0_20px_35px_rgba(0,0,0,0.6)]">
+            {/* Glowing Stadium Floodlight Halo */}
+            <div
+              className={`absolute inset-0 rounded-full blur-2xl animate-pulse ${
+                isSold ? 'bg-emerald-400/30' : 'bg-red-500/25'
+              }`}
+            />
+            
+            {/* Stylized SVG Cricket Champ matching the mockup */}
+            <svg viewBox="0 0 200 200" className="w-full h-full">
+              <defs>
+                <radialGradient id="fbHead" cx="35%" cy="30%" r="70%">
+                  <stop offset="0%" stopColor="#FFF3C4" />
+                  <stop offset="65%" stopColor="#FDE68A" />
+                  <stop offset="100%" stopColor="#F59E0B" />
+                </radialGradient>
+                <radialGradient id="fbCap" cx="40%" cy="30%" r="70%">
+                  <stop offset="0%" stopColor="#2563EB" />
+                  <stop offset="60%" stopColor="#1D4ED8" />
+                  <stop offset="100%" stopColor="#0F172A" />
+                </radialGradient>
+                <linearGradient id="fbBat" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#FDE68A" />
+                  <stop offset="100%" stopColor="#D97706" />
+                </linearGradient>
+              </defs>
 
-      {/* ------------------------------------------------------------------- */}
-      {/* 3. WEBGL FALLBACK (Graceful SVG render if WebGL disabled) */}
-      {/* ------------------------------------------------------------------- */}
-      {!webglSupported && (
-        <div className="absolute right-12 bottom-20 w-64 h-80 flex items-center justify-center pointer-events-none animate-bounce">
-          <div className="p-4 rounded-3xl bg-cricket-dark/90 border border-cricket-teal/50 shadow-2xl text-center">
-            <div className="text-6xl mb-2">{isSold ? '🏆' : '💔'}</div>
-            <div className="font-display font-bold text-sm text-white">
-              {isSold ? 'Player Acquired!' : 'Better Luck Next Time!'}
-            </div>
+              {/* Legs with White Batting Pads */}
+              <rect x="75" y="130" width="18" height="48" rx="6" fill="#F8FAFC" stroke="#0284C7" strokeWidth="2" />
+              <rect x="107" y="130" width="18" height="48" rx="6" fill="#F8FAFC" stroke="#0284C7" strokeWidth="2" />
+              <rect x="73" y="148" width="22" height="6" rx="2" fill="#F59E0B" />
+              <rect x="105" y="148" width="22" height="6" rx="2" fill="#F59E0B" />
+
+              {/* Royal Blue Cricket Jersey */}
+              <path d="M 68 85 L 132 85 L 126 132 L 74 132 Z" fill="url(#fbCap)" />
+              <circle cx="100" cy="100" r="14" fill="#F59E0B" opacity="0.3" />
+              <text x="100" y="104" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="bold">CRICPLUS</text>
+
+              {/* Head with Warm Peachy Tone */}
+              <ellipse cx="100" cy="65" rx="30" ry="28" fill="url(#fbHead)" />
+              <circle cx="82" cy="74" r="5" fill="#F472B6" opacity="0.6" />
+              <circle cx="118" cy="74" r="5" fill="#F472B6" opacity="0.6" />
+
+              {/* Expressive Eyes */}
+              <ellipse cx="88" cy="62" rx="4.5" ry="6" fill="#0F172A" />
+              <circle cx="86.5" cy="60" r="1.5" fill="#FFFFFF" />
+              <ellipse cx="112" cy="62" rx="4.5" ry="6" fill="#0F172A" />
+              <circle cx="110.5" cy="60" r="1.5" fill="#FFFFFF" />
+
+              {/* Dynamic Mouth */}
+              {isSold ? (
+                <path d="M 90 73 Q 100 86 110 73 Z" fill="#991B1B" />
+              ) : (
+                <path d="M 92 78 Q 100 70 108 78" stroke="#991B1B" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+              )}
+
+              {/* CricPlus Cap with Visor */}
+              <path d="M 66 54 Q 100 22 134 54 Z" fill="url(#fbCap)" />
+              <path d="M 62 55 Q 100 50 142 57" stroke="#0F172A" strokeWidth="5" fill="none" strokeLinecap="round" />
+              <circle cx="100" cy="42" r="4.5" fill="#F59E0B" />
+
+              {/* Arms & Bat */}
+              {isSold ? (
+                <>
+                  <rect x="125" y="45" width="9" height="52" rx="3" fill="url(#fbBat)" transform="rotate(22 125 45)" />
+                  <rect x="128" y="85" width="4" height="18" rx="2" fill="#0284C7" transform="rotate(22 125 45)" />
+                  <circle cx="138" cy="100" r="8" fill="#FFFFFF" />
+                  <circle cx="62" cy="95" r="8" fill="#FFFFFF" />
+                </>
+              ) : (
+                <>
+                  <rect x="120" y="88" width="8" height="54" rx="3" fill="url(#fbBat)" transform="rotate(45 120 88)" />
+                  <circle cx="122" cy="95" r="8" fill="#FFFFFF" />
+                  <circle cx="78" cy="98" r="8" fill="#FFFFFF" />
+                </>
+              )}
+            </svg>
           </div>
         </div>
       )}
@@ -392,8 +488,8 @@ export default function AuctionMascotOverlay({
         <div
           className={`relative rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl border-2 transition-all ${
             isSold
-              ? 'bg-[#041a17]/90 border-emerald-400/80 shadow-[0_12px_45px_rgba(16,185,129,0.45)]'
-              : 'bg-[#180911]/90 border-red-500/80 shadow-[0_12px_45px_rgba(239,68,68,0.35)]'
+              ? 'bg-[#041a17]/95 border-emerald-400/80 shadow-[0_12px_45px_rgba(16,185,129,0.45)]'
+              : 'bg-[#180911]/95 border-red-500/80 shadow-[0_12px_45px_rgba(239,68,68,0.35)]'
           }`}
         >
           {/* Subtle Close Button */}
@@ -444,9 +540,9 @@ export default function AuctionMascotOverlay({
               {/* Main Headline */}
               <h3 className="font-display font-black text-lg sm:text-xl text-white tracking-wide leading-tight drop-shadow-md">
                 {isSold ? (
-                  currentEvent.team ? (
+                  teamNameString && teamNameString !== 'Franchise' ? (
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-yellow-200 to-emerald-400">
-                      ★ WELCOME TO TEAM {currentEvent.team.toUpperCase()}! ★
+                      ★ WELCOME TO TEAM {teamNameString.toUpperCase()}! ★
                     </span>
                   ) : (
                     <span>WELCOME TO THE TEAM!</span>
@@ -460,11 +556,11 @@ export default function AuctionMascotOverlay({
 
               {/* Player Name and Sold Price */}
               <p className="text-xs text-gray-200 font-medium truncate flex items-center gap-1.5">
-                <span className="font-bold text-white">{currentEvent.player}</span>
-                {currentEvent.price !== undefined && isSold && (
+                <span className="font-bold text-white">{playerNameString}</span>
+                {priceFormatted && isSold && (
                   <>
                     <span className="text-cricket-gold font-bold">
-                      • ₹{currentEvent.price.toLocaleString('en-IN')}
+                      • ₹{priceFormatted}
                     </span>
                     <span className="text-[10px] text-emerald-400 font-semibold">(Sold)</span>
                   </>

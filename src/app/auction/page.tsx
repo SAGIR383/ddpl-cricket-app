@@ -28,6 +28,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { parseAuctionWorkbook, ParsedFranchise, ParsedPlayer } from '@/lib/auctionImport';
 import AuctionMascotOverlay, { MascotEventData } from '@/components/auction/AuctionMascotOverlay';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
 interface PlayerLot {
   id: string;
@@ -1248,10 +1249,12 @@ export default function AuctionPage() {
       {/* ========================================================================= */}
       {/* 3D LIVE AUCTION MASCOT TRANSPARENT OVERLAY (12 SOLD + 12 UNSOLD VARIATIONS) */}
       {/* ========================================================================= */}
-      <AuctionMascotOverlay
-        event={activeMascotEvent}
-        onDismiss={() => setActiveMascotEvent(null)}
-      />
+      <ErrorBoundary fallback={null}>
+        <AuctionMascotOverlay
+          event={activeMascotEvent}
+          onDismiss={() => setActiveMascotEvent(null)}
+        />
+      </ErrorBoundary>
     </div>
   );
 }
