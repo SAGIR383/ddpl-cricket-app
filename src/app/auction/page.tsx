@@ -27,7 +27,7 @@ import confetti from 'canvas-confetti';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { parseAuctionWorkbook, ParsedFranchise, ParsedPlayer } from '@/lib/auctionImport';
-import AuctionMascotModal from '@/components/auction/AuctionMascotModal';
+import AuctionMascotOverlay, { MascotEventData } from '@/components/auction/AuctionMascotOverlay';
 
 interface PlayerLot {
   id: string;
@@ -129,15 +129,8 @@ export default function AuctionPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
 
-  // Mascot Celebration / Sympathy Modal State
-  const [mascotModal, setMascotModal] = useState<{
-    isOpen: boolean;
-    type: 'sold' | 'unsold';
-    player: string;
-    team?: string;
-    price?: number;
-    role?: string;
-  } | null>(null);
+  // 3D Mascot Reaction Overlay State (12 SOLD + 12 UNSOLD Variations)
+  const [activeMascotEvent, setActiveMascotEvent] = useState<MascotEventData | null>(null);
 
   // Toast Helper
   const showToast = (msg: string) => {
@@ -213,9 +206,9 @@ export default function AuctionPage() {
           if (data.unsoldPlayers !== undefined) setUnsoldPlayers(data.unsoldPlayers);
           if (data.playerPool !== undefined) setPlayerPool(data.playerPool);
           if (data.mascotEvent) {
-            setMascotModal({
-              isOpen: true,
+            setActiveMascotEvent({
               ...data.mascotEvent,
+              id: data.mascotEvent.id || `${data.mascotEvent.type}-${data.mascotEvent.player}-${Date.now()}`,
             });
           }
           setLastSyncTime(new Date().toLocaleTimeString());
@@ -444,27 +437,24 @@ export default function AuctionPage() {
     setSoldTransactions(newSold);
     const nextLot = advanceToNextPlayer(newSold, unsoldPlayers);
 
-    // Open Joyful Mascot Modal with "Welcome to the team!"
-    setMascotModal({
-      isOpen: true,
+    // Trigger 3D Live Auction Mascot Celebration Overlay (12 SOLD Reactions)
+    const soldEvent: MascotEventData = {
+      id: `sold-${Date.now()}-${soldPlayer}`,
       type: 'sold',
       player: soldPlayer,
       team: winningTeamName,
       price: finalPrice,
       role: playerRole,
-    });
+      timestamp: Date.now(),
+    };
+
+    setActiveMascotEvent(soldEvent);
 
     broadcastAuctionState({
       currentLot: nextLot,
       soldTransactions: newSold,
       teams: updatedTeams,
-      mascotEvent: {
-        type: 'sold',
-        player: soldPlayer,
-        team: winningTeamName,
-        price: finalPrice,
-        role: playerRole,
-      },
+      mascotEvent: soldEvent,
     });
 
     showToast(`🔨 Sold! ${soldPlayer} acquired by ${winningTeamName} for ₹${finalPrice}!`);
@@ -480,22 +470,21 @@ export default function AuctionPage() {
     setUnsoldPlayers(newUnsold);
     const nextLot = advanceToNextPlayer(soldTransactions, newUnsold);
 
-    // Open Sad Mascot Modal with "Better luck next time!"
-    setMascotModal({
-      isOpen: true,
+    // Trigger 3D Live Auction Mascot Disappointment Overlay (12 UNSOLD Reactions)
+    const unsoldEvent: MascotEventData = {
+      id: `unsold-${Date.now()}-${passedPlayer}`,
       type: 'unsold',
       player: passedPlayer,
       role: playerRole,
-    });
+      timestamp: Date.now(),
+    };
+
+    setActiveMascotEvent(unsoldEvent);
 
     broadcastAuctionState({
       currentLot: nextLot,
       unsoldPlayers: newUnsold,
-      mascotEvent: {
-        type: 'unsold',
-        player: passedPlayer,
-        role: playerRole,
-      },
+      mascotEvent: unsoldEvent,
     });
 
     showToast(`Passed: ${passedPlayer} moved to Unsold pool.`);
@@ -1257,19 +1246,12 @@ export default function AuctionPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* FUNNY MASCOT MODAL (Joyful for SOLD, Sad for UNSOLD) */}
+      {/* 3D LIVE AUCTION MASCOT TRANSPARENT OVERLAY (12 SOLD + 12 UNSOLD VARIATIONS) */}
       {/* ========================================================================= */}
-      {mascotModal && mascotModal.isOpen && (
-        <AuctionMascotModal
-          isOpen={mascotModal.isOpen}
-          type={mascotModal.type}
-          playerName={mascotModal.player}
-          teamName={mascotModal.team}
-          price={mascotModal.price}
-          role={mascotModal.role}
-          onClose={() => setMascotModal(null)}
-        />
-      )}
+      <AuctionMascotOverlay
+        event={activeMascotEvent}
+        onDismiss={() => setActiveMascotEvent(null)}
+      />
     </div>
   );
 }
