@@ -27,7 +27,18 @@ import {
   Copy,
   Check,
   Lock,
-  X
+  X,
+  Play,
+  Pause,
+  Square,
+  Radio,
+  ToggleLeft,
+  ToggleRight,
+  Eye,
+  Flame,
+  Clock,
+  MapPin,
+  Save
 } from 'lucide-react';
 
 interface TeamItem {
@@ -35,6 +46,7 @@ interface TeamItem {
   name: string;
   short: string;
   owner: string;
+  ownerEmail?: string;
   captain: string;
   viceCaptain: string;
   budget: number;
@@ -44,12 +56,17 @@ interface TeamItem {
 interface MatchItem {
   id: string;
   matchNumber: number;
+  stage?: string;
+  group?: string | null;
+  title?: string;
   teamA: string;
   teamB: string;
   round: string;
   venue: string;
   overs: number;
-  status: 'upcoming' | 'live' | 'completed';
+  matchDate?: string | null;
+  matchTime?: string | null;
+  status: 'upcoming' | 'live' | 'completed' | 'postponed' | 'abandoned';
 }
 
 interface PlayerItem {
@@ -303,50 +320,194 @@ export default function AdminDashboardPage() {
     showNotification(`Team "${name}" deleted.`);
   };
 
-  // --- 2. MATCH FIXTURES STATE ---
+  // --- AUCTION LIVE CONTROLS & FRANCHISE BIDDING ACCESS ---
+  const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('live');
+  const [biddingAccessEnabled, setBiddingAccessEnabled] = useState(true);
+  const [teamBiddingAccess, setTeamBiddingAccess] = useState<Record<string, boolean>>({});
+
+  const handleToggleMasterAuctionStatus = async (status: 'live' | 'paused' | 'stopped') => {
+    try {
+      setAuctionStatus(status);
+      await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auctionStatus: status,
+          timerRunning: status === 'live',
+        }),
+      });
+      showNotification(`Live Auction status updated to ${status.toUpperCase()}!`);
+    } catch (err: any) {
+      alert(`Failed to update auction status: ${err.message}`);
+    }
+  };
+
+  const handleToggleMasterBidding = async (enabled: boolean) => {
+    try {
+      setBiddingAccessEnabled(enabled);
+      await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ biddingAccessEnabled: enabled }),
+      });
+      showNotification(enabled ? 'All Franchise Bidding Enabled!' : 'Franchise Bidding Globally Locked!');
+    } catch (err: any) {
+      alert(`Failed to update bidding access: ${err.message}`);
+    }
+  };
+
+  const handleToggleTeamBidding = async (teamId: string, teamName: string) => {
+    const currentAccess = teamBiddingAccess[teamId] !== false; // default true
+    const newAccess = !currentAccess;
+    const updated = { ...teamBiddingAccess, [teamId]: newAccess };
+    setTeamBiddingAccess(updated);
+
+    try {
+      await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamBiddingAccess: updated }),
+      });
+      showNotification(
+        newAccess
+          ? `Bidding access GRANTED for ${teamName}!`
+          : `Bidding access REVOKED for ${teamName}!`
+      );
+    } catch (err: any) {
+      alert(`Failed to update team bidding access: ${err.message}`);
+    }
+  };
+
+  // --- 2. MATCH FIXTURES & TOURNAMENT SCHEDULING STATE ---
+  const [tournamentStartDate, setTournamentStartDate] = useState<string>('');
+  const [tournamentEndDate, setTournamentEndDate] = useState<string>('');
   const [matches, setMatches] = useState<MatchItem[]>([
-    { id: 'm1', matchNumber: 1, teamA: 'Teoco Knight Riders', teamB: 'Aircom Avengers', round: 'League Match 1', venue: 'Arena Ground 1', overs: 10, status: 'live' },
-    { id: 'm2', matchNumber: 2, teamA: 'Teoco Blues', teamB: 'Aircom Superstar', round: 'League Match 2', venue: 'Arena Ground 1', overs: 10, status: 'upcoming' },
-    { id: 'm3', matchNumber: 3, teamA: 'Teoco Knight Riders', teamB: 'Teoco Blues', round: 'League Match 3', venue: 'Arena Ground 1', overs: 10, status: 'upcoming' },
-    { id: 'm4', matchNumber: 4, teamA: 'Aircom Avengers', teamB: 'Aircom Superstar', round: 'League Match 4', venue: 'Arena Ground 1', overs: 10, status: 'upcoming' },
+    { id: 'm1', matchNumber: 1, teamA: 'Teoco Knight Riders', teamB: 'Aircom Avengers', round: 'League Match 1', venue: 'Arena Ground 1', overs: 10, matchDate: '2026-11-20', matchTime: '10:00 AM', status: 'upcoming' },
+    { id: 'm2', matchNumber: 2, teamA: 'Teoco Blues', teamB: 'Aircom Superstar', round: 'League Match 2', venue: 'Arena Ground 1', overs: 10, matchDate: '2026-11-20', matchTime: '02:00 PM', status: 'upcoming' },
   ]);
 
   const [manualTeamA, setManualTeamA] = useState('');
   const [manualTeamB, setManualTeamB] = useState('');
   const [manualVenue, setManualVenue] = useState('Arena Ground 1');
   const [manualOvers, setManualOvers] = useState(10);
+  const [manualDate, setManualDate] = useState('');
+  const [manualTime, setManualTime] = useState('10:00 AM');
+  const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+  const [isGeneratingFixtures, setIsGeneratingFixtures] = useState(false);
 
-  // Auto Fixture Generator (Round Robin)
-  const handleAutoGenerateFixtures = () => {
+  // Tournament Start / End Dates handlers (set, unset, rearrange)
+  const handleSaveTournamentDates = async (start: string, end: string) => {
+    try {
+      await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_tournament_dates',
+          tournament: selectedTournament,
+          startDate: start || null,
+          endDate: end || null,
+        }),
+      });
+      setTournamentStartDate(start);
+      setTournamentEndDate(end);
+      showNotification(
+        start && end
+          ? `Tournament dates updated: ${start} to ${end}`
+          : 'Tournament dates saved successfully!'
+      );
+    } catch (err: any) {
+      alert(`Error updating tournament dates: ${err.message}`);
+    }
+  };
+
+  const handleUnsetTournamentDates = async () => {
+    await handleSaveTournamentDates('', '');
+    showNotification('Tournament dates have been unset/cleared.');
+  };
+
+  // Smart Auto Fixture Generator based on Format (DDPL vs Game of RUN)
+  const handleGenerateTournamentFixtures = async () => {
     if (teams.length < 2) {
       alert('You need at least 2 teams to generate fixtures.');
       return;
     }
 
-    const generated: MatchItem[] = [];
-    let matchCount = 1;
+    setIsGeneratingFixtures(true);
+    try {
+      const res = await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate_schedule',
+          tournament: selectedTournament,
+          teams: teams.map((t) => ({ id: t.id, name: t.name, short: t.short })),
+          overs: auctionRules.matchOvers || (selectedTournament === 'ddpl' ? 10 : 12),
+        }),
+      });
 
-    for (let i = 0; i < teams.length; i++) {
-      for (let j = i + 1; j < teams.length; j++) {
-        generated.push({
-          id: `gen-${matchCount}`,
-          matchNumber: matchCount,
-          teamA: teams[i].name,
-          teamB: teams[j].name,
-          round: `League Match ${matchCount}`,
-          venue: 'Arena Ground 1',
-          overs: selectedTournament === 'ddpl' ? 10 : 12,
-          status: 'upcoming',
-        });
-        matchCount++;
+      const data = await res.json();
+      if (data.success && data.schedule?.matches) {
+        setMatches(
+          data.schedule.matches.map((m: any) => ({
+            id: m.id,
+            matchNumber: m.matchNumber,
+            stage: m.stage,
+            group: m.group,
+            title: m.title,
+            teamA: m.teamA?.name || m.teamA,
+            teamB: m.teamB?.name || m.teamB,
+            round: m.stage || `Match ${m.matchNumber}`,
+            venue: m.venue || 'Arena Ground 1',
+            overs: selectedTournament === 'ddpl' ? (auctionRules.matchOvers || 10) : 12,
+            matchDate: m.matchDate || null,
+            matchTime: m.matchTime || '10:00 AM',
+            status: m.status || 'upcoming',
+          }))
+        );
+        showNotification(
+          `Generated ${data.schedule.matches.length} fixtures for ${selectedTournament.toUpperCase()} format!`
+        );
+      } else {
+        alert(data.error || 'Failed to generate fixtures');
       }
+    } catch (err: any) {
+      alert(`Error generating fixtures: ${err.message}`);
+    } finally {
+      setIsGeneratingFixtures(false);
     }
-
-    setMatches(generated);
-    showNotification(`Generated ${generated.length} round-robin league fixtures successfully!`);
   };
 
-  const handleAddManualMatch = (e: React.FormEvent) => {
+  // Inline Match Update (Date, Time, Venue, Status)
+  const handleSaveMatchUpdates = async (matchId: string, updates: Partial<MatchItem>) => {
+    setSavingMatchId(matchId);
+    try {
+      const res = await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_match',
+          tournament: selectedTournament,
+          matchId,
+          updates,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMatches((prev) =>
+          prev.map((m) => (m.id === matchId ? { ...m, ...updates } : m))
+        );
+        showNotification(`Match updated successfully!`);
+      } else {
+        alert(data.error || 'Failed to update match');
+      }
+    } catch (err: any) {
+      alert(`Error updating match: ${err.message}`);
+    } finally {
+      setSavingMatchId(null);
+    }
+  };
+
+  const handleAddManualMatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualTeamA || !manualTeamB) {
       alert('Please select both teams.');
@@ -365,16 +526,74 @@ export default function AdminDashboardPage() {
       round: `Match ${matches.length + 1}`,
       venue: manualVenue,
       overs: manualOvers,
+      matchDate: manualDate || null,
+      matchTime: manualTime || '10:00 AM',
       status: 'upcoming',
     };
 
-    setMatches([...matches, newMatch]);
-    showNotification(`Fixture added: ${newMatch.teamA} vs ${newMatch.teamB}`);
+    const updated = [...matches, newMatch];
+    setMatches(updated);
+
+    try {
+      await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_all_matches',
+          tournament: selectedTournament,
+          matches: updated.map((m) => ({
+            id: m.id,
+            matchNumber: m.matchNumber,
+            tournament: selectedTournament,
+            stage: m.stage || 'League',
+            group: m.group || null,
+            title: m.title || `${m.teamA} vs ${m.teamB}`,
+            teamA: { name: m.teamA, short: m.teamA.split(' ').map((w) => w[0]).join('') },
+            teamB: { name: m.teamB, short: m.teamB.split(' ').map((w) => w[0]).join('') },
+            venue: m.venue,
+            matchDate: m.matchDate,
+            matchTime: m.matchTime,
+            status: m.status,
+          })),
+        }),
+      });
+      showNotification(`Fixture added: ${newMatch.teamA} vs ${newMatch.teamB}`);
+    } catch (err: any) {
+      console.error(err);
+    }
   };
 
-  const handleDeleteMatch = (id: string) => {
-    setMatches(matches.filter((m) => m.id !== id));
-    showNotification('Fixture removed.');
+  const handleDeleteMatch = async (id: string) => {
+    const updated = matches.filter((m) => m.id !== id);
+    setMatches(updated);
+
+    try {
+      await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_all_matches',
+          tournament: selectedTournament,
+          matches: updated.map((m) => ({
+            id: m.id,
+            matchNumber: m.matchNumber,
+            tournament: selectedTournament,
+            stage: m.stage || 'League',
+            group: m.group || null,
+            title: m.title || `${m.teamA} vs ${m.teamB}`,
+            teamA: { name: m.teamA, short: m.teamA.split(' ').map((w) => w[0]).join('') },
+            teamB: { name: m.teamB, short: m.teamB.split(' ').map((w) => w[0]).join('') },
+            venue: m.venue,
+            matchDate: m.matchDate,
+            matchTime: m.matchTime,
+            status: m.status,
+          })),
+        }),
+      });
+      showNotification('Fixture removed.');
+    } catch (err: any) {
+      console.error(err);
+    }
   };
 
   // --- 3. PLAYERS & REGISTRATIONS STATE (19 Official Tournament Players) ---
@@ -451,15 +670,16 @@ export default function AdminDashboardPage() {
   });
   const [isSavingRules, setIsSavingRules] = useState(false);
 
-  // Fetch real registered users, backend auction rules, and tournament teams
+  // Fetch real registered users, backend auction rules, tournament teams, and fixtures schedule
   useEffect(() => {
     async function loadAdminData() {
       try {
-        const [rolesRes, rulesRes, auctionRes, regRes] = await Promise.all([
+        const [rolesRes, rulesRes, auctionRes, regRes, matchesRes] = await Promise.all([
           fetch('/api/admin/roles'),
           fetch(`/api/admin/rules?tournament=${selectedTournament}`),
           fetch(`/api/auction/data?tournament=${selectedTournament}`),
           fetch(`/api/tournaments/register?tournament=${selectedTournament}`),
+          fetch(`/api/matches?tournament=${selectedTournament}`),
         ]);
 
         if (regRes.ok) {
@@ -501,6 +721,10 @@ export default function AdminDashboardPage() {
         if (auctionRes.ok) {
           const aData = await auctionRes.json();
           if (aData.data) {
+            if (aData.data.auctionStatus) setAuctionStatus(aData.data.auctionStatus);
+            if (aData.data.biddingAccessEnabled !== undefined) setBiddingAccessEnabled(aData.data.biddingAccessEnabled);
+            if (aData.data.teamBiddingAccess) setTeamBiddingAccess(aData.data.teamBiddingAccess);
+
             // 1. Sync Franchise Teams
             if (aData.data.teams && aData.data.teams.length > 0) {
               const soldTransactionsList = aData.data.soldTransactions || [];
@@ -511,32 +735,13 @@ export default function AdminDashboardPage() {
                 name: t.name,
                 short: t.short,
                 owner: t.owner || 'Franchise Owner',
+                ownerEmail: t.ownerEmail,
                 captain: t.captain || `${t.owner || t.name} (C)`,
                 viceCaptain: t.viceCaptain || 'To be assigned',
                 budget: t.allocated || 10000,
                 squadCount: soldTransactionsList.filter((tx: any) => tx.team === t.name).length || t.playersBought || 1,
               }));
               setTeams(mappedTeams);
-
-              // Auto-generate fresh clean fixtures from real auction teams
-              const generatedMatches: MatchItem[] = [];
-              let count = 1;
-              for (let i = 0; i < mappedTeams.length; i++) {
-                for (let j = i + 1; j < mappedTeams.length; j++) {
-                  generatedMatches.push({
-                    id: `gen-match-${count}`,
-                    matchNumber: count,
-                    teamA: mappedTeams[i].name,
-                    teamB: mappedTeams[j].name,
-                    round: `League Match ${count}`,
-                    venue: 'Arena Ground 1',
-                    overs: selectedTournament === 'ddpl' ? (auctionRules.matchOvers || 10) : 12,
-                    status: 'upcoming',
-                  });
-                  count++;
-                }
-              }
-              setMatches(generatedMatches);
             }
 
             // 2. Sync Registered Players Queue (Auction Pool) directly from active auction state
@@ -551,6 +756,33 @@ export default function AdminDashboardPage() {
                 status: 'approved',
               }));
               setPlayers(mappedPoolPlayers);
+            }
+          }
+        }
+
+        if (matchesRes.ok) {
+          const mData = await matchesRes.json();
+          if (mData.schedule) {
+            setTournamentStartDate(mData.schedule.startDate || '');
+            setTournamentEndDate(mData.schedule.endDate || '');
+            if (mData.schedule.matches && mData.schedule.matches.length > 0) {
+              setMatches(
+                mData.schedule.matches.map((m: any) => ({
+                  id: m.id,
+                  matchNumber: m.matchNumber,
+                  stage: m.stage,
+                  group: m.group,
+                  title: m.title,
+                  teamA: m.teamA?.name || m.teamA,
+                  teamB: m.teamB?.name || m.teamB,
+                  round: m.stage || `Match ${m.matchNumber}`,
+                  venue: m.venue || 'Arena Ground 1',
+                  overs: selectedTournament === 'ddpl' ? 10 : 12,
+                  matchDate: m.matchDate || null,
+                  matchTime: m.matchTime || '10:00 AM',
+                  status: m.status || 'upcoming',
+                }))
+              );
             }
           }
         }
@@ -875,6 +1107,118 @@ export default function AdminDashboardPage() {
       {/* ========================================================================= */}
       {activeTab === 'teams' && (
         <div className="space-y-8">
+          {/* Master Live Auction & Franchise Bidding Controls */}
+          <div className="glass-card p-6 sm:p-7 border border-cricket-teal/40 bg-gradient-to-r from-cricket-card via-cricket-dark to-cricket-card space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cricket-border pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                    <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                    Live Auction Command Center
+                  </span>
+                  <span
+                    className={`px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${
+                      auctionStatus === 'live'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse'
+                        : auctionStatus === 'paused'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-red-500/20 text-red-300 border-red-500/40'
+                    }`}
+                  >
+                    ● Status: {auctionStatus.toUpperCase()}
+                  </span>
+                </div>
+                <h3 className="font-display font-extrabold text-2xl text-white">
+                  Auction Controls &amp; Franchise Bidding Permission
+                </h3>
+                <p className="text-xs text-cricket-muted">
+                  Super Admin controls live auction status, hammer, 30s auto-timer, and grants individual franchise owner bidding authorization.
+                </p>
+              </div>
+
+              {/* Quick Link to Auction Room */}
+              <Link
+                href="/auction"
+                target="_blank"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cricket-teal to-emerald-400 text-cricket-dark font-display font-bold text-sm shadow hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Launch Live Auction Room ↗</span>
+              </Link>
+            </div>
+
+            {/* Auction Action Buttons */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-gray-300 mr-1">Live Auction Status:</span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleMasterAuctionStatus('live')}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    auctionStatus === 'live'
+                      ? 'bg-emerald-500 text-cricket-dark shadow-lg shadow-emerald-500/30'
+                      : 'bg-cricket-dark text-gray-300 hover:text-white border border-cricket-border'
+                  }`}
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Start / Live Auction</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleMasterAuctionStatus('paused')}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    auctionStatus === 'paused'
+                      ? 'bg-amber-500 text-cricket-dark shadow-lg shadow-amber-500/30'
+                      : 'bg-cricket-dark text-gray-300 hover:text-white border border-cricket-border'
+                  }`}
+                >
+                  <Pause className="w-3.5 h-3.5 fill-current" />
+                  <span>Pause Auction</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleMasterAuctionStatus('stopped')}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    auctionStatus === 'stopped'
+                      ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                      : 'bg-cricket-dark text-gray-300 hover:text-white border border-cricket-border'
+                  }`}
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>Stop Auction</span>
+                </button>
+              </div>
+
+              {/* Master Global Bidding Switch */}
+              <div className="flex items-center gap-3 bg-cricket-dark/80 px-4 py-2 rounded-xl border border-cricket-border">
+                <span className="text-xs font-bold text-gray-300">Global Bidding Access:</span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleMasterBidding(!biddingAccessEnabled)}
+                  className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    biddingAccessEnabled
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                  }`}
+                >
+                  {biddingAccessEnabled ? (
+                    <>
+                      <ToggleRight className="w-4 h-4 text-emerald-400" />
+                      <span>🟢 Bidding Enabled</span>
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="w-4 h-4 text-red-400" />
+                      <span>🔴 Bidding Locked</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Add New Team Form */}
           <div className="glass-card p-6 sm:p-8 space-y-5 border border-cricket-teal/30">
             <h3 className="font-display font-bold text-2xl text-white flex items-center gap-2">
@@ -952,7 +1296,7 @@ export default function AdminDashboardPage() {
           <div className="glass-card overflow-hidden border border-cricket-border shadow-2xl">
             <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex items-center justify-between">
               <span className="font-display font-bold text-xl text-white">Registered Teams in {selectedTournament.toUpperCase()}</span>
-              <span className="text-xs text-cricket-muted font-bold">Default Purse: ₹10,000</span>
+              <span className="text-xs text-cricket-muted font-bold">Default Purse: ₹10,000 • Owner Price: ₹500 Blocked</span>
             </div>
 
             <div className="overflow-x-auto">
@@ -961,7 +1305,8 @@ export default function AdminDashboardPage() {
                   <tr>
                     <th className="px-4 py-3.5">Code</th>
                     <th className="px-4 py-3.5">Team Name (Click to Edit Squad &amp; Leaders)</th>
-                    <th className="px-4 py-3.5">Owner</th>
+                    <th className="px-4 py-3.5">Owner &amp; Login</th>
+                    <th className="px-4 py-3.5 text-center">Bidding Access</th>
                     <th className="px-4 py-3.5">Captain</th>
                     <th className="px-4 py-3.5">Vice-Captain</th>
                     <th className="px-4 py-3.5 text-right">Budget</th>
@@ -973,6 +1318,7 @@ export default function AdminDashboardPage() {
                   {teams.map((t) => {
                     const isExpanded = expandedTeamId === t.id;
                     const teamSquad = soldTransactions.filter((tx) => tx.team === t.name);
+                    const isBiddingAllowed = teamBiddingAccess[t.id] !== false && biddingAccessEnabled;
 
                     return (
                       <React.Fragment key={t.id}>
@@ -989,7 +1335,26 @@ export default function AdminDashboardPage() {
                               {isExpanded ? <ChevronUp className="w-4 h-4 text-cricket-teal" /> : <ChevronDown className="w-4 h-4" />}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-xs text-gray-300">{t.owner}</td>
+                          <td className="px-4 py-3.5 text-xs text-gray-300">
+                            <div className="font-semibold text-white">{t.owner}</div>
+                            {t.ownerEmail && (
+                              <div className="text-[11px] text-cricket-muted">{t.ownerEmail}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleTeamBidding(t.id, t.name)}
+                              className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
+                                isBiddingAllowed
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 shadow-sm shadow-emerald-500/20'
+                                  : 'bg-red-500/20 text-red-300 border-red-500/40 hover:bg-red-500/30'
+                              }`}
+                              title={isBiddingAllowed ? 'Click to revoke bidding access' : 'Click to grant bidding access'}
+                            >
+                              {isBiddingAllowed ? '🟢 Bidding Allowed' : '🔴 Locked'}
+                            </button>
+                          </td>
                           <td className="px-4 py-3.5 text-xs font-semibold text-emerald-400">
                             {t.captain || `${t.owner || t.name} (C)`}
                           </td>
@@ -1016,7 +1381,7 @@ export default function AdminDashboardPage() {
                         {/* Expandable Squad Roster & Leadership Editing Panel */}
                         {isExpanded && (
                           <tr className="bg-cricket-dark/95 border-b border-cricket-teal/30">
-                            <td colSpan={8} className="p-5 sm:p-6 space-y-5">
+                            <td colSpan={9} className="p-5 sm:p-6 space-y-5">
                               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-cricket-border pb-4">
                                 <div>
                                   <div className="text-xs font-bold uppercase tracking-wider text-cricket-teal flex items-center gap-1.5">
@@ -1178,26 +1543,99 @@ export default function AdminDashboardPage() {
       {/* ========================================================================= */}
       {activeTab === 'fixtures' && (
         <div className="space-y-8">
-          {/* Action Row: Auto Generator + Manual Add */}
+          {/* 1. Tournament Dates & Duration Manager */}
+          <div className="glass-card p-6 sm:p-7 border border-cricket-teal/30 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cricket-border pb-4">
+              <div>
+                <span className="text-xs font-bold text-cricket-teal uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4" />
+                  Official Tournament Schedule Timeline
+                </span>
+                <h3 className="font-display font-extrabold text-2xl text-white">
+                  {selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN 2026'} — Dates Management
+                </h3>
+                <p className="text-xs text-cricket-muted mt-1">
+                  Set, unset, or reschedule the tournament starting date and closing date. These dates directly reflect across the public tournament cards and match fixtures.
+                </p>
+              </div>
+
+              {tournamentStartDate && tournamentEndDate && (
+                <div className="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Scheduled: {tournamentStartDate} to {tournamentEndDate}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm items-end">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-300">Tournament Start Date</label>
+                <input
+                  type="date"
+                  value={tournamentStartDate}
+                  onChange={(e) => setTournamentStartDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-300">Tournament Closing / Final Date</label>
+                <input
+                  type="date"
+                  value={tournamentEndDate}
+                  onChange={(e) => setTournamentEndDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveTournamentDates(tournamentStartDate, tournamentEndDate)}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark font-display font-extrabold text-sm tracking-wide shadow active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Set / Update Dates</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUnsetTournamentDates}
+                  className="px-4 py-2.5 rounded-xl bg-cricket-dark hover:bg-red-500/20 text-gray-400 hover:text-red-300 border border-cricket-border text-xs font-bold transition-all"
+                  title="Unset tournament dates"
+                >
+                  Unset Dates
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Smart Auto-Scheduler according to Tournament Format */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Auto Generate Button Card */}
             <div className="glass-card p-6 flex flex-col justify-between border-t-4 border-t-cricket-teal space-y-4">
               <div className="space-y-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Smart Scheduler
+                  Smart Tournament Format Generator
                 </span>
-                <h3 className="font-display font-bold text-2xl text-white">Auto-Generate Round Robin</h3>
+                <h3 className="font-display font-bold text-2xl text-white">
+                  {selectedTournament === 'ddpl' ? 'DDPL Format Auto-Scheduler' : 'Game of RUN Format Auto-Scheduler'}
+                </h3>
                 <p className="text-xs text-cricket-muted leading-relaxed">
-                  Automatically pair all {teams.length} registered teams against each other in a fair league matrix without duplicate match-ups.
+                  {selectedTournament === 'ddpl'
+                    ? `Generates Round-Robin league matches between all ${teams.length} franchise teams + Top 4 Playoffs (Qualifier 1, Eliminator, Qualifier 2, and Grand Final).`
+                    : `Splits ${teams.length} teams into Group A & Group B, generating group round-robin clashes followed by Semi-Final 1, Semi-Final 2, and the Grand Final.`}
                 </p>
               </div>
 
               <button
-                onClick={handleAutoGenerateFixtures}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-extrabold text-base tracking-wide shadow-lg shadow-teal-500/20 active:scale-95 transition-all"
+                type="button"
+                disabled={isGeneratingFixtures || teams.length < 2}
+                onClick={handleGenerateTournamentFixtures}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-extrabold text-base tracking-wide shadow-lg shadow-teal-500/20 active:scale-95 transition-all disabled:opacity-50"
               >
-                ⚡ Generate All Fixtures ({teams.length * (teams.length - 1) / 2} Matches)
+                {isGeneratingFixtures
+                  ? '⚡ Generating Tournament Schedule...'
+                  : `⚡ Auto-Generate Schedule (${selectedTournament.toUpperCase()} Format)`}
               </button>
             </div>
 
@@ -1205,10 +1643,10 @@ export default function AdminDashboardPage() {
             <div className="glass-card p-6 md:col-span-2 space-y-4 border border-cricket-border">
               <h3 className="font-display font-bold text-xl text-white flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-cricket-teal" />
-                <span>Create Match Manually</span>
+                <span>Add Single Match Manually</span>
               </h3>
 
-              <form onSubmit={handleAddManualMatch} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <form onSubmit={handleAddManualMatch} className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-300">Team A</label>
                   <select
@@ -1243,7 +1681,28 @@ export default function AdminDashboardPage() {
                     type="text"
                     value={manualVenue}
                     onChange={(e) => setManualVenue(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-300">Match Date</label>
+                  <input
+                    type="date"
+                    value={manualDate}
+                    onChange={(e) => setManualDate(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-300">Match Time</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 10:00 AM"
+                    value={manualTime}
+                    onChange={(e) => setManualTime(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm"
                   />
                 </div>
 
@@ -1255,64 +1714,209 @@ export default function AdminDashboardPage() {
                     onChange={(e) => setManualOvers(+e.target.value)}
                     min={1}
                     max={50}
-                    className="w-full px-3 py-2 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm"
                   />
                 </div>
 
-                <div className="sm:col-span-2 flex justify-end">
+                <div className="sm:col-span-3 flex justify-end pt-1">
                   <button
                     type="submit"
                     className="px-6 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-teal/40 text-cricket-teal font-bold text-sm transition-all"
                   >
-                    + Schedule Match
+                    + Schedule Single Match
                   </button>
                 </div>
               </form>
             </div>
           </div>
 
-          {/* Matches List */}
+          {/* 3. Matches List with Inline Date, Time, and Venue Editors */}
           <div className="glass-card overflow-hidden border border-cricket-border shadow-2xl">
-            <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex items-center justify-between">
-              <span className="font-display font-bold text-xl text-white">Scheduled Matches ({matches.length})</span>
-              <span className="text-xs text-cricket-muted font-bold">Click Scorer to live-score any match</span>
+            <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="font-display font-bold text-xl text-white">
+                  Official Tournament Fixtures ({matches.length} Scheduled)
+                </span>
+                <span className="block text-xs text-cricket-muted">
+                  Rearrange dates, times, and venues below. Changes sync instantly to the Match Center.
+                </span>
+              </div>
+              <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Live Sync Enabled
+              </span>
             </div>
 
             <div className="divide-y divide-cricket-border">
-              {matches.map((m) => (
-                <div key={m.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-cricket-card/30 transition-colors">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-display font-bold text-xs text-cricket-gold uppercase">{m.round}</span>
-                      <span className="text-xs text-cricket-muted">• Venue: {m.venue} • {m.overs} Overs</span>
-                      {m.status === 'live' && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase animate-pulse">
-                          Live Now
-                        </span>
-                      )}
-                    </div>
-                    <div className="font-display font-extrabold text-2xl text-white">
-                      {m.teamA} <span className="text-cricket-muted font-normal text-lg">vs</span> {m.teamB}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Link
-                      href={`/matches/match-1`}
-                      className="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs border border-emerald-500/40 transition-all"
-                    >
-                      Open Live Console
-                    </Link>
-                    <button
-                      onClick={() => handleDeleteMatch(m.id)}
-                      className="p-2 rounded-xl text-red-400 hover:bg-red-500/20 transition-colors"
-                      title="Delete Match"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+              {matches.length === 0 ? (
+                <div className="p-10 text-center text-sm text-cricket-muted space-y-3">
+                  <p>No fixtures generated yet for {selectedTournament.toUpperCase()}.</p>
+                  <p className="text-xs">Click &ldquo;Auto-Generate Schedule&rdquo; above to generate all league matches and playoffs automatically.</p>
                 </div>
-              ))}
+              ) : (
+                matches.map((m) => {
+                  const isPlayoff = m.stage && m.stage !== 'League' && m.stage !== 'Group Stage';
+
+                  return (
+                    <div
+                      key={m.id}
+                      className={`p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-5 transition-colors ${
+                        isPlayoff ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-cricket-card/30'
+                      }`}
+                    >
+                      {/* Match Header & Opponents */}
+                      <div className="space-y-2 lg:max-w-md">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${
+                            isPlayoff
+                              ? 'bg-amber-500/20 text-cricket-gold border-amber-500/40 shadow-sm'
+                              : 'bg-cricket-dark text-cricket-teal border-cricket-teal/30'
+                          }`}>
+                            {m.stage || m.round}
+                          </span>
+
+                          {m.group && (
+                            <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold">
+                              {m.group}
+                            </span>
+                          )}
+
+                          <span className="text-xs text-cricket-muted font-medium">Match #{m.matchNumber}</span>
+
+                          {m.status === 'live' && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase animate-pulse border border-emerald-500/40">
+                              Live Now
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="font-display font-extrabold text-xl text-white">
+                          {m.teamA} <span className="text-cricket-muted font-normal text-base">vs</span> {m.teamB}
+                        </div>
+                      </div>
+
+                      {/* Inline Scheduling Controls (Date, Time, Venue, Status) */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs flex-1 lg:max-w-xl">
+                        {/* Match Date */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-cricket-muted uppercase flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-cricket-teal" />
+                            Date
+                          </label>
+                          <input
+                            type="date"
+                            value={m.matchDate || ''}
+                            onChange={(e) => {
+                              const newD = e.target.value;
+                              setMatches((prev) =>
+                                prev.map((item) => (item.id === m.id ? { ...item, matchDate: newD } : item))
+                              );
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-cricket-dark border border-cricket-border text-white text-xs focus:outline-none focus:border-cricket-teal"
+                          />
+                        </div>
+
+                        {/* Match Time */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-cricket-muted uppercase flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-cyan-400" />
+                            Time
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 10:00 AM"
+                            value={m.matchTime || ''}
+                            onChange={(e) => {
+                              const newT = e.target.value;
+                              setMatches((prev) =>
+                                prev.map((item) => (item.id === m.id ? { ...item, matchTime: newT } : item))
+                              );
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-cricket-dark border border-cricket-border text-white text-xs focus:outline-none focus:border-cricket-teal"
+                          />
+                        </div>
+
+                        {/* Venue */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-cricket-muted uppercase flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-amber-400" />
+                            Venue
+                          </label>
+                          <input
+                            type="text"
+                            value={m.venue || ''}
+                            onChange={(e) => {
+                              const newV = e.target.value;
+                              setMatches((prev) =>
+                                prev.map((item) => (item.id === m.id ? { ...item, venue: newV } : item))
+                              );
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-cricket-dark border border-cricket-border text-white text-xs focus:outline-none focus:border-cricket-teal"
+                          />
+                        </div>
+
+                        {/* Status */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-cricket-muted uppercase">Status</label>
+                          <select
+                            value={m.status || 'upcoming'}
+                            onChange={(e) => {
+                              const newS = e.target.value as any;
+                              setMatches((prev) =>
+                                prev.map((item) => (item.id === m.id ? { ...item, status: newS } : item))
+                              );
+                            }}
+                            className="w-full px-2 py-1.5 rounded-lg bg-cricket-dark border border-cricket-border text-white text-xs focus:outline-none focus:border-cricket-teal"
+                          >
+                            <option value="upcoming">Upcoming</option>
+                            <option value="live">Live Now</option>
+                            <option value="completed">Completed</option>
+                            <option value="postponed">Postponed</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={savingMatchId === m.id}
+                          onClick={() =>
+                            handleSaveMatchUpdates(m.id, {
+                              matchDate: m.matchDate,
+                              matchTime: m.matchTime,
+                              venue: m.venue,
+                              status: m.status,
+                            })
+                          }
+                          className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs flex items-center gap-1.5 transition-all"
+                          title="Save match schedule"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>{savingMatchId === m.id ? 'Saving...' : 'Save'}</span>
+                        </button>
+
+                        <Link
+                          href={`/matches/${m.id}`}
+                          target="_blank"
+                          className="px-3 py-2 rounded-xl bg-cricket-card hover:bg-cricket-cardHover text-gray-300 hover:text-white border border-cricket-border text-xs font-semibold transition-all"
+                          title="Open Match Scorer Console"
+                        >
+                          Console ↗
+                        </Link>
+
+                        <button
+                          onClick={() => handleDeleteMatch(m.id)}
+                          className="p-2 rounded-xl text-red-400 hover:bg-red-500/20 transition-colors"
+                          title="Delete Match"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

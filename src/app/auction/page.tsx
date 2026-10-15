@@ -22,7 +22,10 @@ import {
   ArrowRight,
   RefreshCw,
   Info,
-  Zap
+  Zap,
+  Play,
+  Pause,
+  Eye
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { createClient } from '@/lib/supabase/client';
@@ -134,6 +137,37 @@ export default function AuctionPage() {
   // 3D Mascot Reaction Overlay State (12 SOLD + 12 UNSOLD Variations)
   const [activeMascotEvent, setActiveMascotEvent] = useState<MascotEventData | null>(null);
 
+  // 30-Second Live Bidding Timer & Auction Automation State
+  const [countdown, setCountdown] = useState<number>(30);
+  const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('live');
+  const [biddingAccessEnabled, setBiddingAccessEnabled] = useState<boolean>(true);
+  const [teamBiddingAccess, setTeamBiddingAccess] = useState<Record<string, boolean>>({});
+  const [isAutoTransitioning, setIsAutoTransitioning] = useState<boolean>(false);
+  const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
+
+  // Franchise Owner Detection
+  const userTeam = teams.find((t) => {
+    if (!user) return false;
+    const userEmail = user.email?.toLowerCase();
+    const ownerEmail = (t as any).ownerEmail?.toLowerCase();
+    if (ownerEmail && userEmail && ownerEmail === userEmail) return true;
+    const userName = (user as any).name?.toLowerCase() || (user as any).user_metadata?.full_name?.toLowerCase();
+    const ownerName = t.owner?.toLowerCase();
+    if (userName && ownerName && (ownerName === userName || ownerName.includes(userName) || userName.includes(ownerName))) return true;
+    return false;
+  });
+
+  const isFranchiseOwner = Boolean(userTeam);
+
+  const canUserBidForTeam = (team: TeamBudget) => {
+    if (auctionStatus !== 'live' || isAutoTransitioning) return false;
+    if (isSuperAdmin) return true;
+    if (!isFranchiseOwner) return false;
+    if (!biddingAccessEnabled) return false;
+    if (teamBiddingAccess && teamBiddingAccess[team.id] === false) return false;
+    return team.id === userTeam?.id;
+  };
+
   // Toast Helper
   const showToast = (msg: string) => {
     setNotification(msg);
@@ -168,6 +202,10 @@ export default function AuctionPage() {
           if (d.playerPool && d.playerPool.length > 0) setPlayerPool(d.playerPool);
           if (d.soldTransactions) setSoldTransactions(d.soldTransactions);
           if (d.unsoldPlayers) setUnsoldPlayers(d.unsoldPlayers);
+          if (d.auctionStatus) setAuctionStatus(d.auctionStatus);
+          if (d.biddingAccessEnabled !== undefined) setBiddingAccessEnabled(d.biddingAccessEnabled);
+          if (d.teamBiddingAccess) setTeamBiddingAccess(d.teamBiddingAccess);
+          if (d.timerSeconds !== undefined) setCountdown(d.timerSeconds);
           if (d.currentLot !== undefined) {
             setCurrentLot(d.currentLot);
           } else if (d.playerPool && d.playerPool.length > 0) {
@@ -207,6 +245,11 @@ export default function AuctionPage() {
           if (data.soldTransactions !== undefined) setSoldTransactions(data.soldTransactions);
           if (data.unsoldPlayers !== undefined) setUnsoldPlayers(data.unsoldPlayers);
           if (data.playerPool !== undefined) setPlayerPool(data.playerPool);
+          if (data.countdown !== undefined) setCountdown(data.countdown);
+          if (data.auctionStatus !== undefined) setAuctionStatus(data.auctionStatus);
+          if (data.biddingAccessEnabled !== undefined) setBiddingAccessEnabled(data.biddingAccessEnabled);
+          if (data.teamBiddingAccess !== undefined) setTeamBiddingAccess(data.teamBiddingAccess);
+          if (data.transitionMessage !== undefined) setTransitionMessage(data.transitionMessage);
           if (data.mascotEvent) {
             setActiveMascotEvent({
               ...data.mascotEvent,
@@ -230,6 +273,54 @@ export default function AuctionPage() {
       supabase.removeChannel(channel);
     };
   }, [activeTournament]);
+
+  // Background fallback polling for 100% sync reliability across all devices
+  useEffect(() => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/auction/data?tournament=${activeTournament}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && json.data) {
+          const d = json.data;
+          if (d.auctionStatus && d.auctionStatus !== auctionStatus) setAuctionStatus(d.auctionStatus);
+          if (d.biddingAccessEnabled !== undefined) setBiddingAccessEnabled(d.biddingAccessEnabled);
+          if (d.teamBiddingAccess) setTeamBiddingAccess(d.teamBiddingAccess);
+        }
+      } catch (e) {
+        // quiet
+      }
+    }, 4000);
+
+    return () => clearInterval(pollInterval);
+  }, [activeTournament, auctionStatus]);
+
+  // 30-Second Bidding Countdown Timer
+  useEffect(() => {
+    if (auctionStatus !== 'live' || !currentLot || isAutoTransitioning) return;
+
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleAutoTimeout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [auctionStatus, currentLot?.id, currentLot?.currentBid, isAutoTransitioning]);
+
+  function handleAutoTimeout() {
+    if (!currentLot || isAutoTransitioning) return;
+    if (currentLot.leadingTeam) {
+      executeSold(currentLot.leadingTeam, currentLot.currentBid, currentLot.name, currentLot.role, true);
+    } else {
+      executeUnsold(currentLot.name, true);
+    }
+  }
 
   // Broadcast state changes and persist to server
   const broadcastAuctionState = (partialState: any) => {
@@ -309,7 +400,12 @@ export default function AuctionPage() {
 
   // Handle Placing a Bid
   function handleBid(team: TeamBudget) {
-    if (!currentLot) return;
+    if (!currentLot || auctionStatus !== 'live' || isAutoTransitioning) return;
+
+    if (!canUserBidForTeam(team)) {
+      alert(`Bidding Restricted: You can only bid for your assigned franchise (${userTeam?.name || 'Authorized Owners only'})!`);
+      return;
+    }
 
     const nextBid = currentLot.leadingTeam
       ? currentLot.currentBid + bidStep
@@ -338,12 +434,13 @@ export default function AuctionPage() {
     };
 
     setCurrentLot(updatedLot);
-    broadcastAuctionState({ currentLot: updatedLot });
+    setCountdown(30); // RESET 30s TIMER ON EVERY NEW BID!
+    broadcastAuctionState({ currentLot: updatedLot, countdown: 30 });
   }
 
   // Handle Undo Last Bid
   function handleUndo() {
-    if (!currentLot || currentLot.history.length === 0) return;
+    if (!currentLot || currentLot.history.length === 0 || !isSuperAdmin) return;
 
     const newHistory = [...currentLot.history];
     newHistory.pop();
@@ -367,7 +464,8 @@ export default function AuctionPage() {
     }
 
     setCurrentLot(updatedLot);
-    broadcastAuctionState({ currentLot: updatedLot });
+    setCountdown(30);
+    broadcastAuctionState({ currentLot: updatedLot, countdown: 30 });
   }
 
   // Next Player from Pool
@@ -393,24 +491,20 @@ export default function AuctionPage() {
         history: [],
       };
       setCurrentLot(newLot);
+      setCountdown(30);
+      broadcastAuctionState({ currentLot: newLot, countdown: 30 });
       return newLot;
     } else {
       setCurrentLot(null);
+      broadcastAuctionState({ currentLot: null });
       return null;
     }
   }
 
-  // Handle Sold
-  function handleSold() {
-    if (!currentLot || !currentLot.leadingTeam) {
-      alert('Cannot mark sold without any leading bid! If no bids, mark as Unsold.');
-      return;
-    }
-
-    const soldPlayer = currentLot.name;
-    const winningTeamName = currentLot.leadingTeam;
-    const finalPrice = currentLot.currentBid;
-    const playerRole = currentLot.role;
+  // Execute Sold (Manual or Auto-Timeout)
+  function executeSold(winningTeamName: string, finalPrice: number, soldPlayer: string, playerRole: string, isAuto = false) {
+    if (isAutoTransitioning) return;
+    setIsAutoTransitioning(true);
 
     const winningTeam = teams.find((t) => t.name === winningTeamName);
     const updatedTeams = teams.map((t) =>
@@ -422,7 +516,6 @@ export default function AuctionPage() {
           }
         : t
     );
-
     setTeams(updatedTeams);
 
     const newSold = [
@@ -435,11 +528,8 @@ export default function AuctionPage() {
       },
       ...soldTransactions,
     ];
-
     setSoldTransactions(newSold);
-    const nextLot = advanceToNextPlayer(newSold, unsoldPlayers);
 
-    // Trigger 3D Live Auction Mascot Celebration Overlay (12 SOLD Reactions)
     const soldEvent: MascotEventData = {
       id: `sold-${Date.now()}-${soldPlayer}`,
       type: 'sold',
@@ -449,45 +539,78 @@ export default function AuctionPage() {
       role: playerRole,
       timestamp: Date.now(),
     };
-
     setActiveMascotEvent(soldEvent);
 
+    const msg = isAuto
+      ? `⏰ 30s Up! AUTO-SOLD: ${soldPlayer} won by ${winningTeamName} for ₹${finalPrice.toLocaleString('en-IN')}! Boarding next player in 4s...`
+      : `🔨 HAMMER SOLD! ${soldPlayer} won by ${winningTeamName} for ₹${finalPrice.toLocaleString('en-IN')}! Boarding next player in 4s...`;
+    setTransitionMessage(msg);
+
     broadcastAuctionState({
-      currentLot: nextLot,
-      soldTransactions: newSold,
       teams: updatedTeams,
+      soldTransactions: newSold,
       mascotEvent: soldEvent,
+      transitionMessage: msg,
     });
 
-    showToast(`🔨 Sold! ${soldPlayer} acquired by ${winningTeamName} for ₹${finalPrice}!`);
+    // Automatic Boarding of Next Player after 4s celebration
+    setTimeout(() => {
+      advanceToNextPlayer(newSold, unsoldPlayers);
+      setIsAutoTransitioning(false);
+      setTransitionMessage(null);
+      setCountdown(30);
+    }, 4000);
   }
 
-  // Handle Unsold
-  function handleUnsold() {
-    if (!currentLot) return;
-    const passedPlayer = currentLot.name;
-    const playerRole = currentLot.role;
+  // Execute Unsold (Manual or Auto-Timeout)
+  function executeUnsold(unsoldPlayer: string, isAuto = false) {
+    if (isAutoTransitioning) return;
+    setIsAutoTransitioning(true);
 
-    const newUnsold = [...unsoldPlayers, passedPlayer];
+    const newUnsold = [...unsoldPlayers, unsoldPlayer];
     setUnsoldPlayers(newUnsold);
-    const nextLot = advanceToNextPlayer(soldTransactions, newUnsold);
 
-    // Trigger 3D Live Auction Mascot Disappointment Overlay (12 UNSOLD Reactions)
     const unsoldEvent: MascotEventData = {
-      id: `unsold-${Date.now()}-${passedPlayer}`,
+      id: `unsold-${Date.now()}-${unsoldPlayer}`,
       type: 'unsold',
-      player: passedPlayer,
-      role: playerRole,
+      player: unsoldPlayer,
       timestamp: Date.now(),
     };
-
     setActiveMascotEvent(unsoldEvent);
 
+    const msg = isAuto
+      ? `⏰ 30s Expired with 0 bids! ${unsoldPlayer} marked as UNSOLD (moved to Phase 2 Pool). Boarding next player in 4s...`
+      : `🔨 PASS AS UNSOLD: ${unsoldPlayer} moved to Phase 2 Pool. Boarding next player in 4s...`;
+    setTransitionMessage(msg);
+
     broadcastAuctionState({
-      currentLot: nextLot,
       unsoldPlayers: newUnsold,
       mascotEvent: unsoldEvent,
+      transitionMessage: msg,
     });
+
+    // Automatic Boarding of Next Player after 4s
+    setTimeout(() => {
+      advanceToNextPlayer(soldTransactions, newUnsold);
+      setIsAutoTransitioning(false);
+      setTransitionMessage(null);
+      setCountdown(30);
+    }, 4000);
+  }
+
+  // Manual Super Admin Hammer: Sold
+  function handleSold() {
+    if (!currentLot || !currentLot.leadingTeam) {
+      alert('Cannot mark sold without any leading bid! If no bids, mark as Unsold.');
+      return;
+    }
+    executeSold(currentLot.leadingTeam, currentLot.currentBid, currentLot.name, currentLot.role, false);
+  }
+
+  // Manual Super Admin Hammer: Unsold
+  function handleUnsold() {
+    if (!currentLot) return;
+    executeUnsold(currentLot.name, false);
   }
 
   // Handle Phase 2: Accelerated Unsold Round
@@ -751,83 +874,132 @@ export default function AuctionPage() {
       </div>
 
       {/* ========================================================================= */}
-      {/* ACCESS GUARD WRAPPER */}
-      {/* If unauthorized, the content below is blurred and overlaid with shield */}
+      {/* AUCTION ROLE STATUS & MASTER CONTROLS BANNER */}
       {/* ========================================================================= */}
-      <div className="relative">
-        {!isAccessAllowed && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center p-4">
-            <div className="max-w-xl w-full p-8 rounded-3xl bg-cricket-dark/95 border-2 border-amber-500/40 shadow-2xl backdrop-blur-2xl text-center space-y-6 animate-fade-in">
-              <div className="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-2xl">
-                <ShieldAlert className="w-10 h-10" />
+      <div className="space-y-4">
+        {/* Status Alert for Role */}
+        {isSuperAdmin ? (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-cricket-card to-amber-950/70 border border-amber-500/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-cricket-gold flex items-center justify-center font-bold text-lg border border-amber-500/30">
+                👑
               </div>
-
-              <div className="space-y-2">
-                <span className="inline-block px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-extrabold uppercase tracking-wider border border-amber-500/30">
-                  Access Restricted • Organizer Only
-                </span>
-                <h2 className="font-display font-black text-2xl sm:text-3xl text-white">
-                  Auction Room Restricted to Appointed Organizers
-                </h2>
-                <p className="text-sm text-gray-300 leading-relaxed max-w-md mx-auto">
-                  {!user ? (
-                    <>
-                      The Live Auction Room, real-time purse ledger, and squad export are strictly reserved for appointed <strong className="text-white">Tournament Organizers</strong> and <strong className="text-amber-400">Super Admins</strong>.
-                    </>
-                  ) : (
-                    <>
-                      You are signed in as <span className="font-mono text-xs px-2 py-0.5 rounded bg-cricket-card text-rose-300 font-bold">{user.email}</span> with role <span className="text-amber-400 font-bold uppercase">{role}</span>. Spectators and Scorers cannot participate in or view live bidding operations.
-                    </>
-                  )}
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-extrabold text-base text-white">Super Admin Auction Master Console</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                    auctionStatus === 'live'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 animate-pulse'
+                      : auctionStatus === 'paused'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                  }`}>
+                    ● Auction {auctionStatus.toUpperCase()}
+                  </span>
+                </div>
+                <p className="text-xs text-cricket-muted">
+                  Full hammer authority (Sold / Unsold), 30s auto-timer controls, live auction toggles, and franchise bidding management.
                 </p>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-3 pt-2">
-                {!user ? (
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <Link
-                      href="/admin/login"
-                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-cricket-dark font-display font-extrabold text-sm shadow-xl hover:brightness-110 transition-all flex items-center justify-center gap-2"
-                    >
-                      <span>👑 Super Admin Portal Login</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                    <Link
-                      href="/auth/login"
-                      className="px-6 py-3 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-white font-bold text-sm transition-all flex items-center justify-center"
-                    >
-                      Organizer Sign In
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs text-gray-400">
-                      Need auctioneer clearance? Contact the Super Admin to elevate your role to <strong className="text-cricket-teal">Organizer</strong>.
-                    </p>
-                    <div className="flex flex-wrap gap-3 justify-center">
-                      <Link
-                        href="/matches"
-                        className="px-5 py-2.5 rounded-xl bg-cricket-teal/20 hover:bg-cricket-teal/30 text-cricket-teal border border-cricket-teal/40 font-bold text-xs transition-all"
-                      >
-                        View Matches &amp; Fixtures
-                      </Link>
-                      <Link
-                        href="/teams"
-                        className="px-5 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-white font-bold text-xs transition-all"
-                      >
-                        View Franchises &amp; Squads
-                      </Link>
-                    </div>
-                  </div>
-                )}
+            {/* Super Admin Master Live Toggles */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  const newStatus = auctionStatus === 'live' ? 'paused' : 'live';
+                  setAuctionStatus(newStatus);
+                  broadcastAuctionState({ auctionStatus: newStatus });
+                  showToast(`Auction status changed to ${newStatus.toUpperCase()}`);
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
+                  auctionStatus === 'live'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                }`}
+              >
+                {auctionStatus === 'live' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                <span>{auctionStatus === 'live' ? 'Pause Auction' : 'Resume Live'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const newStatus = auctionStatus === 'stopped' ? 'live' : 'stopped';
+                  setAuctionStatus(newStatus);
+                  broadcastAuctionState({ auctionStatus: newStatus });
+                  showToast(newStatus === 'stopped' ? 'Auction Stopped' : 'Auction Live');
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-gray-300 text-xs font-bold transition-all"
+              >
+                <span>{auctionStatus === 'stopped' ? 'Start Auction' : 'Stop Auction'}</span>
+              </button>
+
+              <button
+                onClick={() => advanceToNextPlayer()}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cricket-teal/15 hover:bg-cricket-teal/25 border border-cricket-teal/40 text-cricket-teal text-xs font-bold transition-all"
+                title="Board next player from pool immediately"
+              >
+                <span>Board Next Player →</span>
+              </button>
+            </div>
+          </div>
+        ) : isFranchiseOwner && userTeam ? (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/70 via-cricket-card to-emerald-950/70 border border-cricket-teal/40 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cricket-teal/20 text-cricket-teal flex items-center justify-center font-display font-black text-lg border border-cricket-teal/40">
+                {userTeam.short}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-extrabold text-base text-white">Franchise Owner Bidding Mode</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                    canUserBidForTeam(userTeam)
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                      : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                  }`}>
+                    {canUserBidForTeam(userTeam) ? '✓ Bidding Allowed' : 'Bidding Locked'}
+                  </span>
+                </div>
+                <p className="text-xs text-cricket-muted">
+                  Logged in as owner of <strong className="text-white">{userTeam.name}</strong>. Tap the button below to place live bids.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <span className="text-[10px] text-cricket-muted font-bold uppercase">Your Available Purse</span>
+                <div className="font-display font-extrabold text-xl text-cricket-gold">
+                  ₹{(userTeam.allocated - userTeam.spent).toLocaleString('en-IN')}
+                </div>
               </div>
             </div>
           </div>
+        ) : (
+          <div className="p-3.5 rounded-2xl bg-cricket-card/80 border border-cricket-border shadow-md flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 text-gray-300">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold shrink-0">
+                <Eye className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-white">Live Spectator Broadcast Mode: </span>
+                <span className="text-cricket-muted">Watch bids, timers, and sold/unsold 3D mascot celebrations in real time.</span>
+              </div>
+            </div>
+            {!user ? (
+              <Link href="/auth/login" className="px-3 py-1.5 rounded-lg bg-cricket-teal/15 hover:bg-cricket-teal/25 text-cricket-teal border border-cricket-teal/30 font-bold shrink-0">
+                Sign In
+              </Link>
+            ) : (
+              <span className="text-[11px] text-cricket-gold font-mono font-semibold shrink-0">
+                Signed in: {user.email?.split('@')[0]}
+              </span>
+            )}
+          </div>
         )}
 
-        {/* The Auction Console (Blurred when access is restricted) */}
-        <div className={`transition-all duration-300 ${!isAccessAllowed ? 'filter blur-xl pointer-events-none select-none opacity-25' : ''}`}>
+        {/* The Auction Console (100% visible to all without blur) */}
+        <div>
           {/* Active Rules Snapshot Banner */}
           <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-cricket-card to-cricket-dark border border-cricket-border flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -861,11 +1033,50 @@ export default function AuctionPage() {
               {currentLot ? (
                 <div className="glass-card overflow-hidden border-2 border-cricket-teal/40 shadow-2xl space-y-6">
                   {/* Lot Hero Header */}
-                  <div className="p-6 sm:p-8 bg-gradient-to-r from-blue-950 via-cricket-card to-cricket-dark border-b border-cricket-border text-center space-y-3">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold uppercase animate-pulse">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Currently on the Block
+                  <div className="p-6 sm:p-8 bg-gradient-to-r from-blue-950 via-cricket-card to-cricket-dark border-b border-cricket-border text-center space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold uppercase animate-pulse">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Currently on the Block
+                      </div>
+
+                      {/* 30-Second Live Synchronized Countdown Timer */}
+                      <div className="flex items-center gap-2">
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-black tracking-wider shadow-md ${
+                          countdown <= 8
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse'
+                            : countdown <= 15
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            : 'bg-cricket-teal/15 text-cricket-teal border-cricket-teal/40'
+                        }`}>
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>00:{countdown < 10 ? `0${countdown}` : countdown}s</span>
+                          <span className="text-[10px] font-sans font-semibold uppercase text-gray-300 hidden sm:inline">
+                            {countdown <= 8 ? 'Closing Soon!' : 'Timer'}
+                          </span>
+                        </div>
+
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => {
+                              setCountdown(30);
+                              broadcastAuctionState({ countdown: 30 });
+                            }}
+                            title="Reset Timer to 30s"
+                            className="px-2 py-1 rounded-lg bg-cricket-dark hover:bg-cricket-card border border-cricket-border text-gray-300 text-[11px] font-bold"
+                          >
+                            ↺ 30s
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Transition / Auto-Boarding Banner */}
+                    {transitionMessage && (
+                      <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950 via-cricket-card to-blue-950 border border-cricket-teal text-emerald-300 font-display font-bold text-sm text-center shadow-lg animate-pulse">
+                        {transitionMessage}
+                      </div>
+                    )}
 
                     <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-tr from-blue-600 to-cricket-teal p-1 shadow-xl">
                       <div className="w-full h-full bg-cricket-card rounded-full flex items-center justify-center font-display font-black text-3xl text-cricket-teal">
@@ -873,10 +1084,12 @@ export default function AuctionPage() {
                       </div>
                     </div>
 
-                    <h2 className="font-display font-black text-3xl sm:text-4xl text-white">
-                      {currentLot.name}
-                    </h2>
-                    <div className="text-sm font-semibold text-cricket-muted">{currentLot.role}</div>
+                    <div>
+                      <h2 className="font-display font-black text-3xl sm:text-4xl text-white">
+                        {currentLot.name}
+                      </h2>
+                      <div className="text-sm font-semibold text-cricket-muted mt-0.5">{currentLot.role}</div>
+                    </div>
 
                     <div className="pt-2">
                       <div className="text-xs font-bold text-cricket-muted uppercase tracking-wider">
@@ -917,6 +1130,41 @@ export default function AuctionPage() {
                       </div>
                     </div>
 
+                    {/* Franchise Owner Dedicated 1-Tap Bidding Hero Card */}
+                    {isFranchiseOwner && userTeam && (
+                      <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-950 via-cricket-card to-emerald-950 border-2 border-cricket-teal shadow-2xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-lg bg-cricket-teal/20 text-cricket-teal font-display font-black flex items-center justify-center">
+                              {userTeam.short}
+                            </span>
+                            <span className="font-display font-extrabold text-base text-white">{userTeam.name}</span>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-cricket-gold">
+                            Purse: ₹{(userTeam.allocated - userTeam.spent).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+
+                        {currentLot.leadingTeam === userTeam.name ? (
+                          <div className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-center text-sm flex items-center justify-center gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                            <span>You hold the Winning Bid of ₹{currentLot.currentBid.toLocaleString('en-IN')}!</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleBid(userTeam)}
+                            disabled={!canUserBidForTeam(userTeam) || (userTeam.allocated - userTeam.spent < (currentLot.leadingTeam ? currentLot.currentBid + bidStep : currentLot.basePrice))}
+                            className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-black text-lg tracking-wide shadow-2xl shadow-emerald-500/30 active:scale-95 transition-all flex items-center justify-center gap-3 animate-pulse"
+                          >
+                            <Gavel className="w-6 h-6" />
+                            <span>
+                              PLACE BID: ₹{(currentLot.leadingTeam ? currentLot.currentBid + bidStep : currentLot.basePrice).toLocaleString('en-IN')} FOR {userTeam.short}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     {/* Team Bidding Buttons Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {teams.map((t) => {
@@ -925,6 +1173,7 @@ export default function AuctionPage() {
                           ? currentLot.currentBid + bidStep
                           : currentLot.basePrice;
                         const canBid =
+                          canUserBidForTeam(t) &&
                           remaining >= nextBid &&
                           t.playersBought < t.maxSquad &&
                           t.name !== currentLot.leadingTeam;
@@ -938,7 +1187,7 @@ export default function AuctionPage() {
                               currentLot.leadingTeam === t.name
                                 ? 'bg-cricket-teal/20 border-cricket-teal text-white shadow-lg shadow-cricket-teal/10'
                                 : canBid
-                                ? 'bg-cricket-dark/80 hover:bg-cricket-card border-cricket-border hover:border-cricket-teal/50 text-white'
+                                ? 'bg-cricket-dark/80 hover:bg-cricket-card border-cricket-border hover:border-cricket-teal/50 text-white cursor-pointer'
                                 : 'bg-cricket-dark/40 border-cricket-border/40 text-gray-500 cursor-not-allowed opacity-60'
                             }`}
                           >
@@ -962,12 +1211,14 @@ export default function AuctionPage() {
 
                             <div className="mt-3 pt-2 border-t border-cricket-border/60 flex items-center justify-between font-bold text-xs">
                               <span>
-                                {currentLot.leadingTeam === t.name ? 'Leading Bidder' : 'Bid Now:'}
+                                {currentLot.leadingTeam === t.name ? 'Leading Bidder' : canBid ? 'Bid Now:' : 'Status:'}
                               </span>
                               <span className="font-display font-extrabold text-sm text-cricket-gold">
                                 {currentLot.leadingTeam === t.name
                                   ? `₹${currentLot.currentBid}`
-                                  : `₹${nextBid}`}
+                                  : canBid
+                                  ? `₹${nextBid}`
+                                  : 'Spectator Mode'}
                               </span>
                             </div>
                           </button>
@@ -975,43 +1226,45 @@ export default function AuctionPage() {
                       })}
                     </div>
 
-                    {/* Hammer Controls: Undo, Sold, Unsold */}
-                    <div className="pt-4 border-t border-cricket-border flex flex-wrap items-center justify-between gap-4">
-                      <button
-                        onClick={handleUndo}
-                        disabled={currentLot.history.length === 0}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${
-                          currentLot.history.length > 0
-                            ? 'bg-cricket-card hover:bg-cricket-cardHover border-cricket-border text-gray-200'
-                            : 'bg-cricket-dark border-cricket-border/40 text-gray-600 cursor-not-allowed'
-                        }`}
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        <span>Undo Last Bid</span>
-                      </button>
-
-                      <div className="flex gap-3">
+                    {/* Master Hammer Controls: Only for Super Admin */}
+                    {isSuperAdmin && (
+                      <div className="pt-4 border-t border-cricket-border flex flex-wrap items-center justify-between gap-4">
                         <button
-                          onClick={handleUnsold}
-                          className="px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all active:scale-95"
-                        >
-                          Pass as Unsold
-                        </button>
-
-                        <button
-                          onClick={handleSold}
-                          disabled={!currentLot.leadingTeam}
-                          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-display font-black text-sm tracking-wide shadow-xl transition-all active:scale-95 ${
-                            currentLot.leadingTeam
-                              ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark hover:brightness-110 shadow-emerald-500/20'
-                              : 'bg-cricket-card text-gray-500 border border-cricket-border cursor-not-allowed'
+                          onClick={handleUndo}
+                          disabled={currentLot.history.length === 0}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                            currentLot.history.length > 0
+                              ? 'bg-cricket-card hover:bg-cricket-cardHover border-cricket-border text-gray-200'
+                              : 'bg-cricket-dark border-cricket-border/40 text-gray-600 cursor-not-allowed'
                           }`}
                         >
-                          <Gavel className="w-4 h-4" />
-                          <span>HAMMER: SOLD!</span>
+                          <RotateCcw className="w-4 h-4" />
+                          <span>Undo Last Bid</span>
                         </button>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={handleUnsold}
+                            className="px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all active:scale-95"
+                          >
+                            Pass as Unsold
+                          </button>
+
+                          <button
+                            onClick={handleSold}
+                            disabled={!currentLot.leadingTeam}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-display font-black text-sm tracking-wide shadow-xl transition-all active:scale-95 ${
+                              currentLot.leadingTeam
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark hover:brightness-110 shadow-emerald-500/20'
+                                : 'bg-cricket-card text-gray-500 border border-cricket-border cursor-not-allowed'
+                            }`}
+                          >
+                            <Gavel className="w-4 h-4" />
+                            <span>HAMMER: SOLD!</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               ) : (

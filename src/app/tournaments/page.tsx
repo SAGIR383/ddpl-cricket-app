@@ -18,6 +18,8 @@ interface TournamentMeta {
   bannerColor: string;
   badgeColor: string;
   status: string;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 export default function TournamentsPage() {
@@ -55,13 +57,24 @@ export default function TournamentsPage() {
   useEffect(() => {
     async function loadTournamentsData() {
       try {
-        const [ddplRulesRes, gorRulesRes, ddplRes, gorRes, ddplRegRes, gorRegRes] = await Promise.all([
+        const [
+          ddplRulesRes,
+          gorRulesRes,
+          ddplRes,
+          gorRes,
+          ddplRegRes,
+          gorRegRes,
+          ddplMatchesRes,
+          gorMatchesRes,
+        ] = await Promise.all([
           fetch('/api/admin/rules?tournament=ddpl'),
           fetch('/api/admin/rules?tournament=game-of-run'),
           fetch('/api/auction/data?tournament=ddpl'),
           fetch('/api/auction/data?tournament=game-of-run'),
           fetch('/api/tournaments/register?tournament=ddpl'),
           fetch('/api/tournaments/register?tournament=game-of-run'),
+          fetch('/api/matches?tournament=ddpl'),
+          fetch('/api/matches?tournament=game-of-run'),
         ]);
 
         let ddplOvers = 10;
@@ -106,6 +119,22 @@ export default function TournamentsPage() {
           if (gorRegData.config?.status) gorConfigStatus = gorRegData.config.status;
         }
 
+        let ddplStart: string | null = null;
+        let ddplEnd: string | null = null;
+        if (ddplMatchesRes.ok) {
+          const mData = await ddplMatchesRes.json();
+          ddplStart = mData.schedule?.startDate || null;
+          ddplEnd = mData.schedule?.endDate || null;
+        }
+
+        let gorStart: string | null = null;
+        let gorEnd: string | null = null;
+        if (gorMatchesRes.ok) {
+          const mData = await gorMatchesRes.json();
+          gorStart = mData.schedule?.startDate || null;
+          gorEnd = mData.schedule?.endDate || null;
+        }
+
         const getStatusBadge = (status: string) => {
           switch (status) {
             case 'open':
@@ -138,6 +167,8 @@ export default function TournamentsPage() {
             bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
             badgeColor: ddplBadge.color,
             status: ddplBadge.label,
+            startDate: ddplStart,
+            endDate: ddplEnd,
           },
           {
             id: 'game-of-run',
@@ -152,6 +183,8 @@ export default function TournamentsPage() {
             bannerColor: 'from-amber-950 via-orange-950 to-cricket-dark',
             badgeColor: gorBadge.color,
             status: gorBadge.label,
+            startDate: gorStart,
+            endDate: gorEnd,
           },
         ]);
       } catch (err) {
@@ -211,7 +244,14 @@ export default function TournamentsPage() {
             </div>
 
             {/* Quick Metrics */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
+              {t.startDate && t.endDate && (
+                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+                  <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Tournament Schedule: {t.startDate} to {t.endDate}</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
                   <div className="text-[11px] text-cricket-muted font-semibold">Match Overs</div>

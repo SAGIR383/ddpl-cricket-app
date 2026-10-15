@@ -38,6 +38,18 @@ const DEFAULT_STATE = {
   unsoldPlayers: [],
   currentLotIndex: 0,
   lastUpdated: new Date().toISOString(),
+  auctionStatus: 'live',
+  biddingAccessEnabled: true,
+  teamBiddingAccess: {
+    't-1': true,
+    't-2': true,
+    't-3': true,
+    't-4': true,
+  },
+  timerSeconds: 30,
+  timerRunning: true,
+  timerLastReset: new Date().toISOString(),
+  autoBoardingEnabled: true,
   currentLot: {
     id: 'p-1',
     name: 'Arindam Roy',
@@ -56,6 +68,13 @@ const EMPTY_TOURNAMENT_STATE = {
   unsoldPlayers: [],
   currentLotIndex: 0,
   lastUpdated: new Date().toISOString(),
+  auctionStatus: 'live',
+  biddingAccessEnabled: true,
+  teamBiddingAccess: {},
+  timerSeconds: 30,
+  timerRunning: true,
+  timerLastReset: new Date().toISOString(),
+  autoBoardingEnabled: true,
   currentLot: null,
 };
 
