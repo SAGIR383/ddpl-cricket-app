@@ -24,8 +24,12 @@ interface StandingTeam {
 }
 
 export default function StandingsPage() {
-  const [selectedTournament, setSelectedTournament] = useState<'ddpl' | 'game-of-run'>('ddpl');
+  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [selectedSeason, setSelectedSeason] = useState('2026');
+  const [tournamentsList, setTournamentsList] = useState<any[]>([
+    { slug: 'ddpl', name: 'DDPL', season: '2026' },
+    { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
+  ]);
   const [standings, setStandings] = useState<StandingTeam[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,8 +38,19 @@ export default function StandingsPage() {
     async function loadTournamentStandings() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/auction/data?tournament=${selectedTournament}`);
-        const data = await res.json();
+        const [regRes, auctionRes] = await Promise.all([
+          fetch('/api/tournaments/register?tournament=ddpl'),
+          fetch(`/api/auction/data?tournament=${selectedTournament}`),
+        ]);
+
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
+            setTournamentsList(regData.tournamentsList);
+          }
+        }
+
+        const data = await auctionRes.json();
 
         if (data.success && data.data && data.data.teams && data.data.teams.length > 0) {
           const auctionTeams = data.data.teams;
@@ -98,11 +113,14 @@ export default function StandingsPage() {
         <div className="flex items-center gap-3">
           <select
             value={selectedTournament}
-            onChange={(e) => setSelectedTournament(e.target.value as any)}
+            onChange={(e) => setSelectedTournament(e.target.value)}
             className="px-3.5 py-2 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
           >
-            <option value="ddpl">DDPL</option>
-            <option value="game-of-run">Game of RUN</option>
+            {tournamentsList.map((t) => (
+              <option key={t.slug} value={t.slug}>
+                {t.name}
+              </option>
+            ))}
           </select>
           <select
             value={selectedSeason}
@@ -120,7 +138,7 @@ export default function StandingsPage() {
         <div className="p-4 bg-gradient-to-r from-blue-950 via-cricket-card to-cricket-dark border-b border-cricket-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-display font-bold text-xl text-white">
-              {selectedTournament === 'ddpl' ? 'DDPL' : 'Game of RUN'} — {selectedSeason} Season Standings
+              {tournamentsList.find((t) => t.slug === selectedTournament)?.name || selectedTournament.toUpperCase()} — {selectedSeason} Season Standings
             </span>
             <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-500/30">
               Synced with Auction Squads

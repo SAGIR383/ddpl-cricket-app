@@ -21,7 +21,11 @@ interface MatchDisplay {
 }
 
 export default function MatchesPage() {
-  const [selectedTournament, setSelectedTournament] = useState<'ddpl' | 'game-of-run'>('ddpl');
+  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
+  const [tournamentsList, setTournamentsList] = useState<any[]>([
+    { slug: 'ddpl', name: 'DDPL', season: '2026' },
+    { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
+  ]);
   const [matches, setMatches] = useState<MatchDisplay[]>([]);
   const [tournamentStartDate, setTournamentStartDate] = useState<string | null>(null);
   const [tournamentEndDate, setTournamentEndDate] = useState<string | null>(null);
@@ -32,13 +36,24 @@ export default function MatchesPage() {
     async function loadMatchesFromApi() {
       setLoading(true);
       try {
-        const [matchesRes, rulesRes, auctionRes] = await Promise.all([
+        const [regRes, matchesRes, rulesRes, auctionRes] = await Promise.all([
+          fetch('/api/tournaments/register?tournament=ddpl'),
           fetch(`/api/matches?tournament=${selectedTournament}`),
           fetch(`/api/admin/rules?tournament=${selectedTournament}`),
           fetch(`/api/auction/data?tournament=${selectedTournament}`),
         ]);
 
-        let tournamentOvers = selectedTournament === 'ddpl' ? 10 : 12;
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
+            setTournamentsList(regData.tournamentsList);
+          }
+        }
+
+        const activeTourneyMeta = tournamentsList.find((t) => t.slug === selectedTournament);
+        const tourneyLabel = activeTourneyMeta?.name || selectedTournament.toUpperCase();
+
+        let tournamentOvers = selectedTournament === 'game-of-run' ? 12 : 10;
         if (rulesRes.ok) {
           const rulesData = await rulesRes.json();
           if (rulesData.success && rulesData.rules?.matchOvers) {
@@ -59,7 +74,7 @@ export default function MatchesPage() {
                 mData.schedule.matches.map((m: any) => ({
                   id: m.id,
                   matchNumber: m.matchNumber,
-                  tournament: selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN 2026',
+                  tournament: `${tourneyLabel} ${activeTourneyMeta?.season || ''}`.trim(),
                   stage: m.stage || 'League',
                   group: m.group || null,
                   title: m.title || `Match ${m.matchNumber}: ${m.teamA?.short || m.teamA} vs ${m.teamB?.short || m.teamB}`,
@@ -157,27 +172,20 @@ export default function MatchesPage() {
         </div>
 
         {/* Tournament Switcher */}
-        <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold">
-          <button
-            onClick={() => setSelectedTournament('ddpl')}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              selectedTournament === 'ddpl'
-                ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                : 'text-cricket-muted hover:text-white'
-            }`}
-          >
-            DDPL 2026 Fixtures
-          </button>
-          <button
-            onClick={() => setSelectedTournament('game-of-run')}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              selectedTournament === 'game-of-run'
-                ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                : 'text-cricket-muted hover:text-white'
-            }`}
-          >
-            Game of RUN Fixtures
-          </button>
+        <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md">
+          {tournamentsList.map((t) => (
+            <button
+              key={t.slug}
+              onClick={() => setSelectedTournament(t.slug)}
+              className={`px-3 py-2 rounded-lg transition-all whitespace-nowrap ${
+                selectedTournament === t.slug
+                  ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
+                  : 'text-cricket-muted hover:text-white'
+              }`}
+            >
+              {t.name} Fixtures
+            </button>
+          ))}
         </div>
       </div>
 
@@ -193,7 +201,7 @@ export default function MatchesPage() {
                 Official Tournament Schedule Window
               </div>
               <div className="font-display font-extrabold text-lg text-white">
-                {selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN 2026'}: {tournamentStartDate} to {tournamentEndDate}
+                {tournamentsList.find((t) => t.slug === selectedTournament)?.name || selectedTournament.toUpperCase()}: {tournamentStartDate} to {tournamentEndDate}
               </div>
             </div>
           </div>

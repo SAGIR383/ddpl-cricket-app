@@ -18,7 +18,11 @@ interface LeaderPlayer {
 
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<'mvp' | 'batting' | 'bowling'>('mvp');
-  const [selectedTournament, setSelectedTournament] = useState<'ddpl' | 'game-of-run'>('ddpl');
+  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
+  const [tournamentsList, setTournamentsList] = useState<any[]>([
+    { slug: 'ddpl', name: 'DDPL', season: '2026' },
+    { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
+  ]);
   const [acquiredPlayers, setAcquiredPlayers] = useState<LeaderPlayer[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,8 +31,19 @@ export default function LeaderboardPage() {
     async function loadAuctionPlayers() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/auction/data?tournament=${selectedTournament}`);
-        const data = await res.json();
+        const [regRes, auctionRes] = await Promise.all([
+          fetch('/api/tournaments/register?tournament=ddpl'),
+          fetch(`/api/auction/data?tournament=${selectedTournament}`),
+        ]);
+
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
+            setTournamentsList(regData.tournamentsList);
+          }
+        }
+
+        const data = await auctionRes.json();
 
         if (data.success && data.data && data.data.soldTransactions && data.data.soldTransactions.length > 0) {
           const sold = data.data.soldTransactions;
@@ -77,27 +92,20 @@ export default function LeaderboardPage() {
           </p>
         </div>
 
-        <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold">
-          <button
-            onClick={() => setSelectedTournament('ddpl')}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              selectedTournament === 'ddpl'
-                ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                : 'text-cricket-muted hover:text-white'
-            }`}
-          >
-            DDPL 2026 Leaders
-          </button>
-          <button
-            onClick={() => setSelectedTournament('game-of-run')}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              selectedTournament === 'game-of-run'
-                ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                : 'text-cricket-muted hover:text-white'
-            }`}
-          >
-            Game of RUN Leaders
-          </button>
+        <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md">
+          {tournamentsList.map((t) => (
+            <button
+              key={t.slug}
+              onClick={() => setSelectedTournament(t.slug)}
+              className={`px-3 py-2 rounded-lg transition-all whitespace-nowrap ${
+                selectedTournament === t.slug
+                  ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
+                  : 'text-cricket-muted hover:text-white'
+              }`}
+            >
+              {t.name}
+            </button>
+          ))}
         </div>
       </div>
 

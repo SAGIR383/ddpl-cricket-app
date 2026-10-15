@@ -78,7 +78,11 @@ export default function AuctionPage() {
   const supabase = createClient();
   const channelRef = useRef<any>(null);
 
-  const [activeTournament, setActiveTournament] = useState<'ddpl' | 'game-of-run'>('ddpl');
+  const [activeTournament, setActiveTournament] = useState<string>('ddpl');
+  const [tournamentsList, setTournamentsList] = useState<any[]>([
+    { slug: 'ddpl', name: 'DDPL', season: '2026' },
+    { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
+  ]);
   const [bidStep, setBidStep] = useState(50);
   const [poolIndex, setPoolIndex] = useState(0);
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'offline'>('connected');
@@ -174,10 +178,23 @@ export default function AuctionPage() {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // 1. Fetch Dynamic Rules and Persistent Auction State on Mount & Tournament Switch
+  // 1. Fetch Dynamic Rules, Tournaments, and Persistent Auction State on Mount & Tournament Switch
   useEffect(() => {
     async function loadInitialData() {
       try {
+        // Load available tournaments
+        try {
+          const regRes = await fetch('/api/tournaments/register?tournament=ddpl');
+          if (regRes.ok) {
+            const regData = await regRes.json();
+            if (regData.tournamentsList && regData.tournamentsList.length > 0) {
+              setTournamentsList(regData.tournamentsList);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to fetch tournaments list', e);
+        }
+
         // Load Rules for active tournament
         const rulesRes = await fetch(`/api/admin/rules?tournament=${activeTournament}`);
         const rulesData = await rulesRes.json();
@@ -848,27 +865,20 @@ export default function AuctionPage() {
           )}
 
           {/* Tournament Switcher */}
-          <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold">
-            <button
-              onClick={() => setActiveTournament('ddpl')}
-              className={`px-4 py-2 rounded-lg transition-all ${
-                activeTournament === 'ddpl'
-                  ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                  : 'text-cricket-muted hover:text-white'
-              }`}
-            >
-              DDPL 2026
-            </button>
-            <button
-              onClick={() => setActiveTournament('game-of-run')}
-              className={`px-4 py-2 rounded-lg transition-all ${
-                activeTournament === 'game-of-run'
-                  ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                  : 'text-cricket-muted hover:text-white'
-              }`}
-            >
-              Game of RUN
-            </button>
+          <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md">
+            {tournamentsList.map((t) => (
+              <button
+                key={t.slug}
+                onClick={() => setActiveTournament(t.slug)}
+                className={`px-3 py-2 rounded-lg transition-all whitespace-nowrap ${
+                  activeTournament === t.slug
+                    ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
+                    : 'text-cricket-muted hover:text-white'
+                }`}
+              >
+                {t.name}
+              </button>
+            ))}
           </div>
         </div>
       </div>

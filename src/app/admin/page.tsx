@@ -92,8 +92,30 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function AdminDashboardPage() {
   const { isOrganizer, isSuperAdmin, role, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'players' | 'rules' | 'roles'>('teams');
-  const [selectedTournament, setSelectedTournament] = useState<'ddpl' | 'game-of-run'>('ddpl');
+  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [selectedSeason, setSelectedSeason] = useState('2026');
+  const [tournamentsList, setTournamentsList] = useState<any[]>([
+    { slug: 'ddpl', name: 'DDPL', shortName: 'DDPL', fullName: 'Desk to Dugout Premier League (DDPL)', season: '2026', status: 'open' },
+    { slug: 'game-of-run', name: 'Game of RUN', shortName: 'GOR', fullName: 'Game of RUN Championship', season: '2026', status: 'upcoming' },
+  ]);
+  const [isCreateTournamentModalOpen, setIsCreateTournamentModalOpen] = useState(false);
+  const [isCreatingTournament, setIsCreatingTournament] = useState(false);
+  const [newTournamentForm, setNewTournamentForm] = useState({
+    name: '',
+    shortName: '',
+    fullName: '',
+    tagline: '',
+    season: '2027',
+    format: 'ddpl' as 'ddpl' | 'game-of-run',
+    overs: 10,
+    pursePerTeam: 10000,
+    ownerBasePrice: 500,
+    maxSquad: 11,
+    minSquad: 7,
+    startDate: '',
+    endDate: '',
+    status: 'open' as any,
+  });
 
   // Success Notification banner
   const [notification, setNotification] = useState<string | null>(null);
@@ -109,6 +131,92 @@ export default function AdminDashboardPage() {
   const [adminResetLoading, setAdminResetLoading] = useState(false);
   const [generatedBypassLink, setGeneratedBypassLink] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCreateTournament = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTournamentForm.name.trim()) {
+      alert('Please enter a tournament name (e.g. DDPL 2027, DDPL 2027 2.0, Game of RUN 2028).');
+      return;
+    }
+    setIsCreatingTournament(true);
+    try {
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_tournament',
+          ...newTournamentForm,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.tournament) {
+        if (data.tournamentsList) {
+          setTournamentsList(data.tournamentsList);
+        } else {
+          setTournamentsList((prev) => [...prev, data.tournament]);
+        }
+        setSelectedTournament(data.tournament.slug);
+        setIsCreateTournamentModalOpen(false);
+        showNotification(`🎉 Tournament "${data.tournament.name}" created successfully! All modules initialized.`);
+        setNewTournamentForm({
+          name: '',
+          shortName: '',
+          fullName: '',
+          tagline: '',
+          season: '2027',
+          format: 'ddpl',
+          overs: 10,
+          pursePerTeam: 10000,
+          ownerBasePrice: 500,
+          maxSquad: 11,
+          minSquad: 7,
+          startDate: '',
+          endDate: '',
+          status: 'open',
+        });
+      } else {
+        alert(data.error || 'Failed to create tournament');
+      }
+    } catch (err: any) {
+      alert(`Error creating tournament: ${err.message}`);
+    } finally {
+      setIsCreatingTournament(false);
+    }
+  };
+
+  const handleDeleteTournament = async (slug: string, name: string) => {
+    if (slug === 'ddpl' || slug === 'game-of-run') {
+      alert('Default tournaments (DDPL, Game of RUN) cannot be deleted.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This will delete all its data.`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete_tournament',
+          slug,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.tournamentsList) {
+          setTournamentsList(data.tournamentsList);
+        } else {
+          setTournamentsList((prev) => prev.filter((t) => t.slug !== slug));
+        }
+        setSelectedTournament('ddpl');
+        showNotification(`Tournament "${name}" deleted.`);
+      } else {
+        alert(data.error || 'Failed to delete tournament');
+      }
+    } catch (err: any) {
+      alert(`Error deleting tournament: ${err.message}`);
+    }
+  };
 
 
   // --- 1. TEAMS STATE ---
@@ -686,6 +794,9 @@ export default function AdminDashboardPage() {
           const regData = await regRes.json();
           if (regData.config?.status) setTournamentStatus(regData.config.status);
           if (regData.registrations) setTournamentRegistrations(regData.registrations);
+          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
+            setTournamentsList(regData.tournamentsList);
+          }
         }
 
         if (rolesRes.ok) {
@@ -969,14 +1080,43 @@ export default function AdminDashboardPage() {
               </button>
             </div>
           )}
-          <select
-            value={selectedTournament}
-            onChange={(e) => setSelectedTournament(e.target.value as any)}
-            className="px-4 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
-          >
-            <option value="ddpl">DDPL Tournament</option>
-            <option value="game-of-run">Game of RUN Championship</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedTournament}
+              onChange={(e) => setSelectedTournament(e.target.value)}
+              className="px-4 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
+            >
+              {tournamentsList.map((t) => (
+                <option key={t.slug} value={t.slug}>
+                  {t.name} {t.season ? `(${t.season})` : ''}
+                </option>
+              ))}
+            </select>
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsCreateTournamentModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold shadow-md transition-all active:scale-95"
+                title="Create a new custom tournament"
+              >
+                <PlusCircle className="w-4 h-4 text-emerald-400" />
+                <span>New Tournament</span>
+              </button>
+            )}
+            {isSuperAdmin && selectedTournament !== 'ddpl' && selectedTournament !== 'game-of-run' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const curr = tournamentsList.find((t) => t.slug === selectedTournament);
+                  handleDeleteTournament(selectedTournament, curr?.name || selectedTournament);
+                }}
+                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-bold transition-all"
+                title="Delete this custom tournament"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              </button>
+            )}
+          </div>
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(e.target.value)}
@@ -2667,6 +2807,239 @@ export default function AdminDashboardPage() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Custom Tournament Modal (Super Admin) */}
+      {isCreateTournamentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-gradient-to-b from-[#0c1631] to-[#070d1e] border border-cricket-teal/40 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 my-8 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsCreateTournamentModalOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center justify-center">
+                <Trophy className="w-6 h-6 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="font-display font-extrabold text-2xl text-white">Create New Tournament</h3>
+                <p className="text-xs text-cricket-muted">
+                  Provision a new custom cricket tournament with live auction, fixtures, roster, and standings.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateTournament} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Tournament Name <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. DDPL 2027 or DDPL 2027 2.0"
+                    value={newTournamentForm.name}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Slug will be auto-generated for URLs.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Short Code / Acronym
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. DDPL27 or GOR28"
+                    value={newTournamentForm.shortName}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, shortName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Full Official Title
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Desk to Dugout Premier League 2027"
+                    value={newTournamentForm.fullName}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, fullName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">
+                    Season Year
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="2027"
+                    value={newTournamentForm.season}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, season: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">
+                  Tagline / Description
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. High-octane inter-departmental corporate cricket championship"
+                  value={newTournamentForm.tagline}
+                  onChange={(e) => setNewTournamentForm({ ...newTournamentForm, tagline: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">Tournament Format</label>
+                  <select
+                    value={newTournamentForm.format}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, format: e.target.value as any })}
+                    className="w-full px-3 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
+                  >
+                    <option value="ddpl">DDPL (Single League + Top 4 Playoffs)</option>
+                    <option value="game-of-run">Game of RUN (Group Stage + Playoffs)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">Match Overs</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={50}
+                    value={newTournamentForm.overs}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, overs: Number(e.target.value) || 10 })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">Registration Status</label>
+                  <select
+                    value={newTournamentForm.status}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, status: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
+                  >
+                    <option value="open">● Registration Open</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="auction">● Auction Live</option>
+                    <option value="ongoing">● Tournament Ongoing</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">Team Purse (₹ / Pts)</label>
+                  <input
+                    type="number"
+                    step={500}
+                    value={newTournamentForm.pursePerTeam}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, pursePerTeam: Number(e.target.value) || 10000 })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">Owner Blocked Price</label>
+                  <input
+                    type="number"
+                    step={100}
+                    value={newTournamentForm.ownerBasePrice}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, ownerBasePrice: Number(e.target.value) || 500 })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">Squad Range (Min - Max)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={newTournamentForm.minSquad}
+                      onChange={(e) => setNewTournamentForm({ ...newTournamentForm, minSquad: Number(e.target.value) || 7 })}
+                      className="w-1/2 px-2.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold text-center"
+                      placeholder="Min"
+                    />
+                    <span className="text-gray-400 text-xs">to</span>
+                    <input
+                      type="number"
+                      value={newTournamentForm.maxSquad}
+                      onChange={(e) => setNewTournamentForm({ ...newTournamentForm, maxSquad: Number(e.target.value) || 11 })}
+                      className="w-1/2 px-2.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold text-center"
+                      placeholder="Max"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">Start Date (Optional)</label>
+                  <input
+                    type="date"
+                    value={newTournamentForm.startDate}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, startDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 mb-1">End Date (Optional)</label>
+                  <input
+                    type="date"
+                    value={newTournamentForm.endDate}
+                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, endDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-cricket-border">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateTournamentModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-gray-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingTournament}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-xs shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  {isCreatingTournament ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Creating Tournament...</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Create Tournament</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

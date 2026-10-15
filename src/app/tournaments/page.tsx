@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Trophy, Calendar, Users, ChevronRight, Award, PlusCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TournamentMeta {
   id: string;
@@ -23,172 +24,129 @@ interface TournamentMeta {
 }
 
 export default function TournamentsPage() {
-  const [tournaments, setTournaments] = useState<TournamentMeta[]>([
-    {
-      id: 'ddpl',
-      name: 'DDPL',
-      logo: '/images/ddpl-logo.jpg',
-      fullName: 'Desk to Dugout Premier League (DDPL)',
-      tagline: 'High-octane inter-departmental cricket tournament',
-      activeSeason: '2026',
-      totalSeasons: 2,
-      teamsCount: 0,
-      overs: 10,
-      bannerColor: 'from-blue-900 to-indigo-950',
-      badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      status: 'Live & Active',
-    },
-    {
-      id: 'game-of-run',
-      name: 'Game of RUN',
-      logo: '/images/game-of-run-logo.jpg',
-      fullName: 'Game of RUN Championship',
-      tagline: 'The official annual corporate cricket championship',
-      activeSeason: '2026',
-      totalSeasons: 2,
-      teamsCount: 0,
-      overs: 12,
-      bannerColor: 'from-amber-950 to-orange-950',
-      badgeColor: 'bg-amber-500/20 text-cricket-gold border-amber-500/30',
-      status: 'Registrations Open',
-    },
-  ]);
+  const { isSuperAdmin } = useAuth();
+  const [tournaments, setTournaments] = useState<TournamentMeta[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'open':
+        return { label: '● Registration Open', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse' };
+      case 'upcoming':
+        return { label: 'Upcoming Tournament', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
+      case 'auction':
+        return { label: '● Auction Live', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30 animate-pulse' };
+      case 'ongoing':
+        return { label: '● Tournament Ongoing', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30 animate-pulse' };
+      default:
+        return { label: 'Upcoming', color: 'bg-gray-500/20 text-gray-300 border-gray-500/30' };
+    }
+  };
 
   useEffect(() => {
     async function loadTournamentsData() {
+      setLoading(true);
       try {
-        const [
-          ddplRulesRes,
-          gorRulesRes,
-          ddplRes,
-          gorRes,
-          ddplRegRes,
-          gorRegRes,
-          ddplMatchesRes,
-          gorMatchesRes,
-        ] = await Promise.all([
-          fetch('/api/admin/rules?tournament=ddpl'),
-          fetch('/api/admin/rules?tournament=game-of-run'),
-          fetch('/api/auction/data?tournament=ddpl'),
-          fetch('/api/auction/data?tournament=game-of-run'),
-          fetch('/api/tournaments/register?tournament=ddpl'),
-          fetch('/api/tournaments/register?tournament=game-of-run'),
-          fetch('/api/matches?tournament=ddpl'),
-          fetch('/api/matches?tournament=game-of-run'),
-        ]);
-
-        let ddplOvers = 10;
-        let gorOvers = 12;
-
-        if (ddplRulesRes.ok) {
-          const ddplRulesData = await ddplRulesRes.json();
-          if (ddplRulesData.rules?.matchOvers) {
-            ddplOvers = ddplRulesData.rules.matchOvers;
+        const regRes = await fetch('/api/tournaments/register?tournament=ddpl');
+        let configsList: any[] = [];
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
+            configsList = regData.tournamentsList;
           }
         }
 
-        if (gorRulesRes.ok) {
-          const gorRulesData = await gorRulesRes.json();
-          if (gorRulesData.rules?.matchOvers) {
-            gorOvers = gorRulesData.rules.matchOvers;
-          }
+        if (configsList.length === 0) {
+          configsList = [
+            {
+              slug: 'ddpl',
+              name: 'DDPL',
+              fullName: 'Desk to Dugout Premier League (DDPL)',
+              tagline: 'High-octane inter-departmental corporate cricket tournament',
+              season: '2026',
+              totalSeasons: 2,
+              overs: 10,
+              bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
+              logo: '/images/ddpl-logo.jpg',
+              status: 'open',
+            },
+            {
+              slug: 'game-of-run',
+              name: 'Game of RUN',
+              fullName: 'Game of RUN Championship',
+              tagline: 'The official annual corporate cricket championship',
+              season: '2026',
+              totalSeasons: 2,
+              overs: 12,
+              bannerColor: 'from-amber-950 via-orange-950 to-cricket-dark',
+              logo: '/images/game-of-run-logo.jpg',
+              status: 'upcoming',
+            },
+          ];
         }
 
-        let ddplTeamsCount = 0;
-        if (ddplRes.ok) {
-          const ddplData = await ddplRes.json();
-          ddplTeamsCount = ddplData.data?.teams?.length || 0;
-        }
+        const populatedTournaments: TournamentMeta[] = await Promise.all(
+          configsList.map(async (cfg: any) => {
+            const slug = cfg.slug || 'ddpl';
+            let teamsCount = 0;
+            let overs = cfg.overs || (slug === 'game-of-run' ? 12 : 10);
+            let startDate = cfg.startDate || null;
+            let endDate = cfg.endDate || null;
 
-        let gorTeamsCount = 0;
-        if (gorRes.ok) {
-          const gorData = await gorRes.json();
-          gorTeamsCount = gorData.data?.teams?.length || 0;
-        }
+            try {
+              const [aucRes, rulesRes, matchRes] = await Promise.all([
+                fetch(`/api/auction/data?tournament=${slug}`),
+                fetch(`/api/admin/rules?tournament=${slug}`),
+                fetch(`/api/matches?tournament=${slug}`),
+              ]);
 
-        let ddplConfigStatus = 'open';
-        let gorConfigStatus = 'upcoming';
+              if (aucRes.ok) {
+                const aData = await aucRes.json();
+                teamsCount = aData.data?.teams?.length || 0;
+              }
 
-        if (ddplRegRes.ok) {
-          const ddplRegData = await ddplRegRes.json();
-          if (ddplRegData.config?.status) ddplConfigStatus = ddplRegData.config.status;
-        }
+              if (rulesRes.ok) {
+                const rData = await rulesRes.json();
+                if (rData.rules?.matchOvers) overs = rData.rules.matchOvers;
+              }
 
-        if (gorRegRes.ok) {
-          const gorRegData = await gorRegRes.json();
-          if (gorRegData.config?.status) gorConfigStatus = gorRegData.config.status;
-        }
+              if (matchRes.ok) {
+                const mData = await matchRes.json();
+                if (mData.schedule?.startDate) startDate = mData.schedule.startDate;
+                if (mData.schedule?.endDate) endDate = mData.schedule.endDate;
+              }
+            } catch (err) {
+              console.warn(`Could not load additional stats for ${slug}:`, err);
+            }
 
-        let ddplStart: string | null = null;
-        let ddplEnd: string | null = null;
-        if (ddplMatchesRes.ok) {
-          const mData = await ddplMatchesRes.json();
-          ddplStart = mData.schedule?.startDate || null;
-          ddplEnd = mData.schedule?.endDate || null;
-        }
+            const badge = getStatusBadge(cfg.status || 'upcoming');
+            const logo = cfg.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg');
+            const bannerColor = cfg.bannerColor || 'from-blue-900 via-indigo-950 to-cricket-dark';
 
-        let gorStart: string | null = null;
-        let gorEnd: string | null = null;
-        if (gorMatchesRes.ok) {
-          const mData = await gorMatchesRes.json();
-          gorStart = mData.schedule?.startDate || null;
-          gorEnd = mData.schedule?.endDate || null;
-        }
+            return {
+              id: slug,
+              name: cfg.name || slug.toUpperCase(),
+              logo,
+              fullName: cfg.fullName || `${cfg.name || slug.toUpperCase()} Championship`,
+              tagline: cfg.tagline || 'Official corporate cricket tournament',
+              activeSeason: cfg.season || '2026',
+              totalSeasons: cfg.totalSeasons || 1,
+              teamsCount,
+              overs,
+              bannerColor,
+              badgeColor: badge.color,
+              status: badge.label,
+              startDate,
+              endDate,
+            };
+          })
+        );
 
-        const getStatusBadge = (status: string) => {
-          switch (status) {
-            case 'open':
-              return { label: '● Registration Open', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse' };
-            case 'upcoming':
-              return { label: 'Upcoming Tournament', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
-            case 'auction':
-              return { label: '● Auction Live', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30 animate-pulse' };
-            case 'ongoing':
-              return { label: '● Tournament Ongoing', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30 animate-pulse' };
-            default:
-              return { label: 'Upcoming', color: 'bg-gray-500/20 text-gray-300 border-gray-500/30' };
-          }
-        };
-
-        const ddplBadge = getStatusBadge(ddplConfigStatus);
-        const gorBadge = getStatusBadge(gorConfigStatus);
-
-        setTournaments([
-          {
-            id: 'ddpl',
-            name: 'DDPL',
-            logo: '/images/ddpl-logo.jpg',
-            fullName: 'Desk to Dugout Premier League (DDPL)',
-            tagline: 'High-octane inter-departmental corporate cricket tournament',
-            activeSeason: '2026',
-            totalSeasons: 2,
-            teamsCount: ddplTeamsCount,
-            overs: ddplOvers,
-            bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
-            badgeColor: ddplBadge.color,
-            status: ddplBadge.label,
-            startDate: ddplStart,
-            endDate: ddplEnd,
-          },
-          {
-            id: 'game-of-run',
-            name: 'Game of RUN',
-            logo: '/images/game-of-run-logo.jpg',
-            fullName: 'Game of RUN Championship',
-            tagline: 'The official annual corporate cricket championship',
-            activeSeason: '2026',
-            totalSeasons: 2,
-            teamsCount: gorTeamsCount,
-            overs: gorOvers,
-            bannerColor: 'from-amber-950 via-orange-950 to-cricket-dark',
-            badgeColor: gorBadge.color,
-            status: gorBadge.label,
-            startDate: gorStart,
-            endDate: gorEnd,
-          },
-        ]);
+        setTournaments(populatedTournaments);
       } catch (err) {
         console.error('Failed to load tournaments directory data:', err);
+      } finally {
+        setLoading(false);
       }
     }
 
@@ -206,6 +164,16 @@ export default function TournamentsPage() {
             Browse all official corporate cricket tournaments, active seasons, and historical archives.
           </p>
         </div>
+
+        {isSuperAdmin && (
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>+ Create Tournament</span>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

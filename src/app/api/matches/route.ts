@@ -4,7 +4,7 @@ import { getStoreData, setStoreData } from '@/lib/supabase/store';
 export interface MatchFixture {
   id: string;
   matchNumber: number;
-  tournament: 'ddpl' | 'game-of-run';
+  tournament: string;
   stage: 'League' | 'Group Stage' | 'Qualifier 1' | 'Eliminator' | 'Qualifier 2' | 'Semi-Final' | 'Final';
   group?: 'Group A' | 'Group B' | null;
   title: string;
@@ -28,7 +28,7 @@ export interface MatchFixture {
 }
 
 export interface TournamentScheduleState {
-  tournament: 'ddpl' | 'game-of-run';
+  tournament: string;
   startDate?: string | null;
   endDate?: string | null;
   format: 'round-robin-playoffs' | 'group-stage-playoffs';
@@ -37,7 +37,7 @@ export interface TournamentScheduleState {
 }
 
 // Generate DDPL fixtures: Round-Robin (all teams play each other) + Top 4 Playoffs
-function generateDdplFixtures(teams: any[], tournamentOvers = 10): MatchFixture[] {
+function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug = 'ddpl'): MatchFixture[] {
   const fixtures: MatchFixture[] = [];
   let matchNum = 1;
 
@@ -45,9 +45,9 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10): MatchFixture[
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
         fixtures.push({
-          id: `ddpl-m${matchNum}`,
+          id: `${tournamentSlug}-m${matchNum}`,
           matchNumber: matchNum,
-          tournament: 'ddpl',
+          tournament: tournamentSlug,
           stage: 'League',
           title: `Match ${matchNum}: ${teams[i].short} vs ${teams[j].short}`,
           teamA: { name: teams[i].name, short: teams[i].short },
@@ -65,9 +65,9 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10): MatchFixture[
 
   // Add standard Top-4 Playoff fixtures
   fixtures.push({
-    id: `ddpl-m${matchNum}`,
+    id: `${tournamentSlug}-m${matchNum}`,
     matchNumber: matchNum,
-    tournament: 'ddpl',
+    tournament: tournamentSlug,
     stage: 'Qualifier 1',
     title: `Qualifier 1: Rank #1 vs Rank #2`,
     teamA: { name: 'Rank #1 Team', short: 'T1' },
@@ -81,9 +81,9 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10): MatchFixture[
   matchNum++;
 
   fixtures.push({
-    id: `ddpl-m${matchNum}`,
+    id: `${tournamentSlug}-m${matchNum}`,
     matchNumber: matchNum,
-    tournament: 'ddpl',
+    tournament: tournamentSlug,
     stage: 'Eliminator',
     title: `Eliminator: Rank #3 vs Rank #4`,
     teamA: { name: 'Rank #3 Team', short: 'T3' },
@@ -97,9 +97,9 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10): MatchFixture[
   matchNum++;
 
   fixtures.push({
-    id: `ddpl-m${matchNum}`,
+    id: `${tournamentSlug}-m${matchNum}`,
     matchNumber: matchNum,
-    tournament: 'ddpl',
+    tournament: tournamentSlug,
     stage: 'Qualifier 2',
     title: `Qualifier 2: Loser Q1 vs Winner Eliminator`,
     teamA: { name: 'Loser of Q1', short: 'LQ1' },
@@ -113,9 +113,9 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10): MatchFixture[
   matchNum++;
 
   fixtures.push({
-    id: `ddpl-m${matchNum}`,
+    id: `${tournamentSlug}-m${matchNum}`,
     matchNumber: matchNum,
-    tournament: 'ddpl',
+    tournament: tournamentSlug,
     stage: 'Final',
     title: `Grand Final: Winner Q1 vs Winner Q2`,
     teamA: { name: 'Winner of Q1', short: 'WQ1' },
@@ -124,14 +124,14 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10): MatchFixture[
     matchDate: null,
     matchTime: '06:30 PM',
     status: 'upcoming',
-    summary: 'DDPL Championship Trophy Match.',
+    summary: 'Championship Trophy Match.',
   });
 
   return fixtures;
 }
 
 // Generate Game of RUN fixtures: Group Stage (Group A and Group B) + Playoffs + Final
-function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12): MatchFixture[] {
+function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12, tournamentSlug = 'game-of-run'): MatchFixture[] {
   const fixtures: MatchFixture[] = [];
   let matchNum = 1;
 
@@ -143,9 +143,9 @@ function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12): MatchFix
   for (let i = 0; i < groupA.length; i++) {
     for (let j = i + 1; j < groupA.length; j++) {
       fixtures.push({
-        id: `gor-m${matchNum}`,
+        id: `${tournamentSlug}-m${matchNum}`,
         matchNumber: matchNum,
-        tournament: 'game-of-run',
+        tournament: tournamentSlug,
         stage: 'Group Stage',
         group: 'Group A',
         title: `Group A: ${groupA[i].short} vs ${groupA[j].short}`,
@@ -165,9 +165,9 @@ function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12): MatchFix
   for (let i = 0; i < groupB.length; i++) {
     for (let j = i + 1; j < groupB.length; j++) {
       fixtures.push({
-        id: `gor-m${matchNum}`,
+        id: `${tournamentSlug}-m${matchNum}`,
         matchNumber: matchNum,
-        tournament: 'game-of-run',
+        tournament: tournamentSlug,
         stage: 'Group Stage',
         group: 'Group B',
         title: `Group B: ${groupB[i].short} vs ${groupB[j].short}`,
@@ -185,9 +185,9 @@ function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12): MatchFix
 
   // Semi-Final 1: Group A #1 vs Group B #2
   fixtures.push({
-    id: `gor-m${matchNum}`,
+    id: `${tournamentSlug}-m${matchNum}`,
     matchNumber: matchNum,
-    tournament: 'game-of-run',
+    tournament: tournamentSlug,
     stage: 'Semi-Final',
     title: `Semi-Final 1: Group A #1 vs Group B #2`,
     teamA: { name: 'Group A Winner', short: 'GA1' },
@@ -196,15 +196,15 @@ function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12): MatchFix
     matchDate: null,
     matchTime: '10:00 AM',
     status: 'upcoming',
-    summary: 'Winner advances to Game of RUN Grand Final.',
+    summary: 'Winner advances to Championship Grand Final.',
   });
   matchNum++;
 
   // Semi-Final 2: Group B #1 vs Group A #2
   fixtures.push({
-    id: `gor-m${matchNum}`,
+    id: `${tournamentSlug}-m${matchNum}`,
     matchNumber: matchNum,
-    tournament: 'game-of-run',
+    tournament: tournamentSlug,
     stage: 'Semi-Final',
     title: `Semi-Final 2: Group B #1 vs Group A #2`,
     teamA: { name: 'Group B Winner', short: 'GB1' },
@@ -213,17 +213,17 @@ function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12): MatchFix
     matchDate: null,
     matchTime: '02:30 PM',
     status: 'upcoming',
-    summary: 'Winner advances to Game of RUN Grand Final.',
+    summary: 'Winner advances to Championship Grand Final.',
   });
   matchNum++;
 
   // Final: Winner SF1 vs Winner SF2
   fixtures.push({
-    id: `gor-m${matchNum}`,
+    id: `${tournamentSlug}-m${matchNum}`,
     matchNumber: matchNum,
-    tournament: 'game-of-run',
+    tournament: tournamentSlug,
     stage: 'Final',
-    title: `Game of RUN Championship Final: Winner SF1 vs Winner SF2`,
+    title: `Grand Championship Final: Winner SF1 vs Winner SF2`,
     teamA: { name: 'Winner SF1', short: 'WSF1' },
     teamB: { name: 'Winner SF2', short: 'WSF2' },
     venue: 'Corporate Sports Complex',
@@ -239,13 +239,13 @@ function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12): MatchFix
 // GET /api/matches?tournament=ddpl
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase() as 'ddpl' | 'game-of-run';
+  const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
 
   const defaultSchedule: TournamentScheduleState = {
     tournament,
     startDate: null,
     endDate: null,
-    format: tournament === 'ddpl' ? 'round-robin-playoffs' : 'group-stage-playoffs',
+    format: tournament.includes('game-of-run') || tournament.includes('gor') ? 'group-stage-playoffs' : 'round-robin-playoffs',
     matches: [],
     lastUpdated: new Date().toISOString(),
   };
@@ -267,7 +267,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const tournament = (body.tournament || 'ddpl').toLowerCase() as 'ddpl' | 'game-of-run';
+    const tournament = (body.tournament || 'ddpl').toLowerCase();
     const action = body.action;
 
     let schedule = await getStoreData<TournamentScheduleState>(
@@ -277,7 +277,7 @@ export async function POST(req: Request) {
         tournament,
         startDate: null,
         endDate: null,
-        format: tournament === 'ddpl' ? 'round-robin-playoffs' : 'group-stage-playoffs',
+        format: tournament.includes('game-of-run') || tournament.includes('gor') ? 'group-stage-playoffs' : 'round-robin-playoffs',
         matches: [],
         lastUpdated: new Date().toISOString(),
       }
@@ -286,18 +286,19 @@ export async function POST(req: Request) {
     // 1. GENERATE SCHEDULE ACCORDING TO TOURNAMENT FORMAT
     if (action === 'generate_schedule') {
       const teams = body.teams || [];
-      const overs = body.overs || (tournament === 'ddpl' ? 10 : 12);
+      const format = body.format || (tournament.includes('game-of-run') || tournament.includes('gor') ? 'game-of-run' : 'ddpl');
+      const overs = body.overs || (format === 'game-of-run' ? 12 : 10);
 
       let generatedMatches: MatchFixture[];
-      if (tournament === 'ddpl') {
-        generatedMatches = generateDdplFixtures(teams, overs);
+      if (format === 'game-of-run' || format === 'group-stage-playoffs') {
+        generatedMatches = generateGameOfRunFixtures(teams, overs, tournament);
       } else {
-        generatedMatches = generateGameOfRunFixtures(teams, overs);
+        generatedMatches = generateDdplFixtures(teams, overs, tournament);
       }
 
       schedule = {
         ...schedule,
-        format: tournament === 'ddpl' ? 'round-robin-playoffs' : 'group-stage-playoffs',
+        format: format === 'game-of-run' || format === 'group-stage-playoffs' ? 'group-stage-playoffs' : 'round-robin-playoffs',
         matches: generatedMatches,
         lastUpdated: new Date().toISOString(),
       };

@@ -107,7 +107,7 @@ export async function GET(req: Request) {
   const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
 
   const allData = await readAllAuctionData();
-  const tournamentData = allData.tournaments?.[tournament] || allData.tournaments?.ddpl || DEFAULT_STATE;
+  const tournamentData = allData.tournaments?.[tournament] || (tournament === 'ddpl' ? DEFAULT_STATE : EMPTY_TOURNAMENT_STATE);
 
   return NextResponse.json({
     success: true,

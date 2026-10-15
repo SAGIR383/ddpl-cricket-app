@@ -20,31 +20,70 @@ export interface TournamentPlayerRegistration {
 export interface TournamentConfig {
   slug: string;
   name: string;
+  shortName?: string;
+  fullName?: string;
+  tagline?: string;
+  season?: string;
+  totalSeasons?: number;
+  overs?: number;
+  format?: 'ddpl' | 'game-of-run' | 'round-robin-playoffs' | 'group-stage-playoffs';
+  bannerColor?: string;
+  badgeColor?: string;
+  logo?: string;
   status: 'upcoming' | 'open' | 'closed' | 'auction' | 'ongoing' | 'completed';
   pursePerTeam: number;
   ownerBasePrice: number;
   maxSquad: number;
   minSquad: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  createdAt?: string;
 }
 
 const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
   ddpl: {
     slug: 'ddpl',
-    name: 'Desk to Dugout Premier League (DDPL)',
-    status: 'open', // Open for DDPL registration
+    name: 'DDPL',
+    shortName: 'DDPL',
+    fullName: 'Desk to Dugout Premier League (DDPL)',
+    tagline: 'High-octane inter-departmental corporate cricket tournament',
+    season: '2026',
+    totalSeasons: 2,
+    overs: 10,
+    format: 'ddpl',
+    bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
+    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse',
+    logo: '/images/ddpl-logo.jpg',
+    status: 'open',
     pursePerTeam: 10000,
     ownerBasePrice: 500,
     maxSquad: 11,
-    minSquad: 9,
+    minSquad: 7,
+    startDate: null,
+    endDate: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
   },
   'game-of-run': {
     slug: 'game-of-run',
-    name: 'Game of RUN Championship',
-    status: 'upcoming', // Upcoming tournament
+    name: 'Game of RUN',
+    shortName: 'GOR',
+    fullName: 'Game of RUN Championship',
+    tagline: 'The official annual corporate cricket championship',
+    season: '2026',
+    totalSeasons: 2,
+    overs: 12,
+    format: 'game-of-run',
+    bannerColor: 'from-amber-950 via-orange-950 to-cricket-dark',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    logo: '/images/game-of-run-logo.jpg',
+    status: 'upcoming',
     pursePerTeam: 10000,
     ownerBasePrice: 500,
     maxSquad: 11,
-    minSquad: 9,
+    minSquad: 7,
+    startDate: null,
+    endDate: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
   },
 };
 
@@ -62,11 +101,24 @@ export async function GET(req: Request) {
   const config = configs[tournament] || {
     slug: tournament,
     name: tournament.toUpperCase(),
-    status: tournament === 'ddpl' ? 'open' : 'upcoming',
+    shortName: tournament.slice(0, 4).toUpperCase(),
+    fullName: tournament.toUpperCase(),
+    tagline: `${tournament.toUpperCase()} Cricket Tournament`,
+    season: '2026',
+    totalSeasons: 1,
+    overs: 10,
+    format: 'ddpl',
+    bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
+    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
+    logo: '/images/ddpl-logo.jpg',
+    status: 'upcoming',
     pursePerTeam: 10000,
     ownerBasePrice: 500,
     maxSquad: 11,
-    minSquad: 9,
+    minSquad: 7,
+    startDate: null,
+    endDate: null,
+    createdAt: new Date().toISOString(),
   };
 
   const registrations = await getStoreData<TournamentPlayerRegistration[]>(
@@ -75,11 +127,14 @@ export async function GET(req: Request) {
     []
   );
 
+  const tournamentsList = Object.values(configs);
+
   return NextResponse.json({
     success: true,
     tournament,
     config,
     allConfigs: configs,
+    tournamentsList,
     registrations,
     count: registrations.length,
   });
@@ -361,6 +416,162 @@ export async function POST(req: Request) {
         success: true,
         message: `Synced ${newPool.length} registered players into ${tSlug.toUpperCase()} auction pool!`,
         count: newPool.length,
+      });
+    }
+
+    // 5. CREATE CUSTOM TOURNAMENT (Super Admin)
+    if (action === 'create_tournament') {
+      const { 
+        name, 
+        slug: rawSlug, 
+        shortName, 
+        fullName, 
+        tagline, 
+        season = '2027', 
+        format = 'ddpl', 
+        overs = 10,
+        pursePerTeam = 10000,
+        ownerBasePrice = 500,
+        maxSquad = 11,
+        minSquad = 7,
+        logo,
+        bannerColor,
+        status = 'open',
+        startDate = null,
+        endDate = null,
+      } = body;
+
+      if (!name || !name.trim()) {
+        return NextResponse.json({ success: false, error: 'Tournament name is required' }, { status: 400 });
+      }
+
+      const generatedSlug = (rawSlug || name)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
+      if (!generatedSlug) {
+        return NextResponse.json({ success: false, error: 'Invalid tournament slug' }, { status: 400 });
+      }
+
+      const configs = await getStoreData<Record<string, TournamentConfig>>(
+        'tournament_configs',
+        'tournament_configs.json',
+        DEFAULT_CONFIGS
+      );
+
+      const resolvedShort = (shortName || name.split(' ').map((w: string) => w[0]).join('').slice(0, 4)).toUpperCase();
+      const resolvedFormat = format === 'game-of-run' ? 'game-of-run' : 'ddpl';
+      const resolvedOvers = Number(overs) || (resolvedFormat === 'game-of-run' ? 12 : 10);
+      const resolvedBanner = bannerColor || (resolvedFormat === 'game-of-run' ? 'from-amber-950 via-orange-950 to-cricket-dark' : 'from-blue-900 via-indigo-950 to-cricket-dark');
+      const resolvedLogo = logo || (resolvedFormat === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg');
+
+      const newTournamentConfig: TournamentConfig = {
+        slug: generatedSlug,
+        name: name.trim(),
+        shortName: resolvedShort,
+        fullName: fullName?.trim() || `${name.trim()} Championship`,
+        tagline: tagline?.trim() || `Official ${name.trim()} Corporate Cricket Tournament`,
+        season: String(season),
+        totalSeasons: 1,
+        overs: resolvedOvers,
+        format: resolvedFormat,
+        bannerColor: resolvedBanner,
+        badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse',
+        logo: resolvedLogo,
+        status: status || 'open',
+        pursePerTeam: Number(pursePerTeam) || 10000,
+        ownerBasePrice: Number(ownerBasePrice) || 500,
+        maxSquad: Number(maxSquad) || 11,
+        minSquad: Number(minSquad) || 7,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        createdAt: new Date().toISOString(),
+      };
+
+      configs[generatedSlug] = newTournamentConfig;
+      await setStoreData('tournament_configs', configs, 'tournament_configs.json');
+
+      // 1. Initialize Auction State for this tournament
+      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      if (!allAuction.tournaments) allAuction.tournaments = {};
+      if (!allAuction.tournaments[generatedSlug]) {
+        allAuction.tournaments[generatedSlug] = {
+          teams: [],
+          playerPool: [],
+          soldTransactions: [],
+          unsoldPlayers: [],
+          currentLotIndex: 0,
+          lastUpdated: new Date().toISOString(),
+          auctionStatus: 'live',
+          biddingAccessEnabled: true,
+          teamBiddingAccess: {},
+          timerSeconds: 30,
+          timerRunning: true,
+          timerLastReset: new Date().toISOString(),
+          autoBoardingEnabled: true,
+          currentLot: null,
+        };
+        await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+      }
+
+      // 2. Initialize Tournament Rules
+      const rules = {
+        basePurse: newTournamentConfig.pursePerTeam,
+        ownerBlockedPrice: newTournamentConfig.ownerBasePrice,
+        defaultPlayerBasePrice: newTournamentConfig.ownerBasePrice,
+        maxSquadSize: newTournamentConfig.maxSquad,
+        minSquadSize: newTournamentConfig.minSquad,
+        matchOvers: newTournamentConfig.overs,
+        maxBowlerOvers: Math.max(1, Math.ceil(newTournamentConfig.overs! / 5)),
+        wideBallPenalty: '+1 Run & Extra Ball',
+        noBallPenalty: '+1 Run + Free Hit',
+        pointsPerWin: 2,
+        bidSteps: [50, 100, 200, 500],
+      };
+      await setStoreData(`tournament_rules_${generatedSlug}`, rules, `rules_${generatedSlug}.json`);
+
+      // 3. Initialize Tournament Schedule
+      const schedule = {
+        tournament: generatedSlug,
+        startDate: newTournamentConfig.startDate,
+        endDate: newTournamentConfig.endDate,
+        format: resolvedFormat === 'game-of-run' ? 'group-stage-playoffs' : 'round-robin-playoffs',
+        matches: [],
+        lastUpdated: new Date().toISOString(),
+      };
+      await setStoreData(`tournament_schedule_${generatedSlug}`, schedule, `schedule_${generatedSlug}.json`);
+
+      return NextResponse.json({
+        success: true,
+        message: `Tournament "${newTournamentConfig.name}" created successfully!`,
+        tournament: newTournamentConfig,
+        allConfigs: configs,
+        tournamentsList: Object.values(configs),
+      });
+    }
+
+    // 6. DELETE CUSTOM TOURNAMENT (Super Admin)
+    if (action === 'delete_tournament') {
+      const targetSlug = body.slug || tSlug;
+      if (targetSlug === 'ddpl' || targetSlug === 'game-of-run') {
+        return NextResponse.json({ success: false, error: 'Cannot delete default flagship tournaments.' }, { status: 400 });
+      }
+
+      const configs = await getStoreData<Record<string, TournamentConfig>>(
+        'tournament_configs',
+        'tournament_configs.json',
+        DEFAULT_CONFIGS
+      );
+
+      delete configs[targetSlug];
+      await setStoreData('tournament_configs', configs, 'tournament_configs.json');
+
+      return NextResponse.json({
+        success: true,
+        message: `Tournament ${targetSlug} removed successfully.`,
+        allConfigs: configs,
+        tournamentsList: Object.values(configs),
       });
     }
 

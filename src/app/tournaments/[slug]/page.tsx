@@ -194,17 +194,19 @@ export default function TournamentDetailPage() {
     (r) => r.email?.toLowerCase() === user?.email?.toLowerCase()
   );
 
-  const matchOvers = rules.matchOvers || (isDDPL ? 10 : 12);
+  const matchOvers = rules.matchOvers || tournamentConfig.overs || (isDDPL ? 10 : 12);
 
   const tournament = {
-    name: isDDPL ? 'DDPL' : 'Game of RUN',
-    fullName: isDDPL ? 'Desk to Dugout Premier League (DDPL)' : 'Game of RUN Corporate Championship',
-    description: isDDPL
-      ? `Desk to Dugout Premier League for corporate cricket enthusiasts, featuring ${matchOvers}-over innings, live player auctions, and ${teams.length} premier franchises.`
-      : `The official annual corporate cricket championship, featuring ${matchOvers}-over innings, full team purse allocations, and corporate department rivalry.`,
-    seasons: ['2026', '2025'],
+    name: tournamentConfig.name || (isDDPL ? 'DDPL' : 'Game of RUN'),
+    fullName: tournamentConfig.fullName || (isDDPL ? 'Desk to Dugout Premier League (DDPL)' : 'Game of RUN Corporate Championship'),
+    description: tournamentConfig.tagline || tournamentConfig.description || (
+      isDDPL
+        ? `Desk to Dugout Premier League for corporate cricket enthusiasts, featuring ${matchOvers}-over innings, live player auctions, and ${teams.length} premier franchises.`
+        : `The official annual corporate cricket championship, featuring ${matchOvers}-over innings, full team purse allocations, and corporate department rivalry.`
+    ),
+    seasons: tournamentConfig.season ? [tournamentConfig.season, '2025'] : ['2026', '2025'],
     overs: matchOvers,
-    status: selectedSeason === '2026' ? (teams.length > 0 ? 'Auction Live / In Progress' : 'Registrations Open') : 'Archive',
+    status: selectedSeason === (tournamentConfig.season || '2026') ? (teams.length > 0 ? 'Auction Live / In Progress' : 'Registrations Open') : 'Archive',
   };
 
   return (
@@ -220,7 +222,7 @@ export default function TournamentDetailPage() {
             <div className="flex items-center gap-4">
               <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl shrink-0 bg-[#070d1e]">
                 <Image
-                  src={isDDPL ? '/images/ddpl-logo.jpg' : '/images/game-of-run-logo.jpg'}
+                  src={tournamentConfig.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg')}
                   alt={`${tournament.name} Logo`}
                   fill
                   className="object-cover object-center"
