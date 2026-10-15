@@ -41,7 +41,7 @@ interface PlayerLot {
   basePrice: number;
   currentBid: number;
   leadingTeam: string | null;
-  history: { team: string; bid: number }[];
+  history: { team: string; bid: number; increment?: number; timestamp?: string }[];
 }
 
 interface TeamBudget {
@@ -83,7 +83,9 @@ export default function AuctionPage() {
     { slug: 'ddpl', name: 'DDPL', season: '2026' },
     { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
   ]);
-  const [bidStep, setBidStep] = useState(50);
+  const [bidStep, setBidStep] = useState(100);
+  const [selectedIncrement, setSelectedIncrement] = useState<number>(100);
+  const [isOpeningAtBase, setIsOpeningAtBase] = useState<boolean>(true);
   const [poolIndex, setPoolIndex] = useState(0);
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'offline'>('connected');
   const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
@@ -415,8 +417,8 @@ export default function AuctionPage() {
     showToast('Auction squads CSV downloaded successfully!');
   }
 
-  // Handle Placing a Bid
-  function handleBid(team: TeamBudget) {
+  // Handle Placing a Bid with Dynamic Increments
+  function handleBid(team: TeamBudget, customIncrement?: number) {
     if (!currentLot || auctionStatus !== 'live' || isAutoTransitioning) return;
 
     if (!canUserBidForTeam(team)) {
@@ -424,12 +426,33 @@ export default function AuctionPage() {
       return;
     }
 
-    const nextBid = currentLot.leadingTeam
-      ? currentLot.currentBid + bidStep
-      : currentLot.basePrice;
+    if (currentLot.leadingTeam === team.name) {
+      alert(`You already hold the highest bid of ₹${currentLot.currentBid.toLocaleString('en-IN')}! Wait for another franchise to bid.`);
+      return;
+    }
+
+    const inc = customIncrement !== undefined ? customIncrement : selectedIncrement;
+
+    let nextBid: number;
+    let incrementLogged: number;
+
+    if (!currentLot.leadingTeam) {
+      // 1st Opening Bid: Can be base price or base price + chosen jump
+      if (isOpeningAtBase && customIncrement === undefined) {
+        nextBid = currentLot.basePrice;
+        incrementLogged = 0;
+      } else {
+        nextBid = currentLot.basePrice + inc;
+        incrementLogged = inc;
+      }
+    } else {
+      // Subsequent counter-bids: Current Highest Bid + chosen increment
+      nextBid = currentLot.currentBid + inc;
+      incrementLogged = inc;
+    }
 
     if (team.allocated - team.spent < nextBid) {
-      alert(`Cannot bid: ${team.name} has insufficient remaining budget (₹${team.allocated - team.spent} left)!`);
+      alert(`Cannot bid: ${team.name} has insufficient remaining budget (₹${(team.allocated - team.spent).toLocaleString('en-IN')} left)!`);
       return;
     }
 
@@ -438,9 +461,16 @@ export default function AuctionPage() {
       return;
     }
 
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
     const updatedHistory = [
       ...currentLot.history,
-      { team: team.name, bid: nextBid },
+      {
+        team: team.name,
+        bid: nextBid,
+        increment: incrementLogged,
+        timestamp: nowStr,
+      },
     ];
 
     const updatedLot = {
@@ -451,8 +481,22 @@ export default function AuctionPage() {
     };
 
     setCurrentLot(updatedLot);
+    setIsOpeningAtBase(false); // Bid has been initiated
     setCountdown(30); // RESET 30s TIMER ON EVERY NEW BID!
     broadcastAuctionState({ currentLot: updatedLot, countdown: 30 });
+
+    // Persist active lot to server asynchronously
+    fetch(`/api/auction/data?tournament=${activeTournament}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        currentLot: updatedLot,
+        timerSeconds: 30,
+        timerLastReset: new Date().toISOString(),
+      }),
+    }).catch((err) => console.warn('Failed to sync bid to server:', err));
+
+    showToast(`🔨 ${team.short} placed bid: ₹${nextBid.toLocaleString('en-IN')} ${incrementLogged > 0 ? `(+₹${incrementLogged})` : '(Opening Base)'}`);
   }
 
   // Handle Undo Last Bid
@@ -470,6 +514,7 @@ export default function AuctionPage() {
         leadingTeam: null,
         history: [],
       };
+      setIsOpeningAtBase(true);
     } else {
       const prev = newHistory[newHistory.length - 1];
       updatedLot = {
@@ -478,6 +523,7 @@ export default function AuctionPage() {
         leadingTeam: prev.team,
         history: newHistory,
       };
+      setIsOpeningAtBase(false);
     }
 
     setCurrentLot(updatedLot);
@@ -508,11 +554,14 @@ export default function AuctionPage() {
         history: [],
       };
       setCurrentLot(newLot);
+      setIsOpeningAtBase(true);
+      setSelectedIncrement(100);
       setCountdown(30);
       broadcastAuctionState({ currentLot: newLot, countdown: 30 });
       return newLot;
     } else {
       setCurrentLot(null);
+      setIsOpeningAtBase(true);
       broadcastAuctionState({ currentLot: null });
       return null;
     }
@@ -1119,121 +1168,287 @@ export default function AuctionPage() {
 
                   {/* Step Modifier & Bid Controls */}
                   <div className="p-6 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-cricket-muted uppercase">
-                        Select Bid Increment
-                      </span>
-                      <div className="flex gap-2">
-                        {rules.bidSteps.map((step) => (
-                          <button
-                            key={step}
-                            onClick={() => setBidStep(step)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
-                              bidStep === step
-                                ? 'bg-cricket-teal text-cricket-dark border-cricket-teal font-extrabold shadow'
-                                : 'bg-cricket-dark border-cricket-border text-gray-300 hover:text-white'
-                            }`}
-                          >
-                            +₹{step}
-                          </button>
-                        ))}
+                    {/* Dynamic Increment Selection & Live Math Strip */}
+                    {(() => {
+                      const isOpeningRound = !currentLot.leadingTeam;
+                      const targetBidAmount = isOpeningRound
+                        ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
+                        : currentLot.currentBid + selectedIncrement;
+
+                      return (
+                        <div className="p-4 rounded-2xl bg-cricket-dark/90 border border-cricket-border/80 space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <span className="text-xs font-black uppercase text-cricket-teal tracking-wider flex items-center gap-1.5">
+                                <Zap className="w-4 h-4 text-cricket-gold" />
+                                <span>{isOpeningRound ? '1st Opening Bid Selection' : 'Select Bid Increment'}</span>
+                              </span>
+                              <p className="text-[11px] text-gray-400">
+                                {isOpeningRound
+                                  ? `Open bid at Base Price (₹${currentLot.basePrice}) or jump directly with +₹50, +₹100, +₹200:`
+                                  : `Choose increment to top the current highest bid (₹${currentLot.currentBid.toLocaleString('en-IN')}):`}
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {isOpeningRound && (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsOpeningAtBase(true)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    isOpeningAtBase
+                                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-cricket-dark font-black shadow-lg shadow-amber-500/20'
+                                      : 'bg-cricket-card text-gray-300 hover:text-white border border-cricket-border'
+                                  }`}
+                                >
+                                  Base (₹{currentLot.basePrice})
+                                </button>
+                              )}
+                              {[50, 100, 200, 500].map((step) => (
+                                <button
+                                  key={step}
+                                  type="button"
+                                  onClick={() => {
+                                    setIsOpeningAtBase(false);
+                                    setSelectedIncrement(step);
+                                  }}
+                                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    (!isOpeningRound && selectedIncrement === step) || (isOpeningRound && !isOpeningAtBase && selectedIncrement === step)
+                                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark font-black shadow-lg shadow-emerald-500/20 scale-105'
+                                      : 'bg-cricket-card text-gray-300 hover:text-white border border-cricket-border'
+                                  }`}
+                                >
+                                  +₹{step}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Live Dynamic Calculation Preview Bar */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold text-gray-300 bg-cricket-card/80 p-3 rounded-xl border border-cricket-border/60">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-cricket-muted uppercase text-[10px] tracking-wider font-bold">Calculation:</span>
+                              {isOpeningRound ? (
+                                isOpeningAtBase ? (
+                                  <span className="font-mono text-amber-300 font-bold">
+                                    Base Price ₹{currentLot.basePrice} (Opening Bid)
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1.5 font-mono">
+                                    <span>Base ₹{currentLot.basePrice}</span>
+                                    <span className="text-emerald-400 font-bold">+</span>
+                                    <span className="text-emerald-400 font-bold">₹{selectedIncrement} Jump</span>
+                                    <span>=</span>
+                                    <strong className="text-cricket-gold font-bold text-sm">₹{targetBidAmount.toLocaleString('en-IN')}</strong>
+                                  </span>
+                                )
+                              ) : (
+                                <span className="flex items-center gap-1.5 font-mono">
+                                  <span>Current ₹{currentLot.currentBid.toLocaleString('en-IN')}</span>
+                                  <span className="text-emerald-400 font-bold">+</span>
+                                  <span className="text-emerald-400 font-bold">₹{selectedIncrement}</span>
+                                  <span>=</span>
+                                  <strong className="text-cricket-gold font-bold text-sm">₹{targetBidAmount.toLocaleString('en-IN')}</strong>
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="text-[11px] text-cricket-teal font-medium">
+                              {isOpeningRound ? 'Ready for 1st Franchise' : 'Ready to Submit Bid'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Franchise Owner Dedicated 1-Tap Bidding Hero Card */}
+                    {isFranchiseOwner && userTeam && (() => {
+                      const isOpeningRound = !currentLot.leadingTeam;
+                      const targetBidAmount = isOpeningRound
+                        ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
+                        : currentLot.currentBid + selectedIncrement;
+                      const userRemaining = userTeam.allocated - userTeam.spent;
+                      const hasSufficientBudget = userRemaining >= targetBidAmount;
+                      const isSquadFull = userTeam.playersBought >= userTeam.maxSquad;
+                      const isAlreadyLeading = currentLot.leadingTeam === userTeam.name;
+
+                      return (
+                        <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-950 via-cricket-card to-emerald-950 border-2 border-cricket-teal shadow-2xl space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-9 h-9 rounded-xl bg-cricket-teal/20 text-cricket-teal border border-cricket-teal/40 font-display font-black flex items-center justify-center text-sm">
+                                {userTeam.short}
+                              </span>
+                              <div>
+                                <span className="font-display font-extrabold text-base text-white block">{userTeam.name}</span>
+                                <span className="text-[11px] text-cricket-muted">Franchise Owner Console</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-mono font-bold text-cricket-gold block">
+                                Purse: ₹{userRemaining.toLocaleString('en-IN')}
+                              </span>
+                              <span className="text-[10px] text-gray-400">
+                                Squad: {userTeam.playersBought}/{userTeam.maxSquad}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isAlreadyLeading ? (
+                            <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-display font-bold text-center text-sm flex items-center justify-center gap-2 shadow-inner">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                              <span>👑 You hold the WINNING BID of ₹{currentLot.currentBid.toLocaleString('en-IN')}! (Waiting for rival bids...)</span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleBid(userTeam, isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement)}
+                              disabled={!canUserBidForTeam(userTeam) || !hasSufficientBudget || isSquadFull}
+                              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:brightness-110 text-cricket-dark font-display font-black text-lg tracking-wide shadow-2xl shadow-emerald-500/30 active:scale-95 transition-all flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed animate-pulse"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Gavel className="w-6 h-6" />
+                                <span>
+                                  PLACE BID: ₹{targetBidAmount.toLocaleString('en-IN')} FOR {userTeam.short}
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-black/20 text-cricket-dark">
+                                {isOpeningRound ? (isOpeningAtBase ? 'Base Price' : `+₹${selectedIncrement} Jump`) : `+₹${selectedIncrement}`}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Team Bidding Buttons Grid */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-cricket-muted uppercase">
+                        <span>All Franchises Bidding Grid</span>
+                        <span className="text-[11px] font-normal text-gray-400">
+                          {isSuperAdmin ? 'Super Admin: Tap any team to bid on their behalf' : 'Live Franchise Status'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {teams.map((t) => {
+                          const remaining = t.allocated - t.spent;
+                          const isOpeningRound = !currentLot.leadingTeam;
+                          const targetBidAmount = isOpeningRound
+                            ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
+                            : currentLot.currentBid + selectedIncrement;
+                          const isLeading = currentLot.leadingTeam === t.name;
+                          const isSquadFull = t.playersBought >= t.maxSquad;
+                          const canBid =
+                            canUserBidForTeam(t) &&
+                            remaining >= targetBidAmount &&
+                            !isSquadFull &&
+                            !isLeading;
+
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              disabled={!canBid}
+                              onClick={() => handleBid(t, isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement)}
+                              className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden ${
+                                isLeading
+                                  ? 'bg-cricket-teal/20 border-cricket-teal text-white shadow-lg shadow-cricket-teal/20 ring-1 ring-cricket-teal'
+                                  : canBid
+                                  ? 'bg-cricket-dark/80 hover:bg-cricket-card border-cricket-border hover:border-cricket-teal/50 text-white cursor-pointer active:scale-98'
+                                  : 'bg-cricket-dark/40 border-cricket-border/40 text-gray-500 cursor-not-allowed opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-display font-bold text-base truncate pr-2">
+                                  {t.name}
+                                </span>
+                                <span className="text-xs px-2 py-0.5 rounded bg-cricket-card font-mono font-bold text-cricket-gold">
+                                  {t.short}
+                                </span>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-between text-xs">
+                                <span className="text-cricket-muted">
+                                  Purse: ₹{remaining.toLocaleString('en-IN')}
+                                </span>
+                                <span className="font-bold text-cricket-teal">
+                                  Squad: {t.playersBought}/{t.maxSquad}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 pt-2 border-t border-cricket-border/60 flex items-center justify-between font-bold text-xs">
+                                <span>
+                                  {isLeading ? '👑 Leading Bidder' : canBid ? 'Bid This Amount:' : 'Status:'}
+                                </span>
+                                <span className="font-display font-extrabold text-sm text-cricket-gold">
+                                  {isLeading
+                                    ? `₹${currentLot.currentBid.toLocaleString('en-IN')}`
+                                    : canBid
+                                    ? `₹${targetBidAmount.toLocaleString('en-IN')} (+₹${isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement})`
+                                    : isSquadFull ? 'Squad Full' : remaining < targetBidAmount ? 'Low Purse' : 'Spectator'}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Franchise Owner Dedicated 1-Tap Bidding Hero Card */}
-                    {isFranchiseOwner && userTeam && (
-                      <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-950 via-cricket-card to-emerald-950 border-2 border-cricket-teal shadow-2xl space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="w-8 h-8 rounded-lg bg-cricket-teal/20 text-cricket-teal font-display font-black flex items-center justify-center">
-                              {userTeam.short}
-                            </span>
-                            <span className="font-display font-extrabold text-base text-white">{userTeam.name}</span>
-                          </div>
-                          <span className="text-xs font-mono font-bold text-cricket-gold">
-                            Purse: ₹{(userTeam.allocated - userTeam.spent).toLocaleString('en-IN')}
+                    {/* Live Bidding War Ledger */}
+                    <div className="p-4 rounded-2xl bg-cricket-dark/60 border border-cricket-border space-y-3">
+                      <div className="flex items-center justify-between border-b border-cricket-border/60 pb-2">
+                        <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-cricket-teal" />
+                          <span>Bidding War History ({currentLot.history.length} Bids on {currentLot.name})</span>
+                        </span>
+                        {currentLot.history.length > 0 && (
+                          <span className="text-[11px] text-emerald-400 font-mono font-bold">
+                            Latest: ₹{currentLot.currentBid.toLocaleString('en-IN')} by {currentLot.leadingTeam}
                           </span>
-                        </div>
-
-                        {currentLot.leadingTeam === userTeam.name ? (
-                          <div className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-center text-sm flex items-center justify-center gap-2">
-                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                            <span>You hold the Winning Bid of ₹{currentLot.currentBid.toLocaleString('en-IN')}!</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleBid(userTeam)}
-                            disabled={!canUserBidForTeam(userTeam) || (userTeam.allocated - userTeam.spent < (currentLot.leadingTeam ? currentLot.currentBid + bidStep : currentLot.basePrice))}
-                            className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-black text-lg tracking-wide shadow-2xl shadow-emerald-500/30 active:scale-95 transition-all flex items-center justify-center gap-3 animate-pulse"
-                          >
-                            <Gavel className="w-6 h-6" />
-                            <span>
-                              PLACE BID: ₹{(currentLot.leadingTeam ? currentLot.currentBid + bidStep : currentLot.basePrice).toLocaleString('en-IN')} FOR {userTeam.short}
-                            </span>
-                          </button>
                         )}
                       </div>
-                    )}
 
-                    {/* Team Bidding Buttons Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {teams.map((t) => {
-                        const remaining = t.allocated - t.spent;
-                        const nextBid = currentLot.leadingTeam
-                          ? currentLot.currentBid + bidStep
-                          : currentLot.basePrice;
-                        const canBid =
-                          canUserBidForTeam(t) &&
-                          remaining >= nextBid &&
-                          t.playersBought < t.maxSquad &&
-                          t.name !== currentLot.leadingTeam;
-
-                        return (
-                          <button
-                            key={t.id}
-                            disabled={!canBid}
-                            onClick={() => handleBid(t)}
-                            className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden ${
-                              currentLot.leadingTeam === t.name
-                                ? 'bg-cricket-teal/20 border-cricket-teal text-white shadow-lg shadow-cricket-teal/10'
-                                : canBid
-                                ? 'bg-cricket-dark/80 hover:bg-cricket-card border-cricket-border hover:border-cricket-teal/50 text-white cursor-pointer'
-                                : 'bg-cricket-dark/40 border-cricket-border/40 text-gray-500 cursor-not-allowed opacity-60'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-display font-bold text-base truncate pr-2">
-                                {t.name}
-                              </span>
-                              <span className="text-xs px-2 py-0.5 rounded bg-cricket-card font-mono font-bold text-cricket-gold">
-                                {t.short}
-                              </span>
+                      {currentLot.history.length === 0 ? (
+                        <div className="py-4 text-center text-xs text-gray-400 italic">
+                          No bids placed on {currentLot.name} yet. Select an increment (+50, +100, +200) and place the opening bid!
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {[...currentLot.history].reverse().map((h, i) => (
+                            <div
+                              key={i}
+                              className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
+                                i === 0
+                                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200 font-bold shadow-sm'
+                                  : 'bg-cricket-card/50 border-cricket-border/40 text-gray-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-md bg-cricket-dark flex items-center justify-center font-mono text-[10px] text-cricket-gold">
+                                  #{currentLot.history.length - i}
+                                </span>
+                                <span className="font-semibold text-white">{h.team}</span>
+                                {h.increment !== undefined && (
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                                    h.increment === 0 ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'
+                                  }`}>
+                                    {h.increment === 0 ? 'Opening Base' : `+₹${h.increment}`}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {h.timestamp && (
+                                  <span className="text-[10px] text-gray-500 font-mono">{h.timestamp}</span>
+                                )}
+                                <span className="font-mono font-extrabold text-sm text-cricket-gold">
+                                  ₹{h.bid.toLocaleString('en-IN')}
+                                </span>
+                              </div>
                             </div>
-
-                            <div className="mt-2 flex items-center justify-between text-xs">
-                              <span className="text-cricket-muted">
-                                Purse: ₹{remaining.toLocaleString('en-IN')}
-                              </span>
-                              <span className="font-bold text-cricket-teal">
-                                Squad: {t.playersBought}/{t.maxSquad}
-                              </span>
-                            </div>
-
-                            <div className="mt-3 pt-2 border-t border-cricket-border/60 flex items-center justify-between font-bold text-xs">
-                              <span>
-                                {currentLot.leadingTeam === t.name ? 'Leading Bidder' : canBid ? 'Bid Now:' : 'Status:'}
-                              </span>
-                              <span className="font-display font-extrabold text-sm text-cricket-gold">
-                                {currentLot.leadingTeam === t.name
-                                  ? `₹${currentLot.currentBid}`
-                                  : canBid
-                                  ? `₹${nextBid}`
-                                  : 'Spectator Mode'}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Master Hammer Controls: Only for Super Admin */}
