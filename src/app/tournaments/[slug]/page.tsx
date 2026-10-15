@@ -4,16 +4,15 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { Trophy, Calendar, Users, Gavel, Shield, Award, Settings, CheckCircle2, DollarSign, UserPlus, UploadCloud, Camera, X } from 'lucide-react';
+import { Trophy, Calendar, Users, Gavel, Shield, Award, Settings, CheckCircle2, DollarSign, UserPlus, Phone, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { compressImageUnder100KB } from '@/lib/imageCompressor';
 
 export default function TournamentDetailPage() {
   const params = useParams();
   const slug = (params.slug as string) || 'ddpl';
   const isDDPL = slug === 'ddpl';
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const supabase = createClient();
 
   const [selectedSeason, setSelectedSeason] = useState('2026');
@@ -37,7 +36,6 @@ export default function TournamentDetailPage() {
   });
   const [isSubmittingReg, setIsSubmittingReg] = useState(false);
   const [regSuccessMsg, setRegSuccessMsg] = useState<string | null>(null);
-  const [photoInfo, setPhotoInfo] = useState<{ sizeInKb: number } | null>(null);
 
   const [rules, setRules] = useState<any>({
     basePurse: 10000,
@@ -104,43 +102,52 @@ export default function TournamentDetailPage() {
   useEffect(() => {
     async function prefillUser() {
       if (!user) return;
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      if (data) {
-        setRegForm({
-          name: data.full_name || '',
-          email: data.email || user.email || '',
-          phone: data.phone || '',
-          role: data.primary_role || 'All Rounder',
-          battingStyle: data.batting_style || 'Right-hand bat',
-          bowlingStyle: data.bowling_style || 'Right-arm medium',
-          avatarUrl: data.avatar_url || '',
-        });
-      } else {
-        setRegForm((prev: any) => ({
-          ...prev,
-          email: user.email || '',
-        }));
+      let fetchedProfile: any = null;
+      try {
+        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (data) fetchedProfile = data;
+      } catch (err) {
+        // Fallback to AuthContext profile
       }
-    }
-    prefillUser();
-  }, [user]);
 
-  // Photo compression helper for registration modal
-  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const { dataUrl, sizeInKb } = await compressImageUnder100KB(file);
-      setRegForm((prev: any) => ({ ...prev, avatarUrl: dataUrl }));
-      setPhotoInfo({ sizeInKb });
-    } catch (err: any) {
-      alert(`Photo error: ${err.message}`);
+      const activeProfile = fetchedProfile || profile;
+
+      const resolvedName =
+        activeProfile?.full_name ||
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        (user as any).name ||
+        user.email?.split('@')[0] ||
+        '';
+
+      const resolvedEmail = activeProfile?.email || user.email || '';
+      const resolvedPhone = activeProfile?.phone || '';
+      const resolvedRole = activeProfile?.primary_role || 'All Rounder';
+      const resolvedBatting = activeProfile?.batting_style || 'Right-hand bat';
+      const resolvedBowling = activeProfile?.bowling_style || 'Right-arm medium';
+      const resolvedAvatar = activeProfile?.avatar_url || '';
+
+      setRegForm({
+        name: resolvedName,
+        email: resolvedEmail,
+        phone: resolvedPhone,
+        role: resolvedRole,
+        battingStyle: resolvedBatting,
+        bowlingStyle: resolvedBowling,
+        avatarUrl: resolvedAvatar,
+      });
     }
-  }
+
+    prefillUser();
+  }, [user, profile, isRegModalOpen]);
 
   // Handle Submit Registration
   async function handleSubmitRegistration(e: React.FormEvent) {
     e.preventDefault();
+    if (!regForm.phone?.trim()) {
+      alert('Please enter your Phone / WhatsApp number to complete registration.');
+      return;
+    }
     setIsSubmittingReg(true);
     setRegSuccessMsg(null);
 
@@ -162,6 +169,13 @@ export default function TournamentDetailPage() {
       if (data.success) {
         setRegSuccessMsg(data.message || 'Registration confirmed!');
         if (data.registrations) setRegistrations(data.registrations);
+        if (user?.id && regForm.phone) {
+          try {
+            await supabase.from('profiles').update({ phone: regForm.phone }).eq('id', user.id);
+          } catch (e) {
+            // non-blocking
+          }
+        }
         setTimeout(() => {
           setIsRegModalOpen(false);
           setRegSuccessMsg(null);
@@ -521,7 +535,7 @@ export default function TournamentDetailPage() {
                   Register for {tournament.name}
                 </h3>
                 <p className="text-xs text-cricket-muted">
-                  Confirm your player specialism and photo for the live auction block.
+                  Your profile details and photo are linked automatically. Add your phone number to enter the auction pool.
                 </p>
               </div>
             </div>
@@ -533,112 +547,92 @@ export default function TournamentDetailPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmitRegistration} className="space-y-4 text-sm">
-              {/* Photo Upload Section */}
-              <div className="flex items-center gap-4 p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-                <div className="w-16 h-16 rounded-xl overflow-hidden bg-cricket-card border border-cricket-border flex items-center justify-center text-cricket-teal font-display font-bold text-xl shrink-0">
-                  {regForm.avatarUrl ? (
-                    <img src={regForm.avatarUrl} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    regForm.name?.charAt(0) || 'P'
-                  )}
+            <form onSubmit={handleSubmitRegistration} className="space-y-5 text-sm">
+              {/* Prefilled Profile Card with Attached Photo */}
+              <div className="p-4 rounded-2xl bg-cricket-dark/90 border border-cricket-border/80 shadow-lg space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-cricket-border/50">
+                  <span className="text-[11px] font-bold text-cricket-teal uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-cricket-teal" />
+                    <span>Prefilled from Account Profile</span>
+                  </span>
+                  <Link
+                    href="/profile"
+                    className="text-[11px] font-semibold text-cricket-gold hover:text-amber-300 underline"
+                  >
+                    Edit Profile
+                  </Link>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-semibold text-gray-300">Player Photo</label>
-                    <span className="text-[10px] text-cricket-gold font-mono">
-                      (Max 100 KB • Auto-compressed)
-                    </span>
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="text-xs text-gray-400 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-cricket-teal file:text-cricket-dark hover:file:opacity-90 cursor-pointer"
-                  />
-                  {photoInfo && (
-                    <div className="text-[10px] text-emerald-400">
-                      ✓ Optimized size: {photoInfo.sizeInKb} KB / 100 KB max
+
+                <div className="flex items-center gap-4">
+                  {/* Photo Preview from Profile */}
+                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 via-cricket-teal to-amber-400 p-0.5 shadow-md shrink-0">
+                    <div className="w-full h-full bg-[#070d1e] rounded-2xl overflow-hidden flex items-center justify-center font-display font-extrabold text-2xl text-cricket-teal">
+                      {regForm.avatarUrl ? (
+                        <img
+                          src={regForm.avatarUrl}
+                          alt={regForm.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        regForm.name?.charAt(0)?.toUpperCase() || 'P'
+                      )}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Player Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display font-bold text-lg text-white truncate">
+                      {regForm.name || 'Tournament Player'}
+                    </div>
+                    <div className="text-xs text-cricket-muted truncate">{regForm.email}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      <span className="px-2 py-0.5 rounded-md bg-cricket-card text-emerald-300 border border-cricket-border text-[11px] font-semibold">
+                        🏏 {regForm.role}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-cricket-card text-gray-300 border border-cricket-border text-[11px]">
+                        {regForm.battingStyle}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-cricket-card text-gray-300 border border-cricket-border text-[11px]">
+                        {regForm.bowlingStyle}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+
+                {!regForm.avatarUrl && (
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-cricket-gold text-xs flex items-center justify-between">
+                    <span>No profile photo attached yet. You can upload one anytime in your profile.</span>
+                    <Link href="/profile" className="font-bold underline ml-2 shrink-0">
+                      Add Photo
+                    </Link>
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Player Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={regForm.name}
-                    onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={regForm.email}
-                    onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Phone / WhatsApp</label>
-                  <input
-                    type="tel"
-                    value={regForm.phone}
-                    placeholder="+91..."
-                    onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Primary Role</label>
-                  <select
-                    value={regForm.role}
-                    onChange={(e) => setRegForm({ ...regForm, role: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
-                  >
-                    <option value="All Rounder">All Rounder</option>
-                    <option value="Batsman">Batsman</option>
-                    <option value="Bowler">Bowler</option>
-                    <option value="Wicket Keeper">Wicket Keeper</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Batting Style</label>
-                  <select
-                    value={regForm.battingStyle}
-                    onChange={(e) => setRegForm({ ...regForm, battingStyle: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
-                  >
-                    <option value="Right-hand bat">Right-hand bat</option>
-                    <option value="Left-hand bat">Left-hand bat</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-300">Bowling Style</label>
-                  <select
-                    value={regForm.bowlingStyle}
-                    onChange={(e) => setRegForm({ ...regForm, bowlingStyle: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
-                  >
-                    <option value="Right-arm medium">Right-arm medium / fast</option>
-                    <option value="Right-arm off break">Right-arm off spin</option>
-                    <option value="Right-arm leg break">Right-arm leg spin</option>
-                    <option value="Left-arm fast">Left-arm fast / medium</option>
-                    <option value="Left-arm orthodox">Left-arm orthodox spin</option>
-                    <option value="None">Does not bowl</option>
-                  </select>
-                </div>
+              {/* ONLY Input Field: Phone / WhatsApp Number */}
+              <div className="space-y-1.5 p-4 rounded-2xl bg-cricket-dark/60 border border-cricket-teal/40 shadow-inner">
+                <label className="text-xs font-bold text-white flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-cricket-teal" />
+                    <span>Phone / WhatsApp Number</span>
+                    <span className="text-rose-400">*</span>
+                  </span>
+                  <span className="text-[10px] text-cricket-gold uppercase font-mono tracking-wider">
+                    Required for Auction
+                  </span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  autoFocus
+                  placeholder="e.g. +91 98765 43210"
+                  value={regForm.phone}
+                  onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl bg-cricket-dark border border-cricket-border focus:border-cricket-teal focus:ring-1 focus:ring-cricket-teal text-white text-base tracking-wide outline-none transition-all placeholder:text-gray-500 font-medium"
+                />
+                <p className="text-[11px] text-cricket-muted pt-0.5">
+                  Franchise owners and tournament organizers will contact you on this number during auctions and team groupings.
+                </p>
               </div>
 
               <div className="pt-3 border-t border-cricket-border flex justify-end gap-3">
