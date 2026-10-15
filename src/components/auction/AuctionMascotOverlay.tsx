@@ -18,6 +18,11 @@ import {
   createProceduralMascotRig, 
   MascotRig 
 } from '@/lib/mascot/threeMascotModel';
+import {
+  createFbxMascotInstance,
+  loadFbxMascotData,
+  FbxMascotInstance,
+} from '@/lib/mascot/fbxMascotLoader';
 
 export interface MascotEventData {
   id?: string;
@@ -49,12 +54,19 @@ export default function AuctionMascotOverlay({
   activeReactionRef.current = activeReaction;
 
   const [mascotState, setMascotState] = useState<MascotState>('idle');
+  const mascotStateRef = useRef<MascotState>('idle');
+  mascotStateRef.current = mascotState;
+
   const [visible, setVisible] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<MascotEventData | null>(null);
+  const currentEventRef = useRef<MascotEventData | null>(null);
+  currentEventRef.current = currentEvent;
+
   const [webglSupported, setWebglSupported] = useState(true);
 
   // Internal references for Three.js instance
   const rigRef = useRef<MascotRig | null>(null);
+  const fbxInstanceRef = useRef<FbxMascotInstance | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -67,6 +79,13 @@ export default function AuctionMascotOverlay({
   const mascotPosRef = useRef({ x: 0.0, y: 0.0, z: 0 });
   const walkProgressRef = useRef(0);
   const isWalkingRef = useRef(false);
+
+  // Preload FBX model in browser background
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      loadFbxMascotData().catch(() => {});
+    }
+  }, []);
 
   // --------------------------------------------------------------------------
   // TASTEFUL PARTICLES ON SOLD
@@ -115,6 +134,7 @@ export default function AuctionMascotOverlay({
 
     const canvas = canvasRef.current;
     let renderer: THREE.WebGLRenderer | null = null;
+    let cancelled = false;
 
     try {
       const width = canvas.clientWidth || 320;
@@ -127,6 +147,7 @@ export default function AuctionMascotOverlay({
       // 2. Camera framing character from head (y=1.34) down to feet (y=0)
       const camera = new THREE.PerspectiveCamera(27, width / height, 0.1, 50);
       camera.position.set(0, 0.65, 3.1);
+      camera.lookAt(0, 0.65, 0);
       cameraRef.current = camera;
 
       // 3. WebGL Renderer with Alpha: true
@@ -160,14 +181,50 @@ export default function AuctionMascotOverlay({
       goldFillLight.position.set(0.5, 0.8, 1.5);
       scene.add(goldFillLight);
 
-      // 5. Procedural Articulated Mascot Rig
+      // 5. Procedural Articulated Mascot Rig (Immediate zero-delay render)
       const rig = createProceduralMascotRig();
       rig.root.position.set(0, 0, 0);
       rig.root.rotation.y = -0.15; // Natural 3/4 front angle
       scene.add(rig.root);
       rigRef.current = rig;
 
-      // 6. Handle Resizing
+      // 6. Asynchronously Load Mixamo FBX Skinned Mascot & Animations
+      createFbxMascotInstance()
+        .then((fbx) => {
+          if (cancelled) {
+            fbx.dispose();
+            return;
+          }
+          fbxInstanceRef.current = fbx;
+
+          // Position FBX mascot at center stage
+          fbx.character.position.set(0, 0, 0);
+          fbx.character.rotation.y = -0.15;
+          scene.add(fbx.character);
+
+          // Hide procedural placeholder once FBX model is loaded
+          if (rigRef.current) {
+            rigRef.current.root.visible = false;
+          }
+
+          // Immediately sync animation to active state
+          const currentState = mascotStateRef.current;
+          const currentEvt = currentEventRef.current;
+          if (currentState === 'entering' || currentState === 'exiting') {
+            fbx.playClip('Walking', 0.2, true);
+          } else if (currentState === 'reacting' || currentState === 'holding') {
+            if (currentEvt?.type === 'sold') {
+              fbx.playClip('Victory', 0.35, true);
+            } else {
+              fbx.playClip('Defeated', 0.35, true);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('[AuctionMascotOverlay] FBX loading fallback to procedural rig:', err);
+        });
+
+      // 7. Handle Resizing
       const handleResize = () => {
         if (!canvas || !rendererRef.current || !cameraRef.current) return;
         const w = canvas.clientWidth || 320;
@@ -181,25 +238,30 @@ export default function AuctionMascotOverlay({
 
       window.addEventListener('resize', handleResize);
 
-      // 7. Core Three.js Animation Loop
+      // 8. Core Three.js Animation Loop
       let lastTime = performance.now();
       const animate = (time: number) => {
         animFrameIdRef.current = requestAnimationFrame(animate);
         const delta = Math.min((time - lastTime) / 1000, 0.1);
         lastTime = time;
 
-        if (!rigRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return;
+        if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
 
         walkProgressRef.current += delta;
 
-        // Update Kinematic Articulated Pose
-        const currentReaction = activeReactionRef.current;
-        if (currentReaction) {
-          rigRef.current.updatePose(
-            currentReaction.pose,
-            walkProgressRef.current,
-            isWalkingRef.current
-          );
+        // Animate FBX Skinned Mesh via AnimationMixer
+        if (fbxInstanceRef.current) {
+          fbxInstanceRef.current.update(delta);
+        } else if (rigRef.current && rigRef.current.root.visible) {
+          // Fallback procedural animation while FBX is parsing
+          const currentReaction = activeReactionRef.current;
+          if (currentReaction) {
+            rigRef.current.updatePose(
+              currentReaction.pose,
+              walkProgressRef.current,
+              isWalkingRef.current
+            );
+          }
         }
 
         rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -208,8 +270,18 @@ export default function AuctionMascotOverlay({
       animFrameIdRef.current = requestAnimationFrame(animate);
 
       return () => {
+        cancelled = true;
         window.removeEventListener('resize', handleResize);
         if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+        if (fbxInstanceRef.current) {
+          try {
+            scene.remove(fbxInstanceRef.current.character);
+            fbxInstanceRef.current.dispose();
+          } catch {
+            // ignore
+          }
+          fbxInstanceRef.current = null;
+        }
         if (rigRef.current) {
           try {
             rigRef.current.dispose();
@@ -252,6 +324,9 @@ export default function AuctionMascotOverlay({
       setMascotState('entering');
       isWalkingRef.current = true;
 
+      // Play walking animation on FBX mascot
+      fbxInstanceRef.current?.playClip('Walking', 0.2, true);
+
       // Confetti burst on sold
       if (eventData.type === 'sold') {
         triggerCelebrationParticles(reaction.pose.particleIntensity);
@@ -264,6 +339,26 @@ export default function AuctionMascotOverlay({
         isWalkingRef.current = false;
         setMascotState('reacting');
 
+        // Play appropriate reaction clip on FBX mascot
+        if (eventData.type === 'sold') {
+          // Map to Victory or Waving (plus bonus celebration dances if loaded)
+          const soldClips = ['Victory', 'Waving'];
+          if (fbxInstanceRef.current?.clips['RumbaDancing']) soldClips.push('RumbaDancing');
+          if (fbxInstanceRef.current?.clips['SwingDancing']) soldClips.push('SwingDancing');
+
+          const charSum = reaction.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+          const chosenClip = soldClips[Math.abs(charSum) % soldClips.length] || 'Victory';
+          fbxInstanceRef.current?.playClip(chosenClip, 0.35, true);
+        } else {
+          // Unsold: Defeated or Angry
+          const unsoldClips = ['Defeated'];
+          if (fbxInstanceRef.current?.clips['Angry']) unsoldClips.push('Angry');
+
+          const charSum = reaction.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+          const chosenClip = unsoldClips[Math.abs(charSum) % unsoldClips.length] || 'Defeated';
+          fbxInstanceRef.current?.playClip(chosenClip, 0.35, true);
+        }
+
         // Hold reaction pose and result message in center
         stateTimeoutRef.current = setTimeout(() => {
           setMascotState('holding');
@@ -271,6 +366,7 @@ export default function AuctionMascotOverlay({
           // Smooth fade-out and exit
           stateTimeoutRef.current = setTimeout(() => {
             setMascotState('exiting');
+            fbxInstanceRef.current?.playClip('Walking', 0.25, true);
 
             // Complete cleanup
             stateTimeoutRef.current = setTimeout(() => {
@@ -279,6 +375,7 @@ export default function AuctionMascotOverlay({
               setActiveReaction(null);
               setCurrentEvent(null);
               isAnimatingRef.current = false;
+              fbxInstanceRef.current?.mixer.stopAllAction();
 
               // Process any queued events
               if (eventQueueRef.current.length > 0) {
@@ -325,6 +422,7 @@ export default function AuctionMascotOverlay({
     setCurrentEvent(null);
     isAnimatingRef.current = false;
     eventQueueRef.current = [];
+    fbxInstanceRef.current?.mixer.stopAllAction();
     if (onDismiss) onDismiss();
   };
 
