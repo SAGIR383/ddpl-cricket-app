@@ -811,37 +811,37 @@ export default function AuctionPage() {
   const isAccessAllowed = isOrganizer;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-cricket-border pb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Gavel className="w-6 h-6 text-cricket-gold" />
+              <Gavel className="w-6 h-6 text-[#D8AD55]" />
               <h1 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight">
                 Player Auction Command Center
               </h1>
             </div>
 
             {/* Live Status Indicator */}
-            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-500/30">
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/15 text-blue-300 text-xs font-bold border border-blue-500/30">
               <Radio className="w-3 h-3 text-blue-400 animate-pulse" />
               <span>Room: {syncStatus}</span>
             </span>
 
             {isAccessAllowed && (
-              <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
-                <Shield className="w-3 h-3 text-emerald-400" />
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] text-xs font-bold border border-[#D8AD55]/30">
+                <Shield className="w-3 h-3 text-[#D8AD55]" />
                 <span>Organizer Verified ({role})</span>
               </span>
             )}
 
-            <span className="text-[11px] text-cricket-muted">
+            <span className="text-[11px] text-[#8793A5]">
               Sync: {lastSyncTime}
             </span>
           </div>
 
-          <p className="text-sm text-cricket-muted mt-1">
+          <p className="text-sm text-[#8793A5] mt-1.5 max-w-2xl">
             Live multi-franchise bidding engine with server-validated purse deductions and instant real-time synchronization.
           </p>
         </div>
@@ -853,7 +853,7 @@ export default function AuctionPage() {
               {/* Sync Registered Players */}
               <button
                 onClick={handleSyncRegisteredPlayers}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 text-blue-300 font-bold text-xs shadow-md transition-all active:scale-95"
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
                 title="Sync all self-registered players into this tournament auction pool"
               >
                 <Users className="w-4 h-4 text-blue-400" />
@@ -863,20 +863,20 @@ export default function AuctionPage() {
               {/* Import Button */}
               <button
                 onClick={() => setIsImportModalOpen(true)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border hover:border-cricket-gold/50 text-cricket-gold font-bold text-xs shadow-md transition-all active:scale-95"
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0D1B2A] hover:bg-[#111D2D] border border-[#D8AD55]/30 hover:border-[#D8AD55] text-[#F2D69A] font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
                 title="Import tournament franchises and players from Excel (.xlsx) or CSV"
               >
-                <UploadCloud className="w-4 h-4 text-cricket-gold" />
+                <UploadCloud className="w-4 h-4 text-[#D8AD55]" />
                 <span>Import Sheet (.xlsx / .csv)</span>
               </button>
 
               {/* Export Button */}
               <button
                 onClick={exportAuctionSquadsCSV}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border hover:border-cricket-teal/40 text-white font-bold text-xs shadow-md transition-all active:scale-95"
+                className="btn-press shimmer-btn flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg transition-all active:scale-95 cursor-pointer"
                 title="Download full tournament squads and financial report as CSV"
               >
-                <Download className="w-4 h-4 text-cricket-teal" />
+                <Download className="w-4 h-4 text-[#08111F]" />
                 <span>Export Squads CSV</span>
               </button>
             </>
@@ -888,15 +888,15 @@ export default function AuctionPage() {
           )}
 
           {/* Tournament Switcher */}
-          <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md">
+          <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold shadow-md">
             {tournamentsList.map((t) => (
               <button
                 key={t.slug}
                 onClick={() => setActiveTournament(t.slug)}
-                className={`px-3 py-2 rounded-lg transition-all whitespace-nowrap ${
+                className={`px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap ${
                   activeTournament === t.slug
-                    ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                    : 'text-cricket-muted hover:text-white'
+                    ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
+                    : 'text-[#8793A5] hover:text-white'
                 }`}
               >
                 {t.name}
@@ -1064,29 +1064,53 @@ export default function AuctionPage() {
             {/* Left Column: Active Player on the Block & Bidding Keypad */}
             <div className="lg:col-span-2 space-y-6">
               {currentLot ? (
-                <div className="glass-card overflow-hidden border-2 border-cricket-teal/40 shadow-2xl space-y-6">
+                <div className="bg-[#0D1B2A]/95 backdrop-blur-md rounded-3xl overflow-hidden border border-[#D8AD55]/40 shadow-2xl space-y-6">
                   {/* Lot Hero Header */}
-                  <div className="p-6 sm:p-8 bg-gradient-to-r from-blue-950 via-cricket-card to-cricket-dark border-b border-cricket-border text-center space-y-4">
+                  <div className="p-6 sm:p-8 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border-b border-[#D8AD55]/20 text-center space-y-5 relative">
                     <div className="flex items-center justify-between">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold uppercase animate-pulse">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Currently on the Block
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/30 text-xs font-bold uppercase tracking-wider animate-pulse">
+                        <Sparkles className="w-3.5 h-3.5 text-[#D8AD55]" />
+                        <span>Live on the Block</span>
                       </div>
 
-                      {/* 30-Second Live Synchronized Countdown Timer */}
-                      <div className="flex items-center gap-2">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-black tracking-wider shadow-md ${
-                          countdown <= 8
-                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse'
-                            : countdown <= 15
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                            : 'bg-cricket-teal/15 text-cricket-teal border-cricket-teal/40'
-                        }`}>
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>00:{countdown < 10 ? `0${countdown}` : countdown}s</span>
-                          <span className="text-[10px] font-sans font-semibold uppercase text-gray-300 hidden sm:inline">
-                            {countdown <= 8 ? 'Closing Soon!' : 'Timer'}
-                          </span>
+                      {/* 30-Second Live Broadcast Circular Countdown Dial */}
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-14 h-14 flex items-center justify-center">
+                          {/* Circular SVG Ring */}
+                          <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 56 56">
+                            <circle
+                              cx="28"
+                              cy="28"
+                              r="23"
+                              className="stroke-white/10"
+                              strokeWidth="3.5"
+                              fill="transparent"
+                            />
+                            <circle
+                              cx="28"
+                              cy="28"
+                              r="23"
+                              className={`transition-all duration-1000 ease-linear ${
+                                countdown <= 8
+                                  ? 'stroke-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.8)]'
+                                  : countdown <= 15
+                                  ? 'stroke-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]'
+                                  : 'stroke-[#D8AD55] drop-shadow-[0_0_8px_rgba(216,173,85,0.8)]'
+                              }`}
+                              strokeWidth="3.5"
+                              strokeDasharray={144.5}
+                              strokeDashoffset={144.5 - (144.5 * Math.max(0, countdown)) / 30}
+                              strokeLinecap="round"
+                              fill="transparent"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className={`font-mono font-black text-sm ${
+                              countdown <= 8 ? 'text-rose-400 animate-pulse' : countdown <= 15 ? 'text-amber-300' : 'text-[#F2D69A]'
+                            }`}>
+                              {countdown}s
+                            </span>
+                          </div>
                         </div>
 
                         {isSuperAdmin && (
@@ -1096,7 +1120,7 @@ export default function AuctionPage() {
                               broadcastAuctionState({ countdown: 30 });
                             }}
                             title="Reset Timer to 30s"
-                            className="px-2 py-1 rounded-lg bg-cricket-dark hover:bg-cricket-card border border-cricket-border text-gray-300 text-[11px] font-bold"
+                            className="px-2.5 py-1.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all shadow-sm"
                           >
                             ↺ 30s
                           </button>
@@ -1106,34 +1130,34 @@ export default function AuctionPage() {
 
                     {/* Transition / Auto-Boarding Banner */}
                     {transitionMessage && (
-                      <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950 via-cricket-card to-blue-950 border border-cricket-teal text-emerald-300 font-display font-bold text-sm text-center shadow-lg animate-pulse">
+                      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950 via-[#0D1B2A] to-blue-950 border border-emerald-500/50 text-emerald-300 font-display font-bold text-sm text-center shadow-lg animate-pulse">
                         {transitionMessage}
                       </div>
                     )}
 
-                    <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-tr from-blue-600 to-cricket-teal p-1 shadow-xl">
-                      <div className="w-full h-full bg-cricket-card rounded-full flex items-center justify-center font-display font-black text-3xl text-cricket-teal">
+                    <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-tr from-[#D8AD55] via-[#F2D69A] to-[#0D1B2A] p-[2px] shadow-2xl">
+                      <div className="w-full h-full bg-[#08111F] rounded-[22px] flex items-center justify-center font-display font-black text-3xl text-[#F2D69A]">
                         {currentLot.name.charAt(0)}
                       </div>
                     </div>
 
                     <div>
-                      <h2 className="font-display font-black text-3xl sm:text-4xl text-white">
+                      <h2 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight">
                         {currentLot.name}
                       </h2>
-                      <div className="text-sm font-semibold text-cricket-muted mt-0.5">{currentLot.role}</div>
+                      <div className="text-xs sm:text-sm font-bold text-[#D8AD55] uppercase tracking-wider mt-1">{currentLot.role}</div>
                     </div>
 
-                    <div className="pt-2">
-                      <div className="text-xs font-bold text-cricket-muted uppercase tracking-wider">
+                    <div className="pt-3 border-t border-white/5 max-w-md mx-auto">
+                      <div className="text-[11px] font-bold text-[#8793A5] uppercase tracking-widest">
                         Current Highest Bid
                       </div>
-                      <div className="font-display font-black text-5xl text-cricket-gold drop-shadow-md">
+                      <div className="font-display font-black text-5xl sm:text-6xl text-[#D8AD55] drop-shadow-[0_0_25px_rgba(216,173,85,0.35)] mt-1">
                         ₹{currentLot.currentBid.toLocaleString('en-IN')}
                       </div>
-                      <div className="text-sm font-bold text-gray-200 mt-1">
-                        Leading:{' '}
-                        <span className="text-cricket-teal font-extrabold">
+                      <div className="text-sm font-semibold text-gray-200 mt-1">
+                        Leading Bidder:{' '}
+                        <span className="text-[#F2D69A] font-black">
                           {currentLot.leadingTeam || `Opening Base Bid (₹${currentLot.basePrice})`}
                         </span>
                       </div>
@@ -1150,14 +1174,14 @@ export default function AuctionPage() {
                         : currentLot.currentBid + selectedIncrement;
 
                       return (
-                        <div className="p-4 rounded-2xl bg-cricket-dark/90 border border-cricket-border/80 space-y-3">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="p-5 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 space-y-3 shadow-inner">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
-                              <span className="text-xs font-black uppercase text-cricket-teal tracking-wider flex items-center gap-1.5">
-                                <Zap className="w-4 h-4 text-cricket-gold" />
-                                <span>{isOpeningRound ? '1st Opening Bid Selection' : 'Select Bid Increment'}</span>
+                              <span className="text-xs font-black uppercase text-[#F2D69A] tracking-wider flex items-center gap-1.5">
+                                <Zap className="w-4 h-4 text-[#D8AD55]" />
+                                <span>{isOpeningRound ? 'Opening Bid Strategy' : 'Select Bid Increment'}</span>
                               </span>
-                              <p className="text-[11px] text-gray-400">
+                              <p className="text-[11px] text-[#8793A5] mt-0.5">
                                 {isOpeningRound
                                   ? `Open bid at Base Price (₹${currentLot.basePrice}) or jump directly with +₹50, +₹100, +₹200:`
                                   : `Choose increment to top the current highest bid (₹${currentLot.currentBid.toLocaleString('en-IN')}):`}
@@ -1169,10 +1193,10 @@ export default function AuctionPage() {
                                 <button
                                   type="button"
                                   onClick={() => setIsOpeningAtBase(true)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                     isOpeningAtBase
-                                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-cricket-dark font-black shadow-lg shadow-amber-500/20'
-                                      : 'bg-cricket-card text-gray-300 hover:text-white border border-cricket-border'
+                                      ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-lg shadow-[#D8AD55]/20'
+                                      : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20'
                                   }`}
                                 >
                                   Base (₹{currentLot.basePrice})
@@ -1188,8 +1212,8 @@ export default function AuctionPage() {
                                   }}
                                   className={`btn-press px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                     (!isOpeningRound && selectedIncrement === step) || (isOpeningRound && !isOpeningAtBase && selectedIncrement === step)
-                                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark font-black shadow-lg shadow-emerald-500/20 scale-105'
-                                      : 'bg-cricket-card text-gray-300 hover:text-white border border-cricket-border'
+                                      ? 'bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-black shadow-lg shadow-[#D8AD55]/25 scale-105'
+                                      : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20'
                                   }`}
                                 >
                                   +₹{step}
@@ -1199,35 +1223,35 @@ export default function AuctionPage() {
                           </div>
 
                           {/* Live Dynamic Calculation Preview Bar */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold text-gray-300 bg-cricket-card/80 p-3 rounded-xl border border-cricket-border/60">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold text-gray-300 bg-[#0D1B2A] p-3.5 rounded-xl border border-white/5">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-cricket-muted uppercase text-[10px] tracking-wider font-bold">Calculation:</span>
+                              <span className="text-[#8793A5] uppercase text-[10px] tracking-wider font-bold">Calculation:</span>
                               {isOpeningRound ? (
                                 isOpeningAtBase ? (
-                                  <span className="font-mono text-amber-300 font-bold">
+                                  <span className="font-mono text-[#F2D69A] font-bold">
                                     Base Price ₹{currentLot.basePrice} (Opening Bid)
                                   </span>
                                 ) : (
                                   <span className="flex items-center gap-1.5 font-mono">
                                     <span>Base ₹{currentLot.basePrice}</span>
-                                    <span className="text-emerald-400 font-bold">+</span>
-                                    <span className="text-emerald-400 font-bold">₹{selectedIncrement} Jump</span>
+                                    <span className="text-[#D8AD55] font-bold">+</span>
+                                    <span className="text-[#D8AD55] font-bold">₹{selectedIncrement} Jump</span>
                                     <span>=</span>
-                                    <strong className="text-cricket-gold font-bold text-sm">₹{targetBidAmount.toLocaleString('en-IN')}</strong>
+                                    <strong className="text-[#F2D69A] font-bold text-sm">₹{targetBidAmount.toLocaleString('en-IN')}</strong>
                                   </span>
                                 )
                               ) : (
                                 <span className="flex items-center gap-1.5 font-mono">
                                   <span>Current ₹{currentLot.currentBid.toLocaleString('en-IN')}</span>
-                                  <span className="text-emerald-400 font-bold">+</span>
-                                  <span className="text-emerald-400 font-bold">₹{selectedIncrement}</span>
+                                  <span className="text-[#D8AD55] font-bold">+</span>
+                                  <span className="text-[#D8AD55] font-bold">₹{selectedIncrement}</span>
                                   <span>=</span>
-                                  <strong className="text-cricket-gold font-bold text-sm">₹{targetBidAmount.toLocaleString('en-IN')}</strong>
+                                  <strong className="text-[#F2D69A] font-bold text-sm">₹{targetBidAmount.toLocaleString('en-IN')}</strong>
                                 </span>
                               )}
                             </div>
 
-                            <span className="text-[11px] text-cricket-teal font-medium">
+                            <span className="text-[11px] text-[#D8AD55] font-medium">
                               {isOpeningRound ? 'Ready for 1st Franchise' : 'Ready to Submit Bid'}
                             </span>
                           </div>
@@ -1247,38 +1271,38 @@ export default function AuctionPage() {
                       const isAlreadyLeading = currentLot.leadingTeam === userTeam.name;
 
                       return (
-                        <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-950 via-cricket-card to-emerald-950 border-2 border-cricket-teal shadow-2xl space-y-4">
+                        <div className="p-5 rounded-2xl bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border-2 border-[#D8AD55]/50 shadow-2xl space-y-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5">
-                              <span className="w-9 h-9 rounded-xl bg-cricket-teal/20 text-cricket-teal border border-cricket-teal/40 font-display font-black flex items-center justify-center text-sm">
+                              <span className="w-10 h-10 rounded-xl bg-[#D8AD55]/15 text-[#D8AD55] border border-[#D8AD55]/40 font-display font-black flex items-center justify-center text-sm">
                                 {userTeam.short}
                               </span>
                               <div>
-                                <span className="font-display font-extrabold text-base text-white block">{userTeam.name}</span>
-                                <span className="text-[11px] text-cricket-muted">Franchise Owner Console</span>
+                                <span className="font-display font-black text-base text-white block">{userTeam.name}</span>
+                                <span className="text-[11px] text-[#8793A5]">Franchise Owner Console</span>
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="text-xs font-mono font-bold text-cricket-gold block">
+                              <span className="text-xs font-mono font-bold text-[#D8AD55] block">
                                 Purse: ₹{userRemaining.toLocaleString('en-IN')}
                               </span>
-                              <span className="text-[10px] text-gray-400">
+                              <span className="text-[10px] text-[#8793A5]">
                                 Squad: {userTeam.playersBought}/{userTeam.maxSquad}
                               </span>
                             </div>
                           </div>
 
                           {isAlreadyLeading ? (
-                            <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-display font-bold text-center text-sm flex items-center justify-center gap-2 shadow-inner">
+                            <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 font-display font-bold text-center text-sm flex items-center justify-center gap-2 shadow-inner">
                               <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                              <span>👑 You hold the WINNING BID of ₹{currentLot.currentBid.toLocaleString('en-IN')}! (Waiting for rival bids...)</span>
+                              <span>👑 You hold the WINNING BID of ₹{currentLot.currentBid.toLocaleString('en-IN')}!</span>
                             </div>
                           ) : (
                             <button
                               type="button"
                               onClick={() => handleBid(userTeam, isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement)}
                               disabled={!canUserBidForTeam(userTeam) || !hasSufficientBudget || isSquadFull}
-                              className="btn-press shimmer-btn w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:brightness-110 text-cricket-dark font-display font-black text-lg tracking-wide shadow-2xl shadow-emerald-500/30 transition-all flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="btn-press shimmer-btn w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-base sm:text-lg tracking-wider uppercase shadow-2xl shadow-[#D8AD55]/25 transition-all flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <div className="flex items-center gap-2">
                                 <Gavel className="w-6 h-6" />
@@ -1286,7 +1310,7 @@ export default function AuctionPage() {
                                   PLACE BID: ₹{targetBidAmount.toLocaleString('en-IN')} FOR {userTeam.short}
                                 </span>
                               </div>
-                              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-black/20 text-cricket-dark">
+                              <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-black/20 text-[#08111F]">
                                 {isOpeningRound ? (isOpeningAtBase ? 'Base Price' : `+₹${selectedIncrement} Jump`) : `+₹${selectedIncrement}`}
                               </span>
                             </button>
@@ -1296,10 +1320,10 @@ export default function AuctionPage() {
                     })()}
 
                     {/* Team Bidding Buttons Grid */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-cricket-muted uppercase">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-xs font-bold text-[#8793A5] uppercase tracking-wider">
                         <span>All Franchises Bidding Grid</span>
-                        <span className="text-[11px] font-normal text-gray-400">
+                        <span className="text-[11px] font-normal text-[#8793A5]">
                           {isSuperAdmin ? 'Super Admin: Tap any team to bid on their behalf' : 'Live Franchise Status'}
                         </span>
                       </div>
@@ -1325,37 +1349,37 @@ export default function AuctionPage() {
                               type="button"
                               disabled={!canBid}
                               onClick={() => handleBid(t, isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement)}
-                              className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden ${
+                              className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
                                 isLeading
-                                  ? 'bg-cricket-teal/20 border-cricket-teal text-white shadow-lg shadow-cricket-teal/20 ring-1 ring-cricket-teal'
+                                  ? 'bg-[#D8AD55]/20 border-[#D8AD55] text-white shadow-xl shadow-[#D8AD55]/20 ring-1 ring-[#D8AD55]'
                                   : canBid
-                                  ? 'bg-cricket-dark/80 hover:bg-cricket-card border-cricket-border hover:border-cricket-teal/50 text-white cursor-pointer active:scale-98'
-                                  : 'bg-cricket-dark/40 border-cricket-border/40 text-gray-500 cursor-not-allowed opacity-60'
+                                  ? 'bg-[#08111F] hover:bg-[#111D2D] border-[#D8AD55]/30 hover:border-[#D8AD55] text-white cursor-pointer active:scale-98'
+                                  : 'bg-[#08111F]/40 border-white/5 text-gray-500 cursor-not-allowed opacity-50'
                               }`}
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-display font-bold text-base truncate pr-2">
                                   {t.name}
                                 </span>
-                                <span className="text-xs px-2 py-0.5 rounded bg-cricket-card font-mono font-bold text-cricket-gold">
+                                <span className="text-xs px-2.5 py-0.5 rounded-md bg-[#0D1B2A] font-mono font-bold text-[#D8AD55] border border-[#D8AD55]/20">
                                   {t.short}
                                 </span>
                               </div>
 
                               <div className="mt-2 flex items-center justify-between text-xs">
-                                <span className="text-cricket-muted">
+                                <span className="text-[#8793A5]">
                                   Purse: ₹{remaining.toLocaleString('en-IN')}
                                 </span>
-                                <span className="font-bold text-cricket-teal">
+                                <span className="font-bold text-[#F2D69A]">
                                   Squad: {t.playersBought}/{t.maxSquad}
                                 </span>
                               </div>
 
-                              <div className="mt-3 pt-2 border-t border-cricket-border/60 flex items-center justify-between font-bold text-xs">
+                              <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between font-bold text-xs">
                                 <span>
                                   {isLeading ? '👑 Leading Bidder' : canBid ? 'Bid This Amount:' : 'Status:'}
                                 </span>
-                                <span className="font-display font-extrabold text-sm text-cricket-gold">
+                                <span className="font-display font-extrabold text-sm text-[#D8AD55]">
                                   {isLeading
                                     ? `₹${currentLot.currentBid.toLocaleString('en-IN')}`
                                     : canBid
@@ -1370,14 +1394,14 @@ export default function AuctionPage() {
                     </div>
 
                     {/* Live Bidding War Ledger */}
-                    <div className="p-4 rounded-2xl bg-cricket-dark/60 border border-cricket-border space-y-3">
-                      <div className="flex items-center justify-between border-b border-cricket-border/60 pb-2">
+                    <div className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/20 space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
                         <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5 text-cricket-teal" />
+                          <Clock className="w-3.5 h-3.5 text-[#D8AD55]" />
                           <span>Bidding War History ({currentLot.history.length} Bids on {currentLot.name})</span>
                         </span>
                         {currentLot.history.length > 0 && (
-                          <span className="text-[11px] text-emerald-400 font-mono font-bold">
+                          <span className="text-[11px] text-[#F2D69A] font-mono font-bold">
                             Latest: ₹{currentLot.currentBid.toLocaleString('en-IN')} by {currentLot.leadingTeam}
                           </span>
                         )}
@@ -1394,8 +1418,8 @@ export default function AuctionPage() {
                               key={i}
                               className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-all ${
                                 i === 0
-                                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200 font-bold shadow-sm'
-                                  : 'bg-cricket-card/50 border-cricket-border/40 text-gray-300'
+                                  ? 'bg-[#D8AD55]/15 border-[#D8AD55]/40 text-[#F2D69A] font-bold shadow-sm'
+                                  : 'bg-[#0D1B2A] border-white/5 text-gray-300'
                               }`}
                             >
                               <div className="flex items-center gap-2">
@@ -1427,24 +1451,24 @@ export default function AuctionPage() {
 
                     {/* Master Hammer Controls: Only for Super Admin */}
                     {isSuperAdmin && (
-                      <div className="pt-4 border-t border-cricket-border flex flex-wrap items-center justify-between gap-4">
+                      <div className="pt-5 border-t border-white/5 flex flex-wrap items-center justify-between gap-4">
                         <button
                           onClick={handleUndo}
                           disabled={currentLot.history.length === 0}
                           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${
                             currentLot.history.length > 0
-                              ? 'bg-cricket-card hover:bg-cricket-cardHover border-cricket-border text-gray-200'
-                              : 'bg-cricket-dark border-cricket-border/40 text-gray-600 cursor-not-allowed'
+                              ? 'bg-[#08111F] hover:bg-[#111D2D] border-[#D8AD55]/30 text-[#F2D69A] cursor-pointer'
+                              : 'bg-[#08111F]/50 border-white/5 text-[#8793A5] cursor-not-allowed opacity-50'
                           }`}
                         >
-                          <RotateCcw className="w-4 h-4" />
+                          <RotateCcw className="w-4 h-4 text-[#D8AD55]" />
                           <span>Undo Last Bid</span>
                         </button>
 
                         <div className="flex gap-3">
                           <button
                             onClick={handleUnsold}
-                            className="btn-press px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all cursor-pointer"
+                            className="btn-press px-5 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 font-bold text-xs border border-rose-500/40 transition-all cursor-pointer"
                           >
                             Pass as Unsold
                           </button>
@@ -1452,10 +1476,10 @@ export default function AuctionPage() {
                           <button
                             onClick={handleSold}
                             disabled={!currentLot.leadingTeam}
-                            className={`btn-press shimmer-btn flex items-center gap-2 px-6 py-2.5 rounded-xl font-display font-black text-sm tracking-wide shadow-xl transition-all cursor-pointer ${
+                            className={`btn-press shimmer-btn flex items-center gap-2 px-7 py-3 rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-2xl transition-all cursor-pointer ${
                               currentLot.leadingTeam
-                                ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 text-cricket-dark hover:brightness-110 shadow-emerald-500/25'
-                                : 'bg-cricket-card text-gray-500 border border-cricket-border cursor-not-allowed'
+                                ? 'bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] hover:brightness-110 shadow-[#D8AD55]/30'
+                                : 'bg-[#08111F] text-gray-500 border border-white/10 cursor-not-allowed'
                             }`}
                           >
                             <Gavel className="w-4 h-4" />
@@ -1467,29 +1491,29 @@ export default function AuctionPage() {
                   </div>
                 </div>
               ) : (
-                <div className="glass-card p-10 text-center space-y-5 border border-cricket-gold/40 shadow-2xl">
+                <div className="bg-[#0D1B2A]/95 backdrop-blur-md p-10 sm:p-14 text-center space-y-5 rounded-3xl border border-[#D8AD55]/40 shadow-2xl">
                   {unsoldPlayers.length > 0 ? (
                     <>
-                      <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-cricket-gold flex items-center justify-center mx-auto border border-amber-500/30">
+                      <div className="w-16 h-16 rounded-2xl bg-[#D8AD55]/15 text-[#D8AD55] flex items-center justify-center mx-auto border border-[#D8AD55]/30 shadow-xl">
                         <Gavel className="w-8 h-8" />
                       </div>
                       <div className="space-y-1">
-                        <span className="px-3 py-1 rounded-full bg-amber-500/20 text-cricket-gold text-xs font-bold uppercase tracking-wider border border-amber-500/30">
+                        <span className="px-3 py-1 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] text-xs font-bold uppercase tracking-wider border border-[#D8AD55]/30">
                           Phase 1 Completed
                         </span>
-                        <h3 className="font-display font-black text-2xl sm:text-3xl text-white pt-2">
+                        <h3 className="font-display font-black text-2xl sm:text-4xl text-white pt-2">
                           {unsoldPlayers.length} Unsold Players in Pool
                         </h3>
-                        <p className="text-sm text-cricket-muted max-w-md mx-auto">
+                        <p className="text-sm text-[#8793A5] max-w-md mx-auto">
                           Phase 1 is complete! You can now start <strong>Phase 2: Accelerated Unsold Round</strong> to allow franchise owners with remaining purse to bid on the unsold pool.
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
                         {isAccessAllowed && (
                           <button
                             onClick={handleStartPhase2}
-                            className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-cricket-dark font-display font-black text-sm shadow-xl shadow-amber-500/25 active:scale-95 transition-all flex items-center gap-2"
+                            className="btn-press shimmer-btn px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                           >
                             <Zap className="w-4 h-4" />
                             <span>Launch Phase 2: Unsold Players Round ({unsoldPlayers.length})</span>
@@ -1497,7 +1521,7 @@ export default function AuctionPage() {
                         )}
                         <button
                           onClick={handleSyncRegisteredPlayers}
-                          className="px-5 py-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 text-blue-300 font-bold text-sm transition-all"
+                          className="px-5 py-3 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] font-bold text-xs transition-all cursor-pointer"
                         >
                           Sync Registered Players
                         </button>
@@ -1505,20 +1529,20 @@ export default function AuctionPage() {
                     </>
                   ) : (
                     <>
-                      <div className="w-16 h-16 rounded-2xl bg-cricket-teal/10 text-cricket-teal flex items-center justify-center mx-auto">
+                      <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30">
                         <CheckCircle2 className="w-8 h-8" />
                       </div>
-                      <h3 className="font-display font-black text-2xl text-white">
+                      <h3 className="font-display font-black text-2xl sm:text-3xl text-white">
                         Auction Lot Completed
                       </h3>
-                      <p className="text-sm text-cricket-muted max-w-md mx-auto">
+                      <p className="text-sm text-[#8793A5] max-w-md mx-auto">
                         All players in the current queue have been processed. All teams and squads are finalized!
                       </p>
                       {isAccessAllowed && (
                         <div className="flex flex-wrap justify-center gap-3 pt-2">
                           <button
                             onClick={handleSyncRegisteredPlayers}
-                            className="px-6 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-teal/40 text-cricket-teal font-display font-bold text-sm transition-all"
+                            className="btn-press shimmer-btn px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg transition-all"
                           >
                             Sync Newly Registered Players
                           </button>
@@ -1530,31 +1554,31 @@ export default function AuctionPage() {
               )}
 
               {/* Acquired Players Ledger */}
-              <div className="glass-card p-6 space-y-4 border border-cricket-border">
-                <div className="flex items-center justify-between border-b border-cricket-border pb-3">
-                  <h3 className="font-display font-bold text-xl text-white flex items-center gap-2">
+              <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl p-6 sm:p-7 space-y-4 border border-[#D8AD55]/30 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[#D8AD55]/15 pb-3">
+                  <h3 className="font-display font-black text-xl text-white flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                     <span>Completed Purchases ({soldTransactions.length})</span>
                   </h3>
-                  <span className="text-xs font-semibold text-cricket-muted">
+                  <span className="text-xs font-bold text-[#8793A5]">
                     Auto-assigned to Squads
                   </span>
                 </div>
 
-                <div className="divide-y divide-cricket-border text-sm max-h-80 overflow-y-auto pr-1">
+                <div className="divide-y divide-white/5 text-sm max-h-80 overflow-y-auto pr-1">
                   {soldTransactions.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-cricket-muted">
+                    <div className="py-6 text-center text-xs text-[#8793A5]">
                       No players acquired yet. Players hammered as SOLD will appear here.
                     </div>
                   ) : (
                     soldTransactions.map((tx) => (
-                      <div key={tx.id} className="py-2.5 flex items-center justify-between">
+                      <div key={tx.id} className="py-3 flex items-center justify-between">
                         <div>
                           <span className="font-bold text-white">{tx.player}</span>
-                          <span className="text-xs text-cricket-muted ml-2">({tx.role})</span>
-                          <div className="text-xs text-blue-400 font-semibold">{tx.team}</div>
+                          <span className="text-xs text-[#8793A5] ml-2">({tx.role})</span>
+                          <div className="text-xs text-[#D8AD55] font-semibold">{tx.team}</div>
                         </div>
-                        <div className="font-display font-bold text-lg text-cricket-gold">
+                        <div className="font-display font-black text-lg text-[#F2D69A]">
                           ₹{tx.price.toLocaleString('en-IN')}
                         </div>
                       </div>
@@ -1566,22 +1590,22 @@ export default function AuctionPage() {
 
             {/* Right Column: Live Team Purse & Squad Capacity Tracker */}
             <div className="space-y-6">
-              <div className="glass-card p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-cricket-border pb-3">
-                  <h3 className="font-display font-bold text-xl text-white flex items-center gap-2">
-                    <Users className="w-5 h-5 text-cricket-teal" />
+              <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl p-6 sm:p-7 space-y-5 border border-[#D8AD55]/30 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[#D8AD55]/15 pb-3">
+                  <h3 className="font-display font-black text-xl text-white flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#D8AD55]" />
                     <span>Team Purse Tracker</span>
                   </h3>
-                  <span className="text-xs font-bold text-cricket-muted">
+                  <span className="text-xs font-bold text-[#F2D69A] font-mono">
                     ₹{rules.basePurse.toLocaleString('en-IN')} Budget
                   </span>
                 </div>
 
                 <div className="space-y-4">
                   {teams.length === 0 ? (
-                    <div className="p-4 rounded-xl bg-cricket-dark/50 border border-dashed border-cricket-border/60 text-center space-y-1">
-                      <p className="text-sm font-semibold text-gray-300">No franchise teams registered yet</p>
-                      <p className="text-xs text-cricket-muted">
+                    <div className="p-5 rounded-2xl bg-[#08111F] border border-dashed border-[#D8AD55]/30 text-center space-y-1">
+                      <p className="text-sm font-semibold text-gray-200">No franchise teams registered yet</p>
+                      <p className="text-xs text-[#8793A5]">
                         Assign franchise owners in Super Admin or click &apos;Import Sheet&apos; to load teams.
                       </p>
                     </div>
@@ -1590,34 +1614,34 @@ export default function AuctionPage() {
                       const remaining = t.allocated - t.spent;
                       const percentSpent = (t.spent / t.allocated) * 100;
                       return (
-                        <div key={t.id} className="p-3.5 rounded-xl bg-cricket-dark/80 border border-cricket-border space-y-2">
+                        <div key={t.id} className="p-4 rounded-2xl bg-[#08111F] border border-white/5 space-y-2.5">
                           <div className="flex items-center justify-between">
                             <div>
                               <span className="font-bold text-white text-sm">{t.name}</span>
                               {t.owner && (
-                                <div className="text-[11px] text-amber-400 font-semibold">
+                                <div className="text-[11px] text-[#D8AD55] font-semibold mt-0.5">
                                   Owner: {t.owner} (Blocked ₹{rules.ownerBlockedPrice})
                                 </div>
                               )}
                             </div>
-                            <span className="text-xs font-semibold text-cricket-muted">
+                            <span className="text-xs font-bold text-[#8793A5]">
                               {t.playersBought} / {t.maxSquad} Players
                             </span>
                           </div>
 
                           {/* Purse Bar */}
-                          <div className="w-full h-2 rounded-full bg-cricket-card overflow-hidden">
+                          <div className="w-full h-2 rounded-full bg-[#111D2D] overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-blue-500 to-cricket-teal transition-all duration-300"
+                              className="h-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] transition-all duration-300"
                               style={{ width: `${Math.min(100, percentSpent)}%` }}
                             />
                           </div>
 
                           <div className="flex items-center justify-between text-xs pt-1">
-                            <span className="text-cricket-muted">
+                            <span className="text-[#8793A5]">
                               Spent: ₹{t.spent.toLocaleString('en-IN')}
                             </span>
-                            <span className="font-bold text-cricket-teal">
+                            <span className="font-extrabold text-[#F2D69A]">
                               Remaining: ₹{remaining.toLocaleString('en-IN')}
                             </span>
                           </div>
@@ -1630,18 +1654,18 @@ export default function AuctionPage() {
 
               {/* Unsold Pool */}
               {unsoldPlayers.length > 0 && (
-                <div className="glass-card p-6 space-y-3 border border-cricket-border">
+                <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl p-6 space-y-3 border border-[#D8AD55]/20 shadow-xl">
                   <h4 className="font-display font-bold text-lg text-white">
                     Unsold Player Pool ({unsoldPlayers.length})
                   </h4>
-                  <p className="text-xs text-cricket-muted">
+                  <p className="text-xs text-[#8793A5]">
                     These players can be reintroduced in subsequent rounds by the tournament organizer.
                   </p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     {unsoldPlayers.map((name) => (
                       <span
                         key={name}
-                        className="px-2.5 py-1 rounded-lg bg-cricket-dark border border-cricket-border text-xs text-gray-300"
+                        className="px-3 py-1 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-xs text-[#F2D69A] font-semibold"
                       >
                         {name}
                       </span>
@@ -1658,18 +1682,18 @@ export default function AuctionPage() {
       {/* IMPORT WORKBOOK MODAL (.xlsx / .csv) */}
       {/* ========================================================================= */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="max-w-2xl w-full p-6 sm:p-8 rounded-3xl bg-cricket-dark border border-cricket-border shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-cricket-border pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="max-w-2xl w-full p-6 sm:p-8 rounded-3xl bg-[#0D1B2A] border border-[#D8AD55]/40 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-[#D8AD55]/15 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cricket-gold/10 border border-cricket-gold/30 text-cricket-gold flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#D8AD55] flex items-center justify-center">
                   <FileSpreadsheet className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-xl text-white">
+                  <h3 className="font-display font-black text-xl text-white">
                     Import Tournament Roster (.xlsx / .csv)
                   </h3>
-                  <p className="text-xs text-cricket-muted">
+                  <p className="text-xs text-[#8793A5] mt-0.5">
                     Upload your tournament excel with Franchise, Owner, and Player columns
                   </p>
                 </div>
@@ -1682,28 +1706,28 @@ export default function AuctionPage() {
                   setParsedPreview(null);
                   setImportError(null);
                 }}
-                className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-cricket-card"
+                className="p-2 rounded-xl text-gray-400 hover:text-white bg-[#08111F] hover:bg-[#111D2D] border border-white/5 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Rules explanation box */}
-            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs space-y-1.5 leading-relaxed">
+            <div className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/20 text-xs space-y-2 leading-relaxed">
               <div className="font-bold text-white flex items-center gap-1.5">
-                <Info className="w-4 h-4 text-cricket-teal" />
+                <Info className="w-4 h-4 text-[#D8AD55]" />
                 <span>Automatic Budget &amp; Owner Retention Rules:</span>
               </div>
-              <ul className="list-disc list-inside space-y-0.5 text-gray-300">
+              <ul className="list-disc list-inside space-y-1 text-[#8793A5]">
                 <li>Total Base Points per Franchise: <strong className="text-white">₹{rules.basePurse.toLocaleString('en-IN')}</strong></li>
-                <li>Franchise Owner Blocked Base Price: <strong className="text-amber-400">₹{rules.ownerBlockedPrice}</strong> (Retained in team squad)</li>
-                <li>Effective Remaining Starting Purse: <strong className="text-cricket-teal">₹{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')}</strong></li>
+                <li>Franchise Owner Blocked Base Price: <strong className="text-[#F2D69A]">₹{rules.ownerBlockedPrice}</strong> (Retained in team squad)</li>
+                <li>Effective Remaining Starting Purse: <strong className="text-[#D8AD55]">₹{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')}</strong></li>
                 <li>Player Base Price: <strong className="text-white">₹{rules.defaultPlayerBasePrice}</strong> (Added into live auction queue)</li>
               </ul>
             </div>
 
             {/* File Upload Drop Area */}
-            <div className="border-2 border-dashed border-cricket-border hover:border-cricket-teal/50 rounded-2xl p-6 text-center space-y-3 bg-cricket-card/30">
+            <div className="border-2 border-dashed border-[#D8AD55]/30 hover:border-[#D8AD55] rounded-2xl p-6 text-center space-y-3 bg-[#08111F]/50 transition-colors">
               <input
                 type="file"
                 id="excel-upload"
@@ -1715,11 +1739,11 @@ export default function AuctionPage() {
                 htmlFor="excel-upload"
                 className="cursor-pointer block space-y-2"
               >
-                <UploadCloud className="w-10 h-10 text-cricket-teal mx-auto" />
+                <UploadCloud className="w-10 h-10 text-[#D8AD55] mx-auto" />
                 <div className="text-sm font-bold text-white">
                   {importFile ? importFile.name : 'Click to select tournament .xlsx or .csv workbook'}
                 </div>
-                <div className="text-xs text-cricket-muted">
+                <div className="text-xs text-[#8793A5]">
                   Supports multi-sheet or single sheet formats (e.g. DDPL_Tournament_Data.xlsx)
                 </div>
               </label>
@@ -1727,7 +1751,7 @@ export default function AuctionPage() {
 
             {/* Error Message */}
             {importError && (
-              <div className="p-3.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
+              <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
                 <span>{importError}</span>
               </div>
@@ -1744,27 +1768,27 @@ export default function AuctionPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 rounded-xl bg-cricket-card border border-cricket-border space-y-1">
+                  <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5 space-y-1">
                     <span className="font-bold text-white">Detected Franchises &amp; Owners:</span>
                     <ul className="space-y-1 text-gray-300 pt-1">
                       {parsedPreview.teams.map((t: any) => (
                         <li key={t.id} className="truncate">
-                          🏏 <strong className="text-cricket-teal">{t.name}</strong> ({t.owner})
+                          🏏 <strong className="text-[#D8AD55]">{t.name}</strong> ({t.owner})
                         </li>
                       ))}
                     </ul>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-cricket-card border border-cricket-border space-y-1">
+                  <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5 space-y-1">
                     <span className="font-bold text-white">Sample Auction Pool Players:</span>
                     <ul className="space-y-1 text-gray-300 pt-1">
                       {parsedPreview.playerPool.slice(0, 4).map((p: any) => (
                         <li key={p.id} className="truncate">
-                          👤 {p.name} <span className="text-cricket-muted">({p.role} - ₹{p.basePrice})</span>
+                          👤 {p.name} <span className="text-[#8793A5]">({p.role} - ₹{p.basePrice})</span>
                         </li>
                       ))}
                       {parsedPreview.playerPool.length > 4 && (
-                        <li className="text-cricket-muted italic">
+                        <li className="text-[#8793A5] italic">
                           + {parsedPreview.playerPool.length - 4} more players queued
                         </li>
                       )}
@@ -1775,24 +1799,24 @@ export default function AuctionPage() {
             )}
 
             {/* Footer Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-cricket-border">
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
               <button
                 onClick={() => {
                   setIsImportModalOpen(false);
                   setImportFile(null);
                   setParsedPreview(null);
                 }}
-                className="px-4 py-2 rounded-xl text-gray-400 hover:text-white text-xs font-bold"
+                className="px-4 py-2.5 rounded-xl text-[#8793A5] hover:text-white text-xs font-bold transition-colors"
               >
                 Cancel
               </button>
               <button
                 disabled={!parsedPreview || isImporting}
                 onClick={handleApplyImport}
-                className={`px-6 py-2.5 rounded-xl font-display font-extrabold text-sm shadow-xl transition-all ${
+                className={`btn-press shimmer-btn px-6 py-2.5 rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-xl transition-all ${
                   parsedPreview && !isImporting
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark hover:brightness-110 active:scale-95'
-                    : 'bg-cricket-card text-gray-500 border border-cricket-border cursor-not-allowed'
+                    ? 'bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] hover:brightness-110 active:scale-95'
+                    : 'bg-[#08111F] text-gray-500 border border-white/5 cursor-not-allowed'
                 }`}
               >
                 {isImporting ? 'Importing Roster...' : 'Load & Reflect in Auction Room'}
