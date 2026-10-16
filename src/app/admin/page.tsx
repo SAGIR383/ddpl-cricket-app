@@ -333,6 +333,10 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (data.success) {
         setTournamentStatus(newStatus);
+        setTournamentsList((prev) =>
+          prev.map((t) => (t.slug === selectedTournament ? { ...t, status: newStatus } : t))
+        );
+        invalidateClientCache();
         showNotification(`Tournament status updated to "${newStatus.toUpperCase()}"!`);
       }
     } catch (err: any) {
