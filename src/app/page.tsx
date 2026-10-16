@@ -215,8 +215,16 @@ export default function HomePage() {
     }
 
     loadLiveData();
+
+    // Live real-time sync with admin console: poll every 5s & re-sync on focus
+    const interval = setInterval(loadLiveData, 5000);
+    const handleFocus = () => loadLiveData();
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 

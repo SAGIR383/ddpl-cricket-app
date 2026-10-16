@@ -40,10 +40,10 @@ export default function MatchesPage() {
       if (matches.length === 0) setLoading(true);
       try {
         const [regData, mData, rulesData, aData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 10000 }),
-          fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 3000 }),
+          fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 3000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 3000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 3000 }),
         ]);
 
         if (!isMounted) return;
@@ -149,6 +149,17 @@ export default function MatchesPage() {
     }
 
     loadMatchesFromApi();
+
+    // Live sync every 5s & re-sync on window focus
+    const interval = setInterval(loadMatchesFromApi, 5000);
+    const handleFocus = () => loadMatchesFromApi();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [selectedTournament]);
 
   return (
