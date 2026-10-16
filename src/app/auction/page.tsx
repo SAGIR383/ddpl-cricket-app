@@ -27,12 +27,18 @@ import {
   Pause,
   Eye
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import confetti from 'canvas-confetti';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { parseAuctionWorkbook, ParsedFranchise, ParsedPlayer } from '@/lib/auctionImport';
-import AuctionMascotOverlay, { MascotEventData } from '@/components/auction/AuctionMascotOverlay';
+import type { ParsedFranchise, ParsedPlayer } from '@/lib/auctionImport';
+import type { MascotEventData } from '@/components/auction/AuctionMascotOverlay';
+import { fetchWithCache } from '@/lib/clientCache';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+
+const AuctionMascotOverlay = dynamic(() => import('@/components/auction/AuctionMascotOverlay'), {
+  ssr: false,
+});
 
 interface PlayerLot {
   id: string;
@@ -182,25 +188,23 @@ export default function AuctionPage() {
 
   // 1. Fetch Dynamic Rules, Tournaments, and Persistent Auction State on Mount & Tournament Switch
   useEffect(() => {
+    let isMounted = true;
+
     async function loadInitialData() {
       try {
-        // Load available tournaments
-        try {
-          const regRes = await fetch('/api/tournaments/register?tournament=ddpl');
-          if (regRes.ok) {
-            const regData = await regRes.json();
-            if (regData.tournamentsList && regData.tournamentsList.length > 0) {
-              setTournamentsList(regData.tournamentsList);
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to fetch tournaments list', e);
+        const [regData, rulesData, auctionData] = await Promise.all([
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${activeTournament}`, { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${activeTournament}`, { ttlMs: 3000 }),
+        ]);
+
+        if (!isMounted) return;
+
+        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+          setTournamentsList(regData.tournamentsList);
         }
 
-        // Load Rules for active tournament
-        const rulesRes = await fetch(`/api/admin/rules?tournament=${activeTournament}`);
-        const rulesData = await rulesRes.json();
-        if (rulesData.success && rulesData.rules) {
+        if (rulesData?.success && rulesData.rules) {
           setRules({
             basePurse: rulesData.rules.basePurse || 10000,
             ownerBlockedPrice: rulesData.rules.ownerBlockedPrice || 500,
@@ -212,10 +216,7 @@ export default function AuctionPage() {
           });
         }
 
-        // Load Persistent Auction State for current tournament
-        const auctionRes = await fetch(`/api/auction/data?tournament=${activeTournament}`);
-        const auctionData = await auctionRes.json();
-        if (auctionData.success && auctionData.data) {
+        if (auctionData?.success && auctionData.data) {
           const d = auctionData.data;
           if (d.teams && d.teams.length > 0) setTeams(d.teams);
           if (d.playerPool && d.playerPool.length > 0) setPlayerPool(d.playerPool);
@@ -246,6 +247,10 @@ export default function AuctionPage() {
     }
 
     loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeTournament]);
 
   // 2. Realtime Broadcast Channel for Live Synchronized Bidding Room
@@ -747,6 +752,7 @@ export default function AuctionPage() {
 
     try {
       const buffer = await file.arrayBuffer();
+      const { parseAuctionWorkbook } = await import('@/lib/auctionImport');
       const parsed = parseAuctionWorkbook(buffer, {
         basePurse: rules.basePurse,
         ownerBlockedPrice: rules.ownerBlockedPrice,

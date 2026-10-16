@@ -16,6 +16,8 @@ interface LeaderPlayer {
   econ?: string;
 }
 
+import { fetchWithCache } from '@/lib/clientCache';
+
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<'mvp' | 'batting' | 'bowling'>('mvp');
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
@@ -24,28 +26,27 @@ export default function LeaderboardPage() {
     { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
   ]);
   const [acquiredPlayers, setAcquiredPlayers] = useState<LeaderPlayer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Load acquired players from live auction
+  // Load acquired players from live auction using fast client cache
   useEffect(() => {
+    let isMounted = true;
+
     async function loadAuctionPlayers() {
-      setLoading(true);
+      if (acquiredPlayers.length === 0) setLoading(true);
       try {
-        const [regRes, auctionRes] = await Promise.all([
-          fetch('/api/tournaments/register?tournament=ddpl'),
-          fetch(`/api/auction/data?tournament=${selectedTournament}`),
+        const [regData, data] = await Promise.all([
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
         ]);
 
-        if (regRes.ok) {
-          const regData = await regRes.json();
-          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
-            setTournamentsList(regData.tournamentsList);
-          }
+        if (!isMounted) return;
+
+        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+          setTournamentsList(regData.tournamentsList);
         }
 
-        const data = await auctionRes.json();
-
-        if (data.success && data.data && data.data.soldTransactions && data.data.soldTransactions.length > 0) {
+        if (data?.success && data.data && data.data.soldTransactions && data.data.soldTransactions.length > 0) {
           const sold = data.data.soldTransactions;
 
           const mapped: LeaderPlayer[] = sold.map((tx: any, idx: number) => ({

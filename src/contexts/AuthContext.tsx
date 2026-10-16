@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile, SystemRole } from '@/types/database.types';
+import { fetchWithCache } from '@/lib/clientCache';
 
 interface AuthContextType {
   user: any | null;
@@ -38,14 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = createClient();
 
-  // Helper to fetch backend assigned role for any email
+  // Helper to fetch backend assigned role for any email (cached for 60s)
   const fetchAssignedRole = async (email: string): Promise<SystemRole> => {
     try {
-      const res = await fetch(`/api/roles/me?email=${encodeURIComponent(email)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.role) return data.role as SystemRole;
-      }
+      const data = await fetchWithCache<any>(`/api/roles/me?email=${encodeURIComponent(email)}`, { ttlMs: 60000 });
+      if (data?.role) return data.role as SystemRole;
     } catch (err) {
       console.error('Error fetching assigned role:', err);
     }

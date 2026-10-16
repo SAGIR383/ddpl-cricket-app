@@ -256,11 +256,18 @@ export async function GET(req: Request) {
     defaultSchedule
   );
 
-  return NextResponse.json({
-    success: true,
-    tournament,
-    schedule,
-  });
+  return NextResponse.json(
+    {
+      success: true,
+      tournament,
+      schedule,
+    },
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=3, stale-while-revalidate=12',
+      },
+    }
+  );
 }
 
 // POST /api/matches

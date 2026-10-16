@@ -109,12 +109,19 @@ export async function GET(req: Request) {
   const allData = await readAllAuctionData();
   const tournamentData = allData.tournaments?.[tournament] || (tournament === 'ddpl' ? DEFAULT_STATE : EMPTY_TOURNAMENT_STATE);
 
-  return NextResponse.json({
-    success: true,
-    tournament,
-    data: tournamentData,
-    allTournaments: allData.tournaments,
-  });
+  return NextResponse.json(
+    {
+      success: true,
+      tournament,
+      data: tournamentData,
+      allTournaments: allData.tournaments,
+    },
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=2, stale-while-revalidate=6',
+      },
+    }
+  );
 }
 
 // POST /api/auction/data?tournament=ddpl

@@ -71,17 +71,24 @@ export async function GET(req: Request) {
     ? Number(targetRules.maxBowlerOvers)
     : Math.max(1, Math.ceil(matchOvers / 5));
 
-  return NextResponse.json({
-    success: true,
-    tournament,
-    tournaments: rulesMap,
-    rules: {
-      ...targetRules,
-      matchOvers,
-      maxBowlerOvers: defaultBowlerLimit,
-      effectivePurse: (targetRules.basePurse || 10000) - (targetRules.ownerBlockedPrice || 500),
+  return NextResponse.json(
+    {
+      success: true,
+      tournament,
+      tournaments: rulesMap,
+      rules: {
+        ...targetRules,
+        matchOvers,
+        maxBowlerOvers: defaultBowlerLimit,
+        effectivePurse: (targetRules.basePurse || 10000) - (targetRules.ownerBlockedPrice || 500),
+      },
     },
-  });
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+      },
+    }
+  );
 }
 
 // POST /api/admin/rules - Update rules for selected tournament

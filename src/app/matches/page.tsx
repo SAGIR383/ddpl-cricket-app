@@ -20,6 +20,8 @@ interface MatchDisplay {
   venue: string;
 }
 
+import { fetchWithCache } from '@/lib/clientCache';
+
 export default function MatchesPage() {
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [tournamentsList, setTournamentsList] = useState<any[]>([
@@ -29,75 +31,70 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<MatchDisplay[]>([]);
   const [tournamentStartDate, setTournamentStartDate] = useState<string | null>(null);
   const [tournamentEndDate, setTournamentEndDate] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Fetch official tournament schedule & fixtures from /api/matches
+  // Fetch official tournament schedule & fixtures using fast client cache
   useEffect(() => {
+    let isMounted = true;
+
     async function loadMatchesFromApi() {
-      setLoading(true);
+      if (matches.length === 0) setLoading(true);
       try {
-        const [regRes, matchesRes, rulesRes, auctionRes] = await Promise.all([
-          fetch('/api/tournaments/register?tournament=ddpl'),
-          fetch(`/api/matches?tournament=${selectedTournament}`),
-          fetch(`/api/admin/rules?tournament=${selectedTournament}`),
-          fetch(`/api/auction/data?tournament=${selectedTournament}`),
+        const [regData, mData, rulesData, aData] = await Promise.all([
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 10000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
         ]);
 
-        if (regRes.ok) {
-          const regData = await regRes.json();
-          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
-            setTournamentsList(regData.tournamentsList);
-          }
+        if (!isMounted) return;
+
+        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+          setTournamentsList(regData.tournamentsList);
         }
 
         const activeTourneyMeta = tournamentsList.find((t) => t.slug === selectedTournament);
         const tourneyLabel = activeTourneyMeta?.name || selectedTournament.toUpperCase();
 
         let tournamentOvers = selectedTournament === 'game-of-run' ? 12 : 10;
-        if (rulesRes.ok) {
-          const rulesData = await rulesRes.json();
-          if (rulesData.success && rulesData.rules?.matchOvers) {
-            tournamentOvers = rulesData.rules.matchOvers;
-          }
+        if (rulesData?.success && rulesData.rules?.matchOvers) {
+          tournamentOvers = rulesData.rules.matchOvers;
         }
 
         let loadedOfficial = false;
-        if (matchesRes.ok) {
-          const mData = await matchesRes.json();
-          if (mData.schedule) {
-            setTournamentStartDate(mData.schedule.startDate || null);
-            setTournamentEndDate(mData.schedule.endDate || null);
+        if (mData?.schedule) {
+          setTournamentStartDate(mData.schedule.startDate || null);
+          setTournamentEndDate(mData.schedule.endDate || null);
 
-            if (mData.schedule.matches && mData.schedule.matches.length > 0) {
-              loadedOfficial = true;
-              setMatches(
-                mData.schedule.matches.map((m: any) => ({
-                  id: m.id,
-                  matchNumber: m.matchNumber,
-                  tournament: `${tourneyLabel} ${activeTourneyMeta?.season || ''}`.trim(),
-                  stage: m.stage || 'League',
-                  group: m.group || null,
-                  title: m.title || `Match ${m.matchNumber}: ${m.teamA?.short || m.teamA} vs ${m.teamB?.short || m.teamB}`,
-                  teamA: {
-                    name: m.teamA?.name || m.teamA,
-                    short: m.teamA?.short || (m.teamA?.name || m.teamA || '').slice(0, 3).toUpperCase(),
-                    score: m.teamA?.score || 'Yet to bat',
-                    overs: m.teamA?.overs || '',
-                  },
-                  teamB: {
-                    name: m.teamB?.name || m.teamB,
-                    short: m.teamB?.short || (m.teamB?.name || m.teamB || '').slice(0, 3).toUpperCase(),
-                    score: m.teamB?.score || 'Yet to bat',
-                    overs: m.teamB?.overs || '',
-                  },
-                  matchDate: m.matchDate || null,
-                  matchTime: m.matchTime || '10:00 AM',
-                  status: m.status || 'upcoming',
-                  summary: m.summary || `${tournamentOvers} Overs scheduled fixture between ${m.teamA?.name || m.teamA} and ${m.teamB?.name || m.teamB}.`,
-                  venue: m.venue || 'Arena Ground 1',
-                }))
-              );
-            }
+          if (mData.schedule.matches && mData.schedule.matches.length > 0) {
+            loadedOfficial = true;
+            setMatches(
+              mData.schedule.matches.map((m: any) => ({
+                id: m.id,
+                matchNumber: m.matchNumber,
+                tournament: `${tourneyLabel} ${activeTourneyMeta?.season || ''}`.trim(),
+                stage: m.stage || 'League',
+                group: m.group || null,
+                title: m.title || `Match ${m.matchNumber}: ${m.teamA?.short || m.teamA} vs ${m.teamB?.short || m.teamB}`,
+                teamA: {
+                  name: m.teamA?.name || m.teamA,
+                  short: m.teamA?.short || (m.teamA?.name || m.teamA || '').slice(0, 3).toUpperCase(),
+                  score: m.teamA?.score || 'Yet to bat',
+                  overs: m.teamA?.overs || '',
+                },
+                teamB: {
+                  name: m.teamB?.name || m.teamB,
+                  short: m.teamB?.short || (m.teamB?.name || m.teamB || '').slice(0, 3).toUpperCase(),
+                  score: m.teamB?.score || 'Yet to bat',
+                  overs: m.teamB?.overs || '',
+                },
+                matchDate: m.matchDate || null,
+                matchTime: m.matchTime || '10:00 AM',
+                status: m.status || 'upcoming',
+                summary: m.summary || `${tournamentOvers} Overs scheduled fixture between ${m.teamA?.name || m.teamA} and ${m.teamB?.name || m.teamB}.`,
+                venue: m.venue || 'Arena Ground 1',
+              }))
+            );
           }
         }
 
@@ -105,9 +102,8 @@ export default function MatchesPage() {
         if (!loadedOfficial) {
           setTournamentStartDate(null);
           setTournamentEndDate(null);
-          const data = await auctionRes.json();
-          if (data.success && data.data && data.data.teams && data.data.teams.length >= 2) {
-            const auctionTeams = data.data.teams;
+          if (aData?.success && aData.data && aData.data.teams && aData.data.teams.length >= 2) {
+            const auctionTeams = aData.data.teams;
             const generated: MatchDisplay[] = [];
             let matchNum = 1;
 

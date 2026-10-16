@@ -12,5 +12,12 @@ export async function GET(req: NextRequest) {
   const roles = await getStoreData<Record<string, string>>('user_roles', 'roles.json', {});
   const assignedRole = roles[email] || 'user';
 
-  return NextResponse.json({ email, role: assignedRole });
+  return NextResponse.json(
+    { email, role: assignedRole },
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+      },
+    }
+  );
 }

@@ -40,6 +40,7 @@ import {
   MapPin,
   Save
 } from 'lucide-react';
+import { invalidateClientCache } from '@/lib/clientCache';
 
 interface TeamItem {
   id: string;
@@ -412,6 +413,7 @@ export default function AdminDashboardPage() {
       setTeams([...teams, newTeam]);
     }
 
+    invalidateClientCache();
     setNewTeamName('');
     setNewTeamShort('');
     setNewTeamOwner('');
@@ -459,6 +461,7 @@ export default function AdminDashboardPage() {
           const regData = await regRes.json();
           if (regData.registrations) setTournamentRegistrations(regData.registrations);
         }
+        invalidateClientCache();
         showNotification(`Franchise "${name}" and all related auction data deleted.`);
       } else {
         alert(data.error || 'Failed to delete franchise');
@@ -504,6 +507,7 @@ export default function AdminDashboardPage() {
             if (regData.registrations) setTournamentRegistrations(regData.registrations);
           }
         }
+        invalidateClientCache();
         setIsResetModalOpen(false);
         showNotification(`Tournament data wiped cleanly! Ready for fresh entries or Excel sheet import.`);
       } else {

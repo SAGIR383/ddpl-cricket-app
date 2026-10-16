@@ -19,6 +19,8 @@ interface TeamRosterItem {
   players: { name: string; role: string; price: string }[];
 }
 
+import { fetchWithCache } from '@/lib/clientCache';
+
 export default function TeamsPage() {
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [tournamentsList, setTournamentsList] = useState<any[]>([
@@ -27,28 +29,27 @@ export default function TeamsPage() {
   ]);
   const [teams, setTeams] = useState<TeamRosterItem[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Sync teams and roster dynamically from auction engine
+  // Sync teams and roster dynamically from auction engine using fast client cache
   useEffect(() => {
+    let isMounted = true;
+
     async function loadTeamsData() {
-      setLoading(true);
+      if (teams.length === 0) setLoading(true);
       try {
-        const [regRes, auctionRes] = await Promise.all([
-          fetch('/api/tournaments/register?tournament=ddpl'),
-          fetch(`/api/auction/data?tournament=${selectedTournament}`),
+        const [regData, data] = await Promise.all([
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
         ]);
 
-        if (regRes.ok) {
-          const regData = await regRes.json();
-          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
-            setTournamentsList(regData.tournamentsList);
-          }
+        if (!isMounted) return;
+
+        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+          setTournamentsList(regData.tournamentsList);
         }
 
-        const data = await auctionRes.json();
-
-        if (data.success && data.data && data.data.teams) {
+        if (data?.success && data.data && data.data.teams) {
           const auctionTeams = data.data.teams;
           const soldTransactions = data.data.soldTransactions || [];
 

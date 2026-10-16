@@ -129,15 +129,22 @@ export async function GET(req: Request) {
 
   const tournamentsList = Object.values(configs);
 
-  return NextResponse.json({
-    success: true,
-    tournament,
-    config,
-    allConfigs: configs,
-    tournamentsList,
-    registrations,
-    count: registrations.length,
-  });
+  return NextResponse.json(
+    {
+      success: true,
+      tournament,
+      config,
+      allConfigs: configs,
+      tournamentsList,
+      registrations,
+      count: registrations.length,
+    },
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=20',
+      },
+    }
+  );
 }
 
 // POST /api/tournaments/register

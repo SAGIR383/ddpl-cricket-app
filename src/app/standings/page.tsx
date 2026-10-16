@@ -23,6 +23,8 @@ interface StandingTeam {
   squadCount?: number;
 }
 
+import { fetchWithCache } from '@/lib/clientCache';
+
 export default function StandingsPage() {
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [selectedSeason, setSelectedSeason] = useState('2026');
@@ -31,28 +33,27 @@ export default function StandingsPage() {
     { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
   ]);
   const [standings, setStandings] = useState<StandingTeam[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Sync standings from active Auction State
+  // Sync standings from active Auction State using client cache
   useEffect(() => {
+    let isMounted = true;
+
     async function loadTournamentStandings() {
-      setLoading(true);
+      if (standings.length === 0) setLoading(true);
       try {
-        const [regRes, auctionRes] = await Promise.all([
-          fetch('/api/tournaments/register?tournament=ddpl'),
-          fetch(`/api/auction/data?tournament=${selectedTournament}`),
+        const [regData, data] = await Promise.all([
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
         ]);
 
-        if (regRes.ok) {
-          const regData = await regRes.json();
-          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
-            setTournamentsList(regData.tournamentsList);
-          }
+        if (!isMounted) return;
+
+        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+          setTournamentsList(regData.tournamentsList);
         }
 
-        const data = await auctionRes.json();
-
-        if (data.success && data.data && data.data.teams && data.data.teams.length > 0) {
+        if (data?.success && data.data && data.data.teams && data.data.teams.length > 0) {
           const auctionTeams = data.data.teams;
           const soldTransactions = data.data.soldTransactions || [];
 

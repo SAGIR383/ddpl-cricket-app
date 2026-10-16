@@ -23,10 +23,12 @@ interface TournamentMeta {
   endDate?: string | null;
 }
 
+import { fetchWithCache } from '@/lib/clientCache';
+
 export default function TournamentsPage() {
   const { isSuperAdmin } = useAuth();
   const [tournaments, setTournaments] = useState<TournamentMeta[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -44,16 +46,22 @@ export default function TournamentsPage() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadTournamentsData() {
-      setLoading(true);
+      if (tournaments.length === 0) setLoading(true);
       try {
-        const regRes = await fetch('/api/tournaments/register?tournament=ddpl');
+        const [regData, aData, rulesData] = await Promise.all([
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
+          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 15000 }),
+          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 30000 }),
+        ]);
+
+        if (!isMounted) return;
+
         let configsList: any[] = [];
-        if (regRes.ok) {
-          const regData = await regRes.json();
-          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
-            configsList = regData.tournamentsList;
-          }
+        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+          configsList = regData.tournamentsList;
         }
 
         if (configsList.length === 0) {
@@ -85,43 +93,21 @@ export default function TournamentsPage() {
           ];
         }
 
-        const populatedTournaments: TournamentMeta[] = await Promise.all(
-          configsList.map(async (cfg: any) => {
-            const slug = cfg.slug || 'ddpl';
-            let teamsCount = 0;
-            let overs = cfg.overs || (slug === 'game-of-run' ? 12 : 10);
-            let startDate = cfg.startDate || null;
-            let endDate = cfg.endDate || null;
+        const allAuctionTourneys = aData?.allTournaments || {};
+        const allRulesTourneys = rulesData?.tournaments || {};
 
-            try {
-              const [aucRes, rulesRes, matchRes] = await Promise.all([
-                fetch(`/api/auction/data?tournament=${slug}`),
-                fetch(`/api/admin/rules?tournament=${slug}`),
-                fetch(`/api/matches?tournament=${slug}`),
-              ]);
+        const populatedTournaments: TournamentMeta[] = configsList.map((cfg: any) => {
+          const slug = cfg.slug || 'ddpl';
+          const tourneyAuctionData = allAuctionTourneys[slug] || (slug === 'ddpl' ? aData?.data : null);
+          const teamsCount = tourneyAuctionData?.teams?.length || 0;
+          const tourneyRules = allRulesTourneys[slug];
+          const overs = tourneyRules?.matchOvers || cfg.overs || (slug === 'game-of-run' ? 12 : 10);
+          const startDate = cfg.startDate || null;
+          const endDate = cfg.endDate || null;
 
-              if (aucRes.ok) {
-                const aData = await aucRes.json();
-                teamsCount = aData.data?.teams?.length || 0;
-              }
-
-              if (rulesRes.ok) {
-                const rData = await rulesRes.json();
-                if (rData.rules?.matchOvers) overs = rData.rules.matchOvers;
-              }
-
-              if (matchRes.ok) {
-                const mData = await matchRes.json();
-                if (mData.schedule?.startDate) startDate = mData.schedule.startDate;
-                if (mData.schedule?.endDate) endDate = mData.schedule.endDate;
-              }
-            } catch (err) {
-              console.warn(`Could not load additional stats for ${slug}:`, err);
-            }
-
-            const badge = getStatusBadge(cfg.status || 'upcoming');
-            const logo = cfg.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg');
-            const bannerColor = cfg.bannerColor || 'from-blue-900 via-indigo-950 to-cricket-dark';
+          const badge = getStatusBadge(cfg.status || 'upcoming');
+          const logo = cfg.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg');
+          const bannerColor = cfg.bannerColor || 'from-blue-900 via-indigo-950 to-cricket-dark';
 
             return {
               id: slug,
@@ -139,8 +125,7 @@ export default function TournamentsPage() {
               startDate,
               endDate,
             };
-          })
-        );
+          });
 
         setTournaments(populatedTournaments);
       } catch (err) {
