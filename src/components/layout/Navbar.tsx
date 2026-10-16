@@ -3,14 +3,28 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const { user, isSuperAdmin, isOrganizer } = useAuth();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navLinks = [
     { href: '/tournaments', label: 'Tournaments', icon: Trophy },
@@ -23,14 +37,20 @@ export function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 pt-safe lg:pt-3 px-3 sm:px-6 transition-all duration-300">
-      <div className="max-w-7xl mx-auto">
-        <div className="glass-island rounded-2xl lg:rounded-full px-4 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.65)]">
+    <header
+      className={`sticky top-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? 'bg-[#08111F]/90 backdrop-blur-xl border-b border-[#D8AD55]/20 shadow-[0_12px_40px_rgba(0,0,0,0.8)] py-2 sm:py-2.5'
+          : 'bg-transparent border-b border-transparent py-3 sm:py-4'
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between">
           
           {/* Brand Logo & Platform Title */}
           <Link href="/" className="flex items-center gap-3 group btn-press">
-            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 via-cricket-teal to-amber-400 p-[1.5px] shadow-lg shadow-teal-500/20 group-hover:scale-105 transition-transform shrink-0">
-              <div className="w-full h-full bg-[#050a1a] rounded-[10px] sm:rounded-[14px] overflow-hidden relative">
+            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden bg-gradient-to-tr from-[#D8AD55] via-[#F2D69A] to-[#0D1B2A] p-[1.5px] shadow-lg shadow-[#D8AD55]/15 group-hover:scale-105 transition-transform shrink-0">
+              <div className="w-full h-full bg-[#08111F] rounded-[10px] overflow-hidden relative">
                 <Image
                   src="/images/cricplus-logo.jpg"
                   alt="CricPlus Logo"
@@ -41,18 +61,23 @@ export function Navbar() {
               </div>
             </div>
             <div className="flex flex-col">
-              <span className="font-display font-extrabold text-2xl tracking-wide text-white group-hover:text-cricket-teal transition-colors leading-none">
-                Cric<span className="text-cricket-teal glow-teal">Plus</span>
-              </span>
-              <span className="text-[9px] sm:text-[10px] font-bold text-amber-400 uppercase tracking-widest mt-0.5 flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+              <div className="flex items-center gap-1.5">
+                <span className="font-display font-extrabold text-2xl tracking-tight text-white group-hover:text-[#F2D69A] transition-colors leading-none">
+                  Cric<span className="text-[#D8AD55] drop-shadow-[0_0_12px_rgba(216,173,85,0.4)]">Plus</span>
+                </span>
+                <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#F2D69A] font-bold uppercase tracking-wider">
+                  Pro
+                </span>
+              </div>
+              <span className="text-[9px] sm:text-[10px] font-bold text-[#D8AD55] uppercase tracking-widest mt-0.5 flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 text-[#D8AD55]" />
                 <span>Enterprise Sports</span>
               </span>
             </div>
           </Link>
 
-          {/* Desktop Navigation Links (Floating Glass Pill Strip) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-white/[0.03] p-1 rounded-full border border-white/[0.06]">
+          {/* Desktop Navigation Links (Floating League Glass Pill Strip) */}
+          <nav className="hidden lg:flex items-center gap-1 bg-[#111D2D]/80 backdrop-blur-md px-2 py-1.5 rounded-full border border-[#D8AD55]/15 shadow-inner">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = pathname.startsWith(link.href);
@@ -60,16 +85,16 @@ export function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`nav-item-press relative flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-wide transition-all ${
+                  className={`nav-item-press relative flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all ${
                     isActive
-                      ? 'bg-gradient-to-r from-teal-500/20 to-blue-500/15 text-cricket-teal border border-cricket-teal/40 shadow-[0_0_15px_rgba(0,245,212,0.18)]'
-                      : 'text-gray-300 hover:text-white hover:bg-white/[0.06] border border-transparent'
+                      ? 'bg-gradient-to-r from-[#D8AD55]/25 to-[#F2D69A]/15 text-[#F2D69A] border border-[#D8AD55]/40 shadow-[0_0_15px_rgba(216,173,85,0.25)]'
+                      : 'text-[#8793A5] hover:text-white hover:bg-white/[0.05] border border-transparent'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-cricket-teal' : 'text-gray-400'}`} />
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#D8AD55]' : 'text-[#8793A5]'}`} />
                   <span>{link.label}</span>
                   {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-cricket-teal shadow-[0_0_6px_rgba(0,245,212,0.9)] ml-0.5" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#D8AD55] shadow-[0_0_6px_rgba(216,173,85,0.9)] ml-0.5" />
                   )}
                 </Link>
               );
@@ -77,24 +102,24 @@ export function Navbar() {
           </nav>
 
           {/* Desktop User Controls */}
-          <div className="hidden sm:flex items-center gap-2.5">
+          <div className="hidden sm:flex items-center gap-3">
             {/* Super Admin / Organizer Badge */}
             {isSuperAdmin ? (
               <Link
                 href="/admin"
-                className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 font-display font-extrabold text-xs shadow-md"
+                className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/40 text-[#F2D69A] font-display font-extrabold text-xs shadow-md"
                 title="Super Admin Master Console"
               >
-                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                <Shield className="w-3.5 h-3.5 text-[#D8AD55]" />
                 <span>Super Admin</span>
               </Link>
             ) : isOrganizer ? (
               <Link
                 href="/admin"
-                className="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-500/15 hover:bg-teal-500/25 border border-teal-500/40 text-teal-300 font-display font-extrabold text-xs shadow-md"
+                className="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 font-display font-extrabold text-xs shadow-md"
                 title="Organizer Admin Dashboard"
               >
-                <Shield className="w-3.5 h-3.5 text-cricket-teal" />
+                <Shield className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Organizer</span>
               </Link>
             ) : null}
@@ -102,9 +127,9 @@ export function Navbar() {
             {user ? (
               <Link
                 href="/profile"
-                className="btn-press flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.09] border border-white/10 text-xs font-bold text-white shadow-sm"
+                className="btn-press flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#111D2D] hover:bg-[#111D2D]/80 border border-[#D8AD55]/30 text-xs font-bold text-white shadow-sm"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-teal-400 to-blue-500 text-cricket-dark flex items-center justify-center font-black text-[11px] shadow-sm">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-black text-[11px] shadow-sm">
                   {user.email?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <span className="max-w-[110px] truncate text-gray-200">{user.email?.split('@')[0]}</span>
@@ -112,7 +137,7 @@ export function Navbar() {
             ) : (
               <Link
                 href="/auth/login"
-                className="btn-press shimmer-btn flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-600 via-teal-400 to-emerald-400 text-cricket-dark font-display font-extrabold text-xs tracking-wide shadow-lg shadow-teal-500/20"
+                className="btn-press shimmer-btn flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-[#D8AD55]/20 hover:brightness-110"
               >
                 <User className="w-3.5 h-3.5" />
                 <span>Sign In</span>
@@ -125,15 +150,15 @@ export function Navbar() {
             {user ? (
               <Link
                 href="/profile"
-                className="btn-press flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/[0.05] border border-white/10 text-cricket-teal text-xs font-bold shadow-sm"
+                className="btn-press flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold shadow-sm"
               >
-                <User className="w-3.5 h-3.5" />
+                <User className="w-3.5 h-3.5 text-[#D8AD55]" />
                 <span className="max-w-[70px] truncate">{user.email?.split('@')[0]}</span>
               </Link>
             ) : (
               <Link
                 href="/auth/login"
-                className="btn-press shimmer-btn flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-teal-400 text-cricket-dark font-display font-extrabold text-xs tracking-wide shadow-md"
+                className="btn-press shimmer-btn flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-extrabold text-xs tracking-wide shadow-md"
               >
                 <User className="w-3 h-3" />
                 <span>Sign In</span>
@@ -143,12 +168,12 @@ export function Navbar() {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle navigation menu"
-              className="btn-press p-2 rounded-xl text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 shadow-md flex items-center justify-center shrink-0"
+              className="btn-press p-2 rounded-xl text-white bg-[#111D2D] hover:bg-[#111D2D]/80 border border-[#D8AD55]/30 shadow-md flex items-center justify-center shrink-0"
             >
               {mobileMenuOpen ? (
-                <X className="w-5 h-5 text-amber-400" />
+                <X className="w-5 h-5 text-[#D8AD55]" />
               ) : (
-                <Menu className="w-5 h-5 text-cricket-teal" />
+                <Menu className="w-5 h-5 text-[#F2D69A]" />
               )}
             </button>
           </div>
@@ -157,9 +182,10 @@ export function Navbar() {
 
       {/* Modern Mobile Slide-Down Glass Drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden mt-2 mx-3 rounded-2xl glass-island border border-white/10 p-4 space-y-2 shadow-2xl animate-mascot-walk duration-200">
-          <div className="text-[10px] font-bold text-cricket-muted uppercase tracking-wider px-2 pb-1 border-b border-white/[0.06]">
-            Navigation
+        <div className="lg:hidden mt-2 mx-3 rounded-2xl bg-[#0D1B2A]/95 backdrop-blur-2xl border border-[#D8AD55]/30 p-4 space-y-2 shadow-2xl animate-mascot-walk duration-200">
+          <div className="text-[10px] font-bold text-[#D8AD55] uppercase tracking-widest px-2 pb-1 border-b border-[#D8AD55]/15 flex items-center justify-between">
+            <span>Navigation Directory</span>
+            <span className="text-[9px] text-[#8793A5]">CricPlus Style D</span>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-1">
             {navLinks.map((link) => {
@@ -172,25 +198,25 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`btn-press flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     isActive
-                      ? 'bg-gradient-to-r from-teal-500/20 to-blue-500/10 text-cricket-teal border border-cricket-teal/40'
+                      ? 'bg-gradient-to-r from-[#D8AD55]/25 to-[#F2D69A]/15 text-[#F2D69A] border border-[#D8AD55]/50'
                       : 'text-gray-300 hover:bg-white/[0.05] border border-transparent'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-cricket-teal' : 'text-gray-400'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#D8AD55]' : 'text-[#8793A5]'}`} />
                   <span>{link.label}</span>
                 </Link>
               );
             })}
           </div>
 
-          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
+          <div className="pt-2 border-t border-[#D8AD55]/15 flex items-center justify-between">
             {isSuperAdmin && (
               <Link
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
-                className="btn-press w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold"
+                className="btn-press w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-[#D8AD55]/15 border border-[#D8AD55]/40 text-[#F2D69A] text-xs font-bold"
               >
-                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                <Shield className="w-3.5 h-3.5 text-[#D8AD55]" />
                 <span>Super Admin Console</span>
               </Link>
             )}

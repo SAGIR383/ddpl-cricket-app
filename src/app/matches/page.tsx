@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Calendar, Activity, ChevronRight, Trophy, Clock, Gavel, MapPin, Sparkles } from 'lucide-react';
+import { fetchWithCache } from '@/lib/clientCache';
 
 interface MatchDisplay {
   id: string;
@@ -19,8 +20,6 @@ interface MatchDisplay {
   summary: string;
   venue: string;
 }
-
-import { fetchWithCache } from '@/lib/clientCache';
 
 export default function MatchesPage() {
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
@@ -130,19 +129,20 @@ export default function MatchesPage() {
                   matchDate: null,
                   matchTime: '10:00 AM',
                   status: 'upcoming',
-                  summary: `${tournamentOvers} Overs scheduled clash between ${auctionTeams[i].name} and ${auctionTeams[j].name}.`,
+                  summary: `${tournamentOvers} Overs round-robin match between ${auctionTeams[i].name} and ${auctionTeams[j].name}.`,
                   venue: 'Arena Ground 1',
                 });
                 matchNum++;
               }
             }
+
             setMatches(generated);
           } else {
             setMatches([]);
           }
         }
       } catch (err) {
-        console.error('Failed to load matches:', err);
+        console.error('Failed to load matches schedule:', err);
       } finally {
         setLoading(false);
       }
@@ -152,31 +152,33 @@ export default function MatchesPage() {
   }, [selectedTournament]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-cricket-border pb-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
+      
+      {/* Editorial Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
         <div>
-          <div className="flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-emerald-400" />
-            <h1 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight">
-              Match Center &amp; Fixtures
-            </h1>
+          <div className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Ball-by-Ball Arena</span>
           </div>
-          <p className="text-sm text-cricket-muted mt-1">
-            Tournament fixtures dynamically paired from auction franchises with ball-by-ball scoring controls.
+          <h1 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight mt-1">
+            Matches &amp; Live Fixtures
+          </h1>
+          <p className="text-sm text-[#8793A5] mt-1.5 max-w-2xl">
+            Live ball-by-ball scorecards, match centre radar, and official tournament fixture schedules.
           </p>
         </div>
 
-        {/* Tournament Switcher */}
-        <div className="flex rounded-full glass-pill p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md border border-white/10">
+        {/* Tournament Selector Pill Bar */}
+        <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold shadow-md">
           {tournamentsList.map((t) => (
             <button
               key={t.slug}
               onClick={() => setSelectedTournament(t.slug)}
-              className={`btn-press px-4 py-2 rounded-full transition-all whitespace-nowrap cursor-pointer ${
+              className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
                 selectedTournament === t.slug
-                  ? 'bg-gradient-to-r from-teal-500/20 to-blue-500/20 text-cricket-teal border border-cricket-teal/40 shadow-[0_0_12px_rgba(0,245,212,0.2)]'
-                  : 'text-gray-400 hover:text-white border border-transparent'
+                  ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
+                  : 'text-[#8793A5] hover:text-white'
               }`}
             >
               {t.name} Fixtures
@@ -187,9 +189,9 @@ export default function MatchesPage() {
 
       {/* Tournament Dates & Duration Banner (if set by Super Admin) */}
       {tournamentStartDate && tournamentEndDate && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-cricket-card to-cricket-dark border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+        <div className="p-5 rounded-2xl bg-[#0D1B2A]/90 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400">
+            <div className="p-3 rounded-xl bg-emerald-500/20 text-emerald-400">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
@@ -201,7 +203,7 @@ export default function MatchesPage() {
               </div>
             </div>
           </div>
-          <span className="text-xs text-cricket-muted font-medium">
+          <span className="text-xs text-[#8793A5] font-medium">
             Verified by Tournament Super Admin
           </span>
         </div>
@@ -216,49 +218,49 @@ export default function MatchesPage() {
             return (
               <div
                 key={m.id}
-                className={`glass-card card-press p-6 border transition-all ${
+                className={`bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl p-6 sm:p-7 border transition-all ${
                   m.status === 'live'
-                    ? 'border-emerald-500/60 shadow-lg shadow-emerald-500/10'
+                    ? 'border-emerald-500/60 shadow-xl shadow-emerald-500/10'
                     : isPlayoff
-                    ? 'border-amber-500/40 bg-gradient-to-br from-cricket-card to-amber-950/10 hover:border-amber-400/60'
-                    : 'border-cricket-border hover:border-cricket-teal/30'
+                    ? 'border-[#D8AD55]/40 hover:border-[#D8AD55]/70'
+                    : 'border-[#D8AD55]/20 hover:border-[#D8AD55]/50'
                 }`}
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   {/* Teams & Scores */}
                   <div className="space-y-4 flex-1">
                     <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3">
-                      <span className="text-xs font-bold text-cricket-gold uppercase">
+                      <span className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider">
                         {m.tournament}
                       </span>
 
                       {/* Stage Badge */}
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${
                         isPlayoff
-                          ? 'bg-amber-500/20 text-cricket-gold border-amber-500/50 shadow-sm'
-                          : 'bg-cricket-dark text-cricket-teal border-cricket-teal/30'
+                          ? 'bg-[#D8AD55]/15 text-[#F2D69A] border-[#D8AD55]/40 shadow-sm'
+                          : 'bg-[#08111F] text-[#F2D69A] border-white/10'
                       }`}>
                         {m.stage || 'League'}
                       </span>
 
                       {m.group && (
-                        <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px] font-bold">
                           {m.group}
                         </span>
                       )}
 
-                      <span className="text-xs text-cricket-muted font-medium">{m.title}</span>
+                      <span className="text-xs text-[#8793A5] font-medium">{m.title}</span>
 
                       {m.status === 'live' ? (
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/40 animate-pulse">
                           ● Live Now
                         </span>
                       ) : m.status === 'completed' ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold border border-blue-500/30">
+                        <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-xs font-bold border border-blue-500/30">
                           Completed
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full bg-cricket-dark text-cricket-muted text-xs font-bold border border-cricket-border">
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#08111F] text-[#8793A5] text-xs font-bold border border-white/5">
                           Upcoming
                         </span>
                       )}
@@ -266,27 +268,27 @@ export default function MatchesPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Team A */}
-                      <div className="flex items-center justify-between p-3.5 rounded-xl bg-cricket-dark/80 border border-cricket-border">
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-[#08111F] border border-white/5">
                         <div>
                           <span className="font-display font-bold text-lg text-white">
                             {m.teamA.name}
                           </span>
-                          <div className="text-xs text-cricket-muted">{m.teamA.short}</div>
+                          <div className="text-xs text-[#8793A5] font-semibold">{m.teamA.short}</div>
                         </div>
                         <div className="text-right">
-                          <span className="font-display font-black text-xl text-cricket-teal">
+                          <span className="font-display font-black text-xl text-[#F2D69A]">
                             {m.teamA.score}
                           </span>
                         </div>
                       </div>
 
                       {/* Team B */}
-                      <div className="flex items-center justify-between p-3.5 rounded-xl bg-cricket-dark/80 border border-cricket-border">
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-[#08111F] border border-white/5">
                         <div>
                           <span className="font-display font-bold text-lg text-white">
                             {m.teamB.name}
                           </span>
-                          <div className="text-xs text-cricket-muted">{m.teamB.short}</div>
+                          <div className="text-xs text-[#8793A5] font-semibold">{m.teamB.short}</div>
                         </div>
                         <div className="text-right">
                           <span className="font-display font-black text-xl text-gray-300">
@@ -297,7 +299,7 @@ export default function MatchesPage() {
                     </div>
 
                     {/* Scheduled Date, Time & Venue */}
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-cricket-muted">
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-[#8793A5]">
                       {m.matchDate && (
                         <span className="flex items-center gap-1.5 font-semibold text-emerald-300">
                           <Calendar className="w-3.5 h-3.5 text-emerald-400" />
@@ -313,12 +315,12 @@ export default function MatchesPage() {
                       )}
 
                       <span className="flex items-center gap-1.5 text-gray-300">
-                        <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                        <MapPin className="w-3.5 h-3.5 text-[#D8AD55]" />
                         {m.venue}
                       </span>
                     </div>
 
-                    <div className="text-xs text-cricket-muted">
+                    <div className="text-xs text-[#8793A5]">
                       <span className="font-medium text-gray-300">{m.summary}</span>
                     </div>
                   </div>
@@ -327,10 +329,10 @@ export default function MatchesPage() {
                   <div className="flex md:flex-col justify-end gap-2 shrink-0">
                     <Link
                       href={`/matches/${m.id}`}
-                      className="btn-press shimmer-btn flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm shadow transition-all bg-gradient-to-r from-teal-500/20 to-blue-500/20 hover:from-teal-500/30 hover:to-blue-500/30 text-white border border-cricket-teal/40"
+                      className="btn-press shimmer-btn flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider shadow-lg transition-all bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] hover:brightness-110"
                     >
-                      <Activity className="w-4 h-4 text-cricket-teal" />
-                      <span>Open Live Scorer Console</span>
+                      <Activity className="w-4 h-4 text-[#08111F]" />
+                      <span>Live Scorer Console</span>
                     </Link>
                   </div>
                 </div>
@@ -339,15 +341,15 @@ export default function MatchesPage() {
           })}
         </div>
       ) : (
-        <div className="glass-card p-12 text-center space-y-4 border border-cricket-border">
-          <Calendar className="w-12 h-12 text-cricket-muted mx-auto" />
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-14 text-center space-y-4 border border-[#D8AD55]/20 rounded-3xl">
+          <Calendar className="w-12 h-12 text-[#8793A5] mx-auto opacity-40" />
           <h3 className="font-display font-black text-2xl text-white">No Match Fixtures Generated Yet</h3>
-          <p className="text-sm text-cricket-muted max-w-md mx-auto">
+          <p className="text-sm text-[#8793A5] max-w-md mx-auto">
             Fixtures are paired automatically from auction franchises. Complete the auction or import squads to schedule tournament matches.
           </p>
           <Link
             href="/auction"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-cricket-teal text-cricket-dark font-display font-bold text-sm shadow transition-all"
+            className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow transition-all hover:brightness-110"
           >
             <Gavel className="w-4 h-4" />
             <span>Go to Live Auction</span>

@@ -7,8 +7,8 @@
 }
 
 body {
-  background: #020612;
-  color: #eaf0fb;
+  background: #08111F;
+  color: #F7F5F0;
   font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   position: relative;
@@ -40,11 +40,11 @@ body {
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
-  opacity: 0.72;
-  filter: contrast(1.15) brightness(0.95);
+  opacity: 0.52;
+  filter: contrast(1.15) brightness(0.88);
 }
 
-/* Lighter, atmospheric stadium floodlight & color grading overlay */
+/* Atmospheric stadium floodlight & midnight-navy color grading overlay */
 .stadium-overlay-fixed {
   position: fixed;
   top: 0;
@@ -54,14 +54,10 @@ body {
   z-index: 0;
   pointer-events: none;
   background: 
-    /* Floodlight glows at top corners */
-    radial-gradient(circle 500px at 5% 0%, rgba(255, 255, 255, 0.25), transparent 70%),
-    radial-gradient(circle 500px at 95% 0%, rgba(255, 255, 255, 0.25), transparent 70%),
-    /* Electric teal and gold stadium pitch ambiance */
-    radial-gradient(circle 900px at 20% 40%, rgba(0, 245, 212, 0.15), transparent 75%),
-    radial-gradient(circle 900px at 80% 40%, rgba(255, 159, 28, 0.15), transparent 75%),
-    /* Balanced vertical fade so lower sections remain readable */
-    linear-gradient(to bottom, rgba(4, 8, 20, 0.35) 0%, rgba(4, 8, 20, 0.55) 45%, rgba(4, 8, 20, 0.88) 100%);
+    radial-gradient(circle 600px at 50% 0%, rgba(216, 173, 85, 0.12), transparent 70%),
+    radial-gradient(circle 900px at 15% 30%, rgba(13, 27, 42, 0.45), transparent 75%),
+    radial-gradient(circle 900px at 85% 30%, rgba(13, 27, 42, 0.45), transparent 75%),
+    linear-gradient(to bottom, rgba(8, 17, 31, 0.55) 0%, rgba(8, 17, 31, 0.82) 45%, #08111F 100%);
 }
 
 /* Typography utilities */

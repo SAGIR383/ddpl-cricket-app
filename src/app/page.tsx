@@ -1,161 +1,310 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Trophy, Gavel, Calendar, ArrowRight, Activity, Flame, Award, Users, ChevronRight, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import {
+  Trophy,
+  Gavel,
+  Calendar,
+  ArrowRight,
+  Activity,
+  Flame,
+  Award,
+  Users,
+  ChevronRight,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+  Clock,
+  MapPin,
+  TrendingUp,
+} from 'lucide-react';
+import { fetchWithCache } from '@/lib/clientCache';
+
+interface LiveStats {
+  tournamentsCount: number;
+  teamsCount: number;
+  playersCount: number;
+  seasonsCount: number;
+  ddplTeamsCount: number;
+  ddplOvers: number;
+  gorOvers: number;
+  matchesCount: number;
+  liveMatches: any[];
+}
 
 export default function HomePage() {
+  const [stats, setStats] = useState<LiveStats>({
+    tournamentsCount: 2,
+    teamsCount: 6,
+    playersCount: 18,
+    seasonsCount: 2,
+    ddplTeamsCount: 6,
+    ddplOvers: 8,
+    gorOvers: 12,
+    matchesCount: 0,
+    liveMatches: [],
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadLiveData() {
+      try {
+        const [regData, aData, rulesData, matchesData] = await Promise.all([
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 15000 }),
+          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 10000 }),
+          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 20000 }),
+          fetchWithCache<any>('/api/matches?tournament=ddpl', { ttlMs: 15000 }),
+        ]);
+
+        if (!isMounted) return;
+
+        // Dynamic teams calculation
+        const ddplTeams = aData?.data?.teams || [];
+        const allTourneys = aData?.allTournaments || {};
+        let totalTeams = ddplTeams.length;
+        Object.keys(allTourneys).forEach((slug) => {
+          if (slug !== 'ddpl' && allTourneys[slug]?.teams) {
+            totalTeams += allTourneys[slug].teams.length;
+          }
+        });
+
+        // Dynamic registered players calculation
+        const poolPlayers = aData?.data?.players || [];
+        const soldPlayers = aData?.data?.soldPlayers || [];
+        const totalPlayers = poolPlayers.length + soldPlayers.length;
+
+        // Dynamic rules overs
+        const ddplRules = rulesData?.rules || rulesData?.tournaments?.ddpl;
+        const ddplOvers = ddplRules?.matchOvers || 8;
+        const gorRules = rulesData?.tournaments?.['game-of-run'];
+        const gorOvers = gorRules?.matchOvers || 12;
+
+        // Tournaments count
+        const tourneysList = regData?.tournamentsList || [];
+        const tournamentsCount = tourneysList.length > 0 ? tourneysList.length : 2;
+
+        // Matches
+        const fixtures = matchesData?.schedule?.matches || [];
+        const liveOrUpcoming = fixtures.slice(0, 3);
+
+        setStats({
+          tournamentsCount,
+          teamsCount: totalTeams > 0 ? totalTeams : 6,
+          playersCount: totalPlayers > 0 ? totalPlayers : 18,
+          seasonsCount: 2,
+          ddplTeamsCount: ddplTeams.length > 0 ? ddplTeams.length : 6,
+          ddplOvers,
+          gorOvers,
+          matchesCount: fixtures.length,
+          liveMatches: liveOrUpcoming,
+        });
+      } catch (err) {
+        console.error('Failed to load homepage live stats:', err);
+      }
+    }
+
+    loadLiveData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-8 sm:space-y-12 relative z-10">
-      {/* Hero Header with Stadium & Players Blast Background */}
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-cricket-teal/30 shadow-2xl shadow-blue-950/60 min-h-[420px] sm:min-h-[460px] flex items-center">
-        {/* Background Hero Image */}
+    <div className="space-y-12 sm:space-y-16 pb-16 relative z-10">
+      
+      {/* 1. CINEMATIC HERO (Storyboard Panel 1) */}
+      <section className="relative overflow-hidden rounded-3xl border border-[#D8AD55]/30 shadow-[0_25px_60px_rgba(0,0,0,0.85)] min-h-[500px] sm:min-h-[580px] flex items-center bg-[#08111F]">
+        
+        {/* Immersive Stadium Photography Background */}
         <div className="absolute inset-0 z-0">
           <Image
             src="/images/cricket-hero.jpg"
-            alt="Cricket Stadium Hero Blast"
+            alt="Cricket Stadium Stadium Lights"
             fill
             priority
-            className="object-cover object-center filter brightness-[0.78] contrast-[1.15] scale-105"
+            className="object-cover object-center filter brightness-[0.72] contrast-[1.2] scale-105 transition-transform duration-1000"
           />
-          {/* Multi-layered Vignette & Floodlight Lighting Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#040814] via-[#040814]/85 to-transparent z-10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#040814] via-transparent to-[#040814]/60 z-10" />
-          <div className="absolute inset-0 bg-radial-at-c from-transparent via-[#040814]/40 to-[#040814] z-10" />
+          {/* Style D Midnight Vignette & Gold Atmospheric Glow */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#08111F] via-[#08111F]/85 to-transparent z-10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#08111F] via-transparent to-[#08111F]/70 z-10" />
+          <div className="absolute inset-0 bg-radial-at-c from-transparent via-[#08111F]/30 to-[#08111F] z-10" />
         </div>
 
-        {/* Content Over the Stadium */}
-        <div className="relative z-20 max-w-2xl p-5 sm:p-12 lg:p-16 space-y-5 sm:space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-cricket-teal text-[11px] sm:text-xs font-black tracking-wider uppercase backdrop-blur-md shadow-lg shadow-emerald-500/20">
-            <span className="w-2 h-2 rounded-full bg-cricket-teal animate-ping" />
-            <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cricket-teal shrink-0" />
-            <span>Official Corporate Sports Tournament Platform</span>
+        {/* Content Over Stadium */}
+        <div className="relative z-20 max-w-3xl p-6 sm:p-12 lg:p-16 space-y-6">
+          
+          {/* Eyebrow Pill */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#111D2D]/90 border border-[#D8AD55]/40 text-[#F2D69A] text-[11px] sm:text-xs font-black tracking-widest uppercase backdrop-blur-md shadow-lg shadow-[#D8AD55]/10">
+            <span className="w-2 h-2 rounded-full bg-[#D8AD55] animate-ping" />
+            <Sparkles className="w-3.5 h-3.5 text-[#D8AD55]" />
+            <span>Corporate Cricket • Compete • Connect</span>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-4">
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-cricket-teal/60 shadow-2xl shadow-teal-500/30 shrink-0 bg-[#070d1e]">
-                <Image
-                  src="/images/cricplus-logo.jpg"
-                  alt="CricPlus Championship Logo"
-                  fill
-                  className="object-cover object-center"
-                  priority
-                />
-              </div>
-              <h1 className="font-display font-black text-4xl sm:text-7xl text-white tracking-tight leading-[0.95] drop-shadow-2xl">
-                Cric<span className="text-cricket-teal glow-teal">Plus</span>
-                <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-100 to-amber-300">
-                  Tournament Hub
-                </span>
-              </h1>
-            </div>
-            <p className="text-sm sm:text-lg text-gray-200 font-medium leading-relaxed drop-shadow max-w-xl pt-1 sm:pt-2">
-              The high-energy battleground for corporate cricket tournaments. Experience real-time ball-by-ball scoring, live franchise player auctions, dynamic team rosters, and historical championship records.
+          {/* Master Headline - Style D Editorial */}
+          <div className="space-y-3">
+            <h1 className="font-display font-black text-4xl sm:text-6xl lg:text-7xl text-white tracking-tight leading-[0.98] drop-shadow-2xl">
+              Every Match.
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F2D69A] to-[#D8AD55]">
+                Every Moment.
+              </span>
+              <br />
+              <span className="text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
+                Every Legend.
+              </span>
+            </h1>
+
+            <p className="text-sm sm:text-lg text-[#F7F5F0]/85 font-medium leading-relaxed drop-shadow max-w-xl pt-1">
+              The premier digital home for corporate cricket leagues. Real-time ball-by-ball scorecards, high-stakes franchise live auctions, verified statistics, and championship archives.
             </p>
           </div>
 
+          {/* Action CTAs */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-2">
             <Link
-              href="/matches"
-              className="btn-press shimmer-btn w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 via-teal-400 to-blue-500 hover:brightness-110 text-cricket-dark font-display font-black text-base tracking-wide shadow-xl shadow-teal-500/25 transition-all"
+              href="/tournaments"
+              className="btn-press shimmer-btn w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-sm sm:text-base tracking-wider uppercase shadow-xl shadow-[#D8AD55]/25 transition-all"
             >
-              <Activity className="w-5 h-5" />
-              <span>Live Match Center</span>
+              <span>Explore Tournaments</span>
+              <ArrowRight className="w-4 h-4 stroke-[3]" />
             </Link>
 
             <Link
               href="/auction"
-              className="btn-press w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/15 hover:border-cricket-gold/60 text-white font-display font-bold text-base tracking-wide backdrop-blur-md transition-all shadow-lg"
+              className="btn-press w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl bg-[#111D2D]/90 hover:bg-[#111D2D] border border-[#D8AD55]/40 hover:border-[#D8AD55] text-white font-display font-bold text-sm sm:text-base tracking-wide backdrop-blur-md transition-all shadow-lg"
             >
-              <Gavel className="w-5 h-5 text-cricket-gold" />
+              <Gavel className="w-4 h-4 text-[#D8AD55]" />
               <span>Live Auction Room</span>
+            </Link>
+
+            <Link
+              href="/matches"
+              className="btn-press w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-gray-200 font-bold text-sm tracking-wide backdrop-blur-md transition-all"
+            >
+              <Activity className="w-4 h-4 text-emerald-400" />
+              <span>Live Matches</span>
             </Link>
           </div>
         </div>
 
-        {/* Floating Quick Tournament Status Badge (Desktop Only) */}
-        <div className="hidden lg:block absolute right-10 bottom-10 z-20 max-w-sm">
-          <div className="glass-card p-5 border border-cricket-teal/50 shadow-2xl backdrop-blur-xl space-y-3">
+        {/* Live Broadcast Badge (Desktop Float) */}
+        <div className="hidden lg:block absolute right-12 bottom-12 z-20 max-w-xs">
+          <div className="bg-[#0D1B2A]/90 backdrop-blur-xl p-5 rounded-2xl border border-[#D8AD55]/40 shadow-2xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs font-black text-cricket-gold uppercase tracking-widest">
-                <span className="w-2 h-2 rounded-full bg-cricket-gold animate-pulse" />
-                Live Tournament Hub
+              <span className="flex items-center gap-1.5 text-[11px] font-black text-[#D8AD55] uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 badge-live-radar" />
+                Live League Hub
               </span>
-              <span className="text-[11px] font-bold text-cricket-muted">Season 2026</span>
+              <span className="text-[10px] font-bold text-[#8793A5]">Season 2026</span>
             </div>
-            <div className="space-y-1">
-              <div className="font-display font-bold text-xl text-white">DDPL &amp; Game of RUN</div>
-              <p className="text-xs text-cricket-muted">
-                Auctions live with franchise squads and purse deductions. Standings update automatically.
+            <div>
+              <div className="font-display font-extrabold text-lg text-white">DDPL &amp; Game of RUN</div>
+              <p className="text-xs text-[#8793A5] mt-0.5">
+                {stats.teamsCount} Franchises confirmed. Live auction engine active with automated purse tracking.
               </p>
             </div>
             <Link
               href="/auction"
-              className="block w-full text-center py-2.5 rounded-lg bg-cricket-teal/20 hover:bg-cricket-teal/30 text-cricket-teal font-bold text-xs border border-cricket-teal/40 transition-all"
+              className="block w-full text-center py-2 rounded-xl bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 text-[#F2D69A] font-bold text-xs border border-[#D8AD55]/30 transition-all"
             >
-              Enter Live Auction Center →
+              Enter Live Auction →
             </Link>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Mobile Live Tournament Status Bar */}
-      <div className="lg:hidden glass-card p-4 border border-cricket-teal/40 shadow-xl space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-[11px] font-black text-cricket-gold uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-cricket-gold animate-pulse" />
-            Season 2026 Active
-          </span>
-          <span className="font-display font-bold text-xs text-cricket-teal">Live Auction Room</span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-300 font-semibold truncate">DDPL &amp; Game of RUN Franchises</span>
-          <Link
-            href="/auction"
-            className="text-cricket-teal font-extrabold hover:underline shrink-0 ml-2"
-          >
-            Open Auction →
-          </Link>
-        </div>
-      </div>
-
-      {/* Flagship Tournaments Showcase */}
-      <section className="space-y-4 sm:space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-cricket-gold">
-              <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
+      {/* 2. DYNAMIC LIVE STATS BANNER (Panel 1 Bottom) */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-[#D8AD55]/20 shadow-xl flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#D8AD55]/15 border border-[#D8AD55]/30 flex items-center justify-center text-[#D8AD55] shrink-0">
+            <Trophy className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#8793A5]">
+              Official Leagues
             </div>
-            <div>
-              <h2 className="font-display font-black text-2xl sm:text-4xl text-white tracking-tight">
-                Flagship Tournaments
-              </h2>
-              <p className="text-[11px] sm:text-xs text-cricket-muted">Independent multi-edition leagues running on CricPlus</p>
+            <div className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight mt-0.5">
+              {stats.tournamentsCount} <span className="text-xs font-bold text-[#D8AD55]">Tournaments</span>
             </div>
           </div>
-          <Link href="/tournaments" className="text-xs sm:text-sm font-bold text-cricket-teal hover:underline flex items-center gap-1">
-            <span>Explore All</span>
-            <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        </div>
+
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-[#D8AD55]/20 shadow-xl flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+            <Users className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#8793A5]">
+              Active Franchises
+            </div>
+            <div className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight mt-0.5">
+              {stats.teamsCount} <span className="text-xs font-bold text-blue-400">Teams</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-[#D8AD55]/20 shadow-xl flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-[#D8AD55] shrink-0">
+            <Award className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#8793A5]">
+              Registered Pool
+            </div>
+            <div className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight mt-0.5">
+              {stats.playersCount}+ <span className="text-xs font-bold text-[#D8AD55]">Athletes</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-[#D8AD55]/20 shadow-xl flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <Activity className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#8793A5]">
+              Live Engine
+            </div>
+            <div className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight mt-0.5">
+              100% <span className="text-xs font-bold text-emerald-400">Real-Time</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. FLAGSHIP TOURNAMENTS SHOWCASE (Storyboard Panel 2) */}
+      <section className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#D8AD55]/15 pb-4">
+          <div>
+            <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-widest flex items-center gap-1.5">
+              <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
+              <span>Marquee Competitions</span>
+            </div>
+            <h2 className="font-display font-black text-2xl sm:text-4xl text-white tracking-tight mt-1">
+              Official Tournaments
+            </h2>
+          </div>
+          <Link
+            href="/tournaments"
+            className="text-xs sm:text-sm font-bold text-[#F2D69A] hover:underline flex items-center gap-1 self-start sm:self-auto"
+          >
+            <span>View All Tournaments Directory</span>
+            <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
-          {/* DDPL Card with Ball Blast Visual */}
-          <div className="glass-card card-press overflow-hidden flex flex-col justify-between border-t-4 border-t-cricket-teal shadow-2xl relative">
-            {/* Background Texture Overlay */}
-            <div className="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none overflow-hidden">
-              <Image
-                src="/images/cricket-ball-blast.jpg"
-                alt="Cricket Ball Blast"
-                fill
-                className="object-cover object-right"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-cricket-card to-transparent" />
-            </div>
-
-            <div className="p-5 sm:p-8 space-y-4 sm:space-y-5 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+          
+          {/* DDPL Card */}
+          <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl overflow-hidden border border-[#D8AD55]/30 shadow-2xl flex flex-col justify-between group hover:border-[#D8AD55]/60 transition-all relative">
+            <div className="p-6 sm:p-8 space-y-5 relative z-10">
               <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-400 text-[11px] sm:text-xs font-black uppercase tracking-wider">
+                <span className="px-3 py-1 rounded-full bg-blue-500/15 border border-blue-500/40 text-blue-300 text-xs font-black uppercase tracking-wider">
                   DDPL 2026 Edition
                 </span>
                 <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
@@ -165,47 +314,49 @@ export default function HomePage() {
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-blue-500/50 shadow-xl shadow-blue-500/20 shrink-0 bg-[#070d1e]">
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-blue-500/40 shadow-xl shadow-blue-500/10 shrink-0 bg-[#08111F]">
                   <Image
                     src="/images/ddpl-logo.jpg"
                     alt="DDPL Logo"
                     fill
-                    className="object-cover object-center"
+                    className="object-cover object-center group-hover:scale-105 transition-transform"
                   />
                 </div>
                 <div>
-                  <h3 className="font-display font-black text-3xl sm:text-4xl text-white tracking-wide">
+                  <h3 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight">
                     DDPL
                   </h3>
-                  <div className="text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-widest mt-0.5">
+                  <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider mt-0.5">
                     Desk to Dugout Premier League (DDPL)
                   </div>
                 </div>
               </div>
-              <p className="text-xs sm:text-sm text-gray-300 mt-2 leading-relaxed">
-                High-tempo 10-over matches, aggressive powerplays, and company-wide department rivalry. Features 4 premier franchises battling for glory.
+
+              <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                High-intensity {stats.ddplOvers}-over matches, powerplay restrictions, and intra-department corporate pride. Features {stats.ddplTeamsCount} premier franchises battling for the championship trophy.
               </p>
 
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-                <div className="p-2.5 sm:p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border/80">
-                  <div className="text-[10px] sm:text-[11px] text-cricket-muted font-bold">Overs</div>
-                  <div className="font-display font-bold text-base sm:text-lg text-white">10 Overs</div>
+              {/* Dynamic Metrics */}
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-3 text-center">
+                <div className="p-3 rounded-xl bg-[#08111F] border border-white/5">
+                  <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Match Overs</div>
+                  <div className="font-display font-bold text-base sm:text-lg text-white">{stats.ddplOvers} Overs</div>
                 </div>
-                <div className="p-2.5 sm:p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border/80">
-                  <div className="text-[10px] sm:text-[11px] text-cricket-muted font-bold">Squad Limit</div>
-                  <div className="font-display font-bold text-base sm:text-lg text-white">8 - 11</div>
+                <div className="p-3 rounded-xl bg-[#08111F] border border-white/5">
+                  <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Franchises</div>
+                  <div className="font-display font-bold text-base sm:text-lg text-white">{stats.ddplTeamsCount} Teams</div>
                 </div>
-                <div className="p-2.5 sm:p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border/80">
-                  <div className="text-[10px] sm:text-[11px] text-cricket-muted font-bold">Franchises</div>
-                  <div className="font-display font-bold text-base sm:text-lg text-white">4 Teams</div>
+                <div className="p-3 rounded-xl bg-[#08111F] border border-white/5">
+                  <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Auction Purse</div>
+                  <div className="font-display font-bold text-base sm:text-lg text-[#D8AD55]">10,000 Pts</div>
                 </div>
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 pt-0 relative z-10">
+            <div className="p-6 pt-0 relative z-10">
               <Link
                 href="/tournaments/ddpl"
-                className="btn-press shimmer-btn w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:brightness-110 text-white font-display font-bold text-base tracking-wide shadow-lg transition-all"
+                className="btn-press shimmer-btn w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-600 hover:brightness-110 text-white font-display font-black text-sm tracking-wider uppercase shadow-lg transition-all"
               >
                 <span>Enter DDPL Portal</span>
                 <ArrowRight className="w-4 h-4" />
@@ -214,119 +365,235 @@ export default function HomePage() {
           </div>
 
           {/* Game of RUN Card */}
-          <div className="glass-card card-press overflow-hidden flex flex-col justify-between border-t-4 border-t-cricket-gold shadow-2xl relative">
-            <div className="p-5 sm:p-8 space-y-4 sm:space-y-5 relative z-10">
+          <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl overflow-hidden border border-[#D8AD55]/30 shadow-2xl flex flex-col justify-between group hover:border-[#D8AD55]/60 transition-all relative">
+            <div className="p-6 sm:p-8 space-y-5 relative z-10">
               <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-cricket-gold text-[11px] sm:text-xs font-black uppercase tracking-wider">
+                <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-[#D8AD55]/40 text-[#F2D69A] text-xs font-black uppercase tracking-wider">
                   Game of RUN 2026
                 </span>
-                <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 badge-live-radar" />
+                <span className="flex items-center gap-1.5 text-xs font-bold text-[#D8AD55]">
+                  <span className="w-2 h-2 rounded-full bg-[#D8AD55] animate-pulse" />
                   Registrations Open
                 </span>
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-amber-500/50 shadow-xl shadow-amber-500/20 shrink-0 bg-[#070d1e]">
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-xl shadow-[#D8AD55]/10 shrink-0 bg-[#08111F]">
                   <Image
                     src="/images/game-of-run-logo.jpg"
                     alt="Game of RUN Logo"
                     fill
-                    className="object-cover object-center"
+                    className="object-cover object-center group-hover:scale-105 transition-transform"
                   />
                 </div>
                 <div>
-                  <h3 className="font-display font-black text-3xl sm:text-4xl text-white tracking-wide">
+                  <h3 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight">
                     Game of RUN
                   </h3>
-                  <div className="text-[11px] sm:text-xs font-bold text-amber-400 uppercase tracking-widest mt-0.5">
+                  <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider mt-0.5">
                     Official Corporate Championship
                   </div>
                 </div>
               </div>
-              <p className="text-xs sm:text-sm text-gray-300 mt-2 leading-relaxed">
-                The marquee annual corporate cricket championship. Features 12-over innings, full team purse allocations, and the crowning of the undisputed Corporate Champion.
+
+              <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                The flagship corporate championship. Features {stats.gorOvers}-over matches, group stage showdowns, playoffs, and the crowning of the ultimate corporate cricket champion.
               </p>
 
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-                <div className="p-2.5 sm:p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border/80">
-                  <div className="text-[10px] sm:text-[11px] text-cricket-muted font-bold">Overs</div>
-                  <div className="font-display font-bold text-base sm:text-lg text-white">12 Overs</div>
+              {/* Dynamic Metrics */}
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-3 text-center">
+                <div className="p-3 rounded-xl bg-[#08111F] border border-white/5">
+                  <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Match Overs</div>
+                  <div className="font-display font-bold text-base sm:text-lg text-white">{stats.gorOvers} Overs</div>
                 </div>
-                <div className="p-2.5 sm:p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border/80">
-                  <div className="text-[10px] sm:text-[11px] text-cricket-muted font-bold">Squad Limit</div>
-                  <div className="font-display font-bold text-base sm:text-lg text-white">9 - 12</div>
+                <div className="p-3 rounded-xl bg-[#08111F] border border-white/5">
+                  <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Format</div>
+                  <div className="font-display font-bold text-base sm:text-lg text-white">Group + Finals</div>
                 </div>
-                <div className="p-2.5 sm:p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border/80">
-                  <div className="text-[10px] sm:text-[11px] text-cricket-muted font-bold">Auction Purse</div>
-                  <div className="font-display font-bold text-base sm:text-lg text-cricket-gold">₹10K / Team</div>
+                <div className="p-3 rounded-xl bg-[#08111F] border border-white/5">
+                  <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Auction Purse</div>
+                  <div className="font-display font-bold text-base sm:text-lg text-[#D8AD55]">₹10K / Team</div>
                 </div>
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 pt-0 relative z-10">
+            <div className="p-6 pt-0 relative z-10">
               <Link
                 href="/tournaments/game-of-run"
-                className="btn-press shimmer-btn w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:brightness-110 text-cricket-dark font-display font-black text-base tracking-wide shadow-lg transition-all"
+                className="btn-press shimmer-btn w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-sm tracking-wider uppercase shadow-lg transition-all"
               >
                 <span>Enter Game of RUN Portal</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>
+
         </div>
       </section>
 
-      {/* Feature Pillars Grid */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <Link href="/teams" className="glass-card glass-card-hover p-4 sm:p-6 space-y-2 sm:space-y-3 group active:scale-95 transition-all">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
-            <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+      {/* 4. UPCOMING & LIVE MATCHES SHOWCASE (Storyboard Panel 3) */}
+      <section className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#D8AD55]/15 pb-4">
+          <div>
+            <div className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Ball-by-Ball Live Arena</span>
+            </div>
+            <h2 className="font-display font-black text-2xl sm:text-4xl text-white tracking-tight mt-1">
+              Match Center &amp; Fixtures
+            </h2>
           </div>
-          <h4 className="font-display font-black text-lg sm:text-2xl text-white group-hover:text-cricket-teal transition-colors">
-            Teams &amp; Squads
+          <Link
+            href="/matches"
+            className="text-xs sm:text-sm font-bold text-[#F2D69A] hover:underline flex items-center gap-1 self-start sm:self-auto"
+          >
+            <span>Full Schedule &amp; Results</span>
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {stats.liveMatches.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {stats.liveMatches.map((match, idx) => (
+              <div
+                key={match.id || idx}
+                className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-2xl p-5 border border-[#D8AD55]/20 shadow-xl flex flex-col justify-between space-y-4 hover:border-[#D8AD55]/50 transition-all"
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#8793A5] uppercase tracking-wider">
+                    {match.stage || 'League Stage'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                    match.status === 'live'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 animate-pulse'
+                      : 'bg-white/5 text-gray-300 border border-white/10'
+                  }`}>
+                    {match.status === 'live' ? '● LIVE' : match.matchTime || 'Upcoming'}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-display font-extrabold text-base text-white">
+                      {match.teamA?.short || match.teamA?.name || 'Team A'}
+                    </span>
+                    <span className="font-display font-bold text-sm text-[#F2D69A]">
+                      {match.teamA?.score || 'Yet to Bat'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="font-display font-extrabold text-base text-white">
+                      {match.teamB?.short || match.teamB?.name || 'Team B'}
+                    </span>
+                    <span className="font-display font-bold text-sm text-[#F2D69A]">
+                      {match.teamB?.score || 'Yet to Bat'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs text-[#8793A5]">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#D8AD55]" />
+                    <span>{match.venue || 'Arena Ground'}</span>
+                  </span>
+                  <Link
+                    href={`/matches/${match.id}`}
+                    className="text-[#D8AD55] font-bold hover:underline"
+                  >
+                    Match Center →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-[#0D1B2A]/80 backdrop-blur-md rounded-2xl p-8 border border-[#D8AD55]/20 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#D8AD55] flex items-center justify-center mx-auto">
+              <Calendar className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-display font-bold text-lg text-white">No Fixtures Currently in Progress</h3>
+              <p className="text-xs sm:text-sm text-[#8793A5] max-w-md mx-auto">
+                Official DDPL &amp; Game of RUN tournament matches are being scheduled. Check out the auction room or team rosters in the meantime.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                href="/matches"
+                className="btn-press inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D8AD55]/20 hover:bg-[#D8AD55]/30 border border-[#D8AD55]/40 text-[#F2D69A] font-bold text-xs"
+              >
+                <span>View Full Fixture Schedule</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 5. LEAGUE ECOSYSTEM PILLARS (Panels 4, 5, 6, 7) */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <Link
+          href="/auction"
+          className="bg-[#0D1B2A]/90 hover:bg-[#111D2D] p-5 sm:p-6 rounded-2xl border border-[#D8AD55]/20 hover:border-[#D8AD55]/50 shadow-xl space-y-3 group transition-all"
+        >
+          <div className="w-12 h-12 rounded-xl bg-[#D8AD55]/15 text-[#D8AD55] flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Gavel className="w-6 h-6" />
+          </div>
+          <h4 className="font-display font-black text-lg sm:text-xl text-white group-hover:text-[#F2D69A] transition-colors">
+            Live Auction Room
           </h4>
-          <p className="text-[11px] sm:text-xs text-gray-300 leading-relaxed hidden sm:block">
-            Manage franchise owners, assign Captains and Vice-Captains, and configure flexible team sizes.
+          <p className="text-xs text-[#8793A5] leading-relaxed hidden sm:block">
+            30-second live bidding countdown, purse deduction, franchise balance management, and 1-tap undo rollback.
           </p>
         </Link>
 
-        <Link href="/auction" className="glass-card glass-card-hover p-4 sm:p-6 space-y-2 sm:space-y-3 group active:scale-95 transition-all">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-amber-500/20 text-cricket-gold flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
-            <Gavel className="w-5 h-5 sm:w-6 sm:h-6" />
+        <Link
+          href="/standings"
+          className="bg-[#0D1B2A]/90 hover:bg-[#111D2D] p-5 sm:p-6 rounded-2xl border border-[#D8AD55]/20 hover:border-[#D8AD55]/50 shadow-xl space-y-3 group transition-all"
+        >
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <TrendingUp className="w-6 h-6" />
           </div>
-          <h4 className="font-display font-black text-lg sm:text-2xl text-white group-hover:text-cricket-gold transition-colors">
-            Auction Engine
+          <h4 className="font-display font-black text-lg sm:text-xl text-white group-hover:text-emerald-300 transition-colors">
+            Official Standings
           </h4>
-          <p className="text-[11px] sm:text-xs text-gray-300 leading-relaxed hidden sm:block">
-            Live bidding console with team purses, bid increments, squad limits, and 1-tap undo rollback.
+          <p className="text-xs text-[#8793A5] leading-relaxed hidden sm:block">
+            Points table with automated Net Run Rate (NRR), head-to-head records, qualification thresholds, and form guides.
           </p>
         </Link>
 
-        <Link href="/matches" className="glass-card glass-card-hover p-4 sm:p-6 space-y-2 sm:space-y-3 group active:scale-95 transition-all">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
-            <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+        <Link
+          href="/leaderboard"
+          className="bg-[#0D1B2A]/90 hover:bg-[#111D2D] p-5 sm:p-6 rounded-2xl border border-[#D8AD55]/20 hover:border-[#D8AD55]/50 shadow-xl space-y-3 group transition-all"
+        >
+          <div className="w-12 h-12 rounded-xl bg-amber-500/15 text-[#D8AD55] flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Flame className="w-6 h-6" />
           </div>
-          <h4 className="font-display font-black text-lg sm:text-2xl text-white group-hover:text-emerald-400 transition-colors">
-            Scoring &amp; Fixtures
+          <h4 className="font-display font-black text-lg sm:text-xl text-white group-hover:text-[#F2D69A] transition-colors">
+            Cap Leaderboards
           </h4>
-          <p className="text-[11px] sm:text-xs text-gray-300 leading-relaxed hidden sm:block">
-            Mobile live scorer console, ball-by-ball deliveries, extras, wickets, and official NRR points table.
+          <p className="text-xs text-[#8793A5] leading-relaxed hidden sm:block">
+            Orange Cap top run-scorers, Purple Cap leading wicket-takers, sixes hit, strike rates, and MVP player rankings.
           </p>
         </Link>
 
-        <Link href="/archive" className="glass-card glass-card-hover p-4 sm:p-6 space-y-2 sm:space-y-3 group active:scale-95 transition-all">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
-            <Award className="w-5 h-5 sm:w-6 sm:h-6" />
+        <Link
+          href="/archive"
+          className="bg-[#0D1B2A]/90 hover:bg-[#111D2D] p-5 sm:p-6 rounded-2xl border border-[#D8AD55]/20 hover:border-[#D8AD55]/50 shadow-xl space-y-3 group transition-all"
+        >
+          <div className="w-12 h-12 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Award className="w-6 h-6" />
           </div>
-          <h4 className="font-display font-black text-lg sm:text-2xl text-white group-hover:text-purple-400 transition-colors">
-            Historical Archive
+          <h4 className="font-display font-black text-lg sm:text-xl text-white group-hover:text-purple-300 transition-colors">
+            Historical Vault
           </h4>
-          <p className="text-[11px] sm:text-xs text-gray-300 leading-relaxed hidden sm:block">
-            Complete multi-season records, past champions, awards, and verified all-time player career leaderboards.
+          <p className="text-xs text-[#8793A5] leading-relaxed hidden sm:block">
+            Multi-edition championship archives, past trophy holders, individual honors, and immortalized corporate glory.
           </p>
         </Link>
       </section>
+
     </div>
   );
 }

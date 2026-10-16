@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Trophy, Calendar, Users, ChevronRight, Award, PlusCircle } from 'lucide-react';
+import { Trophy, Calendar, Users, ChevronRight, Award, PlusCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchWithCache } from '@/lib/clientCache';
 
 interface TournamentMeta {
   id: string;
@@ -23,8 +24,6 @@ interface TournamentMeta {
   endDate?: string | null;
 }
 
-import { fetchWithCache } from '@/lib/clientCache';
-
 export default function TournamentsPage() {
   const { isSuperAdmin } = useAuth();
   const [tournaments, setTournaments] = useState<TournamentMeta[]>([]);
@@ -35,13 +34,13 @@ export default function TournamentsPage() {
       case 'open':
         return { label: '● Registration Open', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse' };
       case 'upcoming':
-        return { label: 'Upcoming Tournament', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
+        return { label: 'Upcoming Tournament', color: 'bg-[#D8AD55]/20 text-[#F2D69A] border-[#D8AD55]/40' };
       case 'auction':
-        return { label: '● Auction Live', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30 animate-pulse' };
+        return { label: '● Auction Live', color: 'bg-blue-500/20 text-blue-300 border-blue-500/40 animate-pulse' };
       case 'ongoing':
-        return { label: '● Tournament Ongoing', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30 animate-pulse' };
+        return { label: '● Tournament Ongoing', color: 'bg-purple-500/20 text-purple-300 border-purple-500/40 animate-pulse' };
       default:
-        return { label: 'Upcoming', color: 'bg-gray-500/20 text-gray-300 border-gray-500/30' };
+        return { label: 'Upcoming', color: 'bg-gray-500/20 text-gray-300 border-gray-500/40' };
     }
   };
 
@@ -74,7 +73,7 @@ export default function TournamentsPage() {
               season: '2026',
               totalSeasons: 2,
               overs: 10,
-              bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
+              bannerColor: 'from-[#08111F] via-[#0D1B2A] to-[#111D2D]',
               logo: '/images/ddpl-logo.jpg',
               status: 'open',
             },
@@ -86,7 +85,7 @@ export default function TournamentsPage() {
               season: '2026',
               totalSeasons: 2,
               overs: 12,
-              bannerColor: 'from-amber-950 via-orange-950 to-cricket-dark',
+              bannerColor: 'from-[#08111F] via-[#111D2D] to-[#0D1B2A]',
               logo: '/images/game-of-run-logo.jpg',
               status: 'upcoming',
             },
@@ -107,25 +106,25 @@ export default function TournamentsPage() {
 
           const badge = getStatusBadge(cfg.status || 'upcoming');
           const logo = cfg.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg');
-          const bannerColor = cfg.bannerColor || 'from-blue-900 via-indigo-950 to-cricket-dark';
+          const bannerColor = cfg.bannerColor || 'from-[#08111F] via-[#0D1B2A] to-[#111D2D]';
 
-            return {
-              id: slug,
-              name: cfg.name || slug.toUpperCase(),
-              logo,
-              fullName: cfg.fullName || `${cfg.name || slug.toUpperCase()} Championship`,
-              tagline: cfg.tagline || 'Official corporate cricket tournament',
-              activeSeason: cfg.season || '2026',
-              totalSeasons: cfg.totalSeasons || 1,
-              teamsCount,
-              overs,
-              bannerColor,
-              badgeColor: badge.color,
-              status: badge.label,
-              startDate,
-              endDate,
-            };
-          });
+          return {
+            id: slug,
+            name: cfg.name || slug.toUpperCase(),
+            logo,
+            fullName: cfg.fullName || `${cfg.name || slug.toUpperCase()} Championship`,
+            tagline: cfg.tagline || 'Official corporate cricket tournament',
+            activeSeason: cfg.season || '2026',
+            totalSeasons: cfg.totalSeasons || 1,
+            teamsCount,
+            overs,
+            bannerColor,
+            badgeColor: badge.color,
+            status: badge.label,
+            startDate,
+            endDate,
+          };
+        });
 
         setTournaments(populatedTournaments);
       } catch (err) {
@@ -139,21 +138,27 @@ export default function TournamentsPage() {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-cricket-border pb-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
+      
+      {/* Editorial Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
         <div>
-          <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight">
+          <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-widest flex items-center gap-1.5">
+            <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
+            <span>Official League Hub</span>
+          </div>
+          <h1 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight mt-1">
             Tournaments Directory
           </h1>
-          <p className="text-sm text-cricket-muted mt-1">
-            Browse all official corporate cricket tournaments, active seasons, and historical archives.
+          <p className="text-sm text-[#8793A5] mt-1.5 max-w-2xl">
+            Browse all official corporate cricket tournaments, active seasons, and historical archives running on CricPlus.
           </p>
         </div>
 
         {isSuperAdmin && (
           <Link
             href="/admin"
-            className="btn-press shimmer-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+            className="btn-press shimmer-btn inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs tracking-wider uppercase shadow-lg shadow-[#D8AD55]/20 transition-all cursor-pointer shrink-0"
           >
             <PlusCircle className="w-4 h-4" />
             <span>+ Create Tournament</span>
@@ -161,24 +166,26 @@ export default function TournamentsPage() {
         )}
       </div>
 
+      {/* Tournaments Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {tournaments.map((t) => (
           <div
             key={t.id}
-            className="glass-card card-press overflow-hidden flex flex-col justify-between border border-cricket-border"
+            className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl overflow-hidden flex flex-col justify-between border border-[#D8AD55]/30 shadow-2xl hover:border-[#D8AD55]/60 transition-all"
           >
             {/* Tournament Top Banner */}
-            <div className={`p-6 sm:p-8 bg-gradient-to-br ${t.bannerColor} border-b border-cricket-border space-y-4`}>
+            <div className={`p-6 sm:p-8 bg-gradient-to-br ${t.bannerColor} border-b border-[#D8AD55]/20 space-y-5`}>
               <div className="flex items-center justify-between">
                 <span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.badgeColor}`}>
                   {t.status}
                 </span>
-                <span className="text-xs text-cricket-muted font-bold">
+                <span className="text-xs text-[#8793A5] font-bold">
                   Season {t.activeSeason}
                 </span>
               </div>
+              
               <div className="flex items-center gap-4">
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-white/20 shadow-xl shrink-0 bg-[#070d1e]">
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-xl shadow-[#D8AD55]/10 shrink-0 bg-[#08111F]">
                   <Image
                     src={t.logo}
                     alt={`${t.name} Logo`}
@@ -190,50 +197,52 @@ export default function TournamentsPage() {
                   <h2 className="font-display font-black text-3xl sm:text-4xl text-white tracking-wide">
                     {t.name}
                   </h2>
-                  <div className="text-sm font-semibold text-gray-300 mt-0.5">{t.fullName}</div>
+                  <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider mt-0.5">
+                    {t.fullName}
+                  </div>
                 </div>
               </div>
-              <p className="text-xs text-gray-400 mt-1">{t.tagline}</p>
+              <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">{t.tagline}</p>
             </div>
 
             {/* Quick Metrics */}
-            <div className="p-6 space-y-5">
+            <div className="p-6 sm:p-8 space-y-6">
               {t.startDate && t.endDate && (
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
                   <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>Tournament Schedule: {t.startDate} to {t.endDate}</span>
                 </div>
               )}
 
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-                  <div className="text-[11px] text-cricket-muted font-semibold">Match Overs</div>
+                <div className="p-3.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
+                  <div className="text-[11px] text-[#8793A5] font-semibold">Match Overs</div>
                   <div className="font-display font-bold text-lg text-white">{t.overs} Overs</div>
                 </div>
-                <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-                  <div className="text-[11px] text-cricket-muted font-semibold">Teams</div>
-                  <div className="font-display font-bold text-lg text-white">{t.teamsCount} Franchises</div>
+                <div className="p-3.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
+                  <div className="text-[11px] text-[#8793A5] font-semibold">Franchises</div>
+                  <div className="font-display font-bold text-lg text-white">{t.teamsCount} Teams</div>
                 </div>
-                <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-                  <div className="text-[11px] text-cricket-muted font-semibold">Editions</div>
-                  <div className="font-display font-bold text-lg text-white">{t.totalSeasons} Recorded</div>
+                <div className="p-3.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
+                  <div className="text-[11px] text-[#8793A5] font-semibold">Editions</div>
+                  <div className="font-display font-bold text-lg text-[#D8AD55]">{t.totalSeasons} Recorded</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 pt-2">
                 <Link
                   href={`/tournaments/${t.id}`}
-                  className="btn-press shimmer-btn flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-teal-500/20 to-blue-500/20 hover:from-teal-500/30 hover:to-blue-500/30 border border-cricket-teal/40 text-cricket-teal font-bold text-sm shadow transition-all"
+                  className="btn-press shimmer-btn flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 transition-all"
                 >
                   <span>Explore Tournament</span>
                   <ChevronRight className="w-4 h-4" />
                 </Link>
                 <Link
                   href={`/archive?tournament=${t.id}`}
-                  className="btn-press px-4 py-3 rounded-xl bg-cricket-dark/80 hover:bg-cricket-card border border-cricket-border text-gray-300 text-sm font-semibold transition-colors"
+                  className="btn-press px-4 py-3.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-sm font-semibold transition-colors flex items-center justify-center"
                   title="View Historical Records"
                 >
-                  <Award className="w-4 h-4" />
+                  <Award className="w-5 h-5 text-[#D8AD55]" />
                 </Link>
               </div>
             </div>

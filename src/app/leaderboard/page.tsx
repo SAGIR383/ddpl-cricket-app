@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Award, Flame, Zap, Trophy, Shield, Star, Medal, Users, Gavel } from 'lucide-react';
+import { Award, Flame, Zap, Trophy, Shield, Star, Medal, Users, Gavel, Sparkles } from 'lucide-react';
+import { fetchWithCache } from '@/lib/clientCache';
 
 interface LeaderPlayer {
   rank: number;
@@ -15,8 +16,6 @@ interface LeaderPlayer {
   sr?: string;
   econ?: string;
 }
-
-import { fetchWithCache } from '@/lib/clientCache';
 
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<'mvp' | 'batting' | 'bowling'>('mvp');
@@ -78,30 +77,33 @@ export default function LeaderboardPage() {
   const hasMatchesPlayed = false; // Fresh tournament prior to completed matches
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-cricket-border pb-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
+      
+      {/* Editorial Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
         <div>
-          <div className="flex items-center gap-2">
-            <Award className="w-6 h-6 text-cricket-gold" />
-            <h1 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight">
-              Tournament Leaderboards &amp; Awards
-            </h1>
+          <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-widest flex items-center gap-1.5">
+            <Award className="w-3.5 h-3.5 text-[#D8AD55]" />
+            <span>Honors &amp; Individual Accolades</span>
           </div>
-          <p className="text-sm text-cricket-muted mt-1">
+          <h1 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight mt-1">
+            Tournament Leaderboards &amp; Awards
+          </h1>
+          <p className="text-sm text-[#8793A5] mt-1.5 max-w-2xl">
             Orange Cap, Purple Cap, and MVP standings calculated dynamically from verified tournament scorecards.
           </p>
         </div>
 
-        <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md">
+        {/* Tournament Selector Pill Bar */}
+        <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md shadow-md">
           {tournamentsList.map((t) => (
             <button
               key={t.slug}
               onClick={() => setSelectedTournament(t.slug)}
-              className={`px-3 py-2 rounded-lg transition-all whitespace-nowrap ${
+              className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
                 selectedTournament === t.slug
-                  ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                  : 'text-cricket-muted hover:text-white'
+                  ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
+                  : 'text-[#8793A5] hover:text-white'
               }`}
             >
               {t.name}
@@ -112,102 +114,106 @@ export default function LeaderboardPage() {
 
       {/* Top 3 Caps Cards Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        
         {/* Orange Cap */}
-        <div className="glass-card p-6 border-t-4 border-t-amber-500 space-y-3">
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-6 rounded-3xl border border-[#D8AD55]/30 shadow-xl space-y-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-[#D8AD55] to-amber-600" />
           <div className="flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold uppercase">
+            <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-black uppercase tracking-wider">
               Orange Cap
             </span>
-            <Flame className="w-5 h-5 text-amber-500" />
+            <Flame className="w-5 h-5 text-amber-400" />
           </div>
-          <div className="text-xs text-cricket-muted">Leading Run Scorer</div>
+          <div className="text-xs text-[#8793A5] font-semibold">Leading Run Scorer</div>
           <div className="font-display font-black text-2xl text-white">
             {hasMatchesPlayed ? 'Tournament Leader' : 'Awaiting Matches'}
           </div>
-          <div className="flex items-center justify-between text-xs pt-2 border-t border-cricket-border">
-            <span className="text-cricket-muted">{selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN'}</span>
-            <span className="font-display font-black text-xl text-amber-400">0 Runs</span>
+          <div className="flex items-center justify-between text-xs pt-3 border-t border-white/5">
+            <span className="text-[#8793A5]">{selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN'}</span>
+            <span className="font-display font-black text-xl text-[#F2D69A]">0 Runs</span>
           </div>
         </div>
 
         {/* Purple Cap */}
-        <div className="glass-card p-6 border-t-4 border-t-purple-500 space-y-3">
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-6 rounded-3xl border border-[#D8AD55]/30 shadow-xl space-y-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-400 via-indigo-500 to-purple-600" />
           <div className="flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-bold uppercase">
+            <span className="px-3 py-1 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 text-xs font-black uppercase tracking-wider">
               Purple Cap
             </span>
-            <Zap className="w-5 h-5 text-purple-500" />
+            <Zap className="w-5 h-5 text-purple-400" />
           </div>
-          <div className="text-xs text-cricket-muted">Leading Wicket Taker</div>
+          <div className="text-xs text-[#8793A5] font-semibold">Leading Wicket Taker</div>
           <div className="font-display font-black text-2xl text-white">
             {hasMatchesPlayed ? 'Tournament Leader' : 'Awaiting Matches'}
           </div>
-          <div className="flex items-center justify-between text-xs pt-2 border-t border-cricket-border">
-            <span className="text-cricket-muted">{selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN'}</span>
-            <span className="font-display font-black text-xl text-purple-400">0 Wickets</span>
+          <div className="flex items-center justify-between text-xs pt-3 border-t border-white/5">
+            <span className="text-[#8793A5]">{selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN'}</span>
+            <span className="font-display font-black text-xl text-purple-300">0 Wickets</span>
           </div>
         </div>
 
         {/* MVP Award */}
-        <div className="glass-card p-6 border-t-4 border-t-cricket-teal space-y-3">
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-6 rounded-3xl border border-[#D8AD55]/30 shadow-xl space-y-3 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55]" />
           <div className="flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-cricket-teal/20 text-cricket-teal border border-cricket-teal/30 text-xs font-bold uppercase">
+            <span className="px-3 py-1 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/40 text-xs font-black uppercase tracking-wider">
               MVP Champion
             </span>
-            <Trophy className="w-5 h-5 text-cricket-teal" />
+            <Trophy className="w-5 h-5 text-[#D8AD55]" />
           </div>
-          <div className="text-xs text-cricket-muted">Most Valuable Player</div>
+          <div className="text-xs text-[#8793A5] font-semibold">Most Valuable Player</div>
           <div className="font-display font-black text-2xl text-white">
             {hasMatchesPlayed ? 'Tournament Leader' : 'Awaiting Matches'}
           </div>
-          <div className="flex items-center justify-between text-xs pt-2 border-t border-cricket-border">
-            <span className="text-cricket-muted">{selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN'}</span>
-            <span className="font-display font-black text-xl text-cricket-teal">0 MVP Pts</span>
+          <div className="flex items-center justify-between text-xs pt-3 border-t border-white/5">
+            <span className="text-[#8793A5]">{selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN'}</span>
+            <span className="font-display font-black text-xl text-[#D8AD55]">0 MVP Pts</span>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-cricket-border">
+      {/* Navigation Tabs */}
+      <div className="flex border-b border-[#D8AD55]/15">
         <button
           onClick={() => setActiveTab('mvp')}
-          className={`px-5 py-3 border-b-2 font-display font-bold text-lg transition-all ${
+          className={`px-5 py-3 border-b-2 font-display font-bold text-base sm:text-lg transition-all ${
             activeTab === 'mvp'
-              ? 'border-cricket-teal text-cricket-teal'
-              : 'border-transparent text-cricket-muted hover:text-white'
+              ? 'border-[#D8AD55] text-[#F2D69A]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
           }`}
         >
           MVP Rankings
         </button>
         <button
           onClick={() => setActiveTab('batting')}
-          className={`px-5 py-3 border-b-2 font-display font-bold text-lg transition-all ${
+          className={`px-5 py-3 border-b-2 font-display font-bold text-base sm:text-lg transition-all ${
             activeTab === 'batting'
-              ? 'border-cricket-teal text-cricket-teal'
-              : 'border-transparent text-cricket-muted hover:text-white'
+              ? 'border-[#D8AD55] text-[#F2D69A]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
           }`}
         >
           Orange Cap (Batting)
         </button>
         <button
           onClick={() => setActiveTab('bowling')}
-          className={`px-5 py-3 border-b-2 font-display font-bold text-lg transition-all ${
+          className={`px-5 py-3 border-b-2 font-display font-bold text-base sm:text-lg transition-all ${
             activeTab === 'bowling'
-              ? 'border-cricket-teal text-cricket-teal'
-              : 'border-transparent text-cricket-muted hover:text-white'
+              ? 'border-[#D8AD55] text-[#F2D69A]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
           }`}
         >
           Purple Cap (Bowling)
         </button>
       </div>
 
-      {/* Leaderboard Table */}
-      <div className="glass-card overflow-hidden border border-cricket-border shadow-xl">
-        <div className="p-4 bg-gradient-to-r from-blue-950 via-cricket-card to-cricket-dark border-b border-cricket-border flex items-center justify-between">
+      {/* Leaderboard Table Card */}
+      <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl overflow-hidden border border-[#D8AD55]/30 shadow-2xl">
+        <div className="p-5 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border-b border-[#D8AD55]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <span className="font-display font-bold text-lg text-white">
             {selectedTournament.toUpperCase()} — Active Squad Contenders ({acquiredPlayers.length})
           </span>
-          <span className="text-xs text-cricket-muted">
+          <span className="text-xs text-[#8793A5]">
             Statistics update automatically with match scorecard completion
           </span>
         </div>
@@ -215,35 +221,35 @@ export default function LeaderboardPage() {
         {acquiredPlayers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm table-nums">
-              <thead className="bg-cricket-dark/80 text-xs font-semibold text-cricket-muted uppercase border-b border-cricket-border">
+              <thead className="bg-[#08111F] text-xs font-bold text-[#8793A5] uppercase tracking-wider border-b border-[#D8AD55]/15">
                 <tr>
-                  <th className="px-4 py-3.5 text-center">#</th>
-                  <th className="px-4 py-3.5">Player Name</th>
-                  <th className="px-4 py-3.5">Franchise</th>
-                  <th className="px-4 py-3.5 text-center">Runs</th>
-                  <th className="px-4 py-3.5 text-center">Wickets</th>
-                  <th className="px-4 py-3.5 text-right font-bold text-white">MVP Points</th>
+                  <th className="px-5 py-4 text-center">#</th>
+                  <th className="px-5 py-4">Player Name</th>
+                  <th className="px-5 py-4">Franchise</th>
+                  <th className="px-5 py-4 text-center">Runs</th>
+                  <th className="px-5 py-4 text-center">Wickets</th>
+                  <th className="px-5 py-4 text-right font-black text-white">MVP Points</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-cricket-border">
+              <tbody className="divide-y divide-white/5">
                 {acquiredPlayers.map((p, idx) => (
-                  <tr key={idx} className="hover:bg-cricket-card/40 transition-colors">
-                    <td className="px-4 py-3.5 text-center font-display font-black text-gray-400">
+                  <tr key={idx} className="hover:bg-white/[0.04] transition-colors">
+                    <td className="px-5 py-4 text-center font-display font-black text-[#8793A5]">
                       {idx + 1}
                     </td>
-                    <td className="px-4 py-3.5 font-bold text-white">
+                    <td className="px-5 py-4 font-bold text-white">
                       {p.name}
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-cricket-teal font-semibold">
+                    <td className="px-5 py-4 text-xs text-[#D8AD55] font-semibold">
                       {p.team}
                     </td>
-                    <td className="px-4 py-3.5 text-center text-gray-300">
+                    <td className="px-5 py-4 text-center text-gray-300">
                       {p.runs}
                     </td>
-                    <td className="px-4 py-3.5 text-center text-gray-300">
+                    <td className="px-5 py-4 text-center text-gray-300">
                       {p.wickets}
                     </td>
-                    <td className="px-4 py-3.5 text-right font-display font-bold text-cricket-gold">
+                    <td className="px-5 py-4 text-right font-display font-bold text-[#F2D69A]">
                       {p.pts} pts
                     </td>
                   </tr>
@@ -252,15 +258,15 @@ export default function LeaderboardPage() {
             </table>
           </div>
         ) : (
-          <div className="p-12 text-center space-y-3">
-            <Users className="w-12 h-12 text-cricket-muted mx-auto" />
+          <div className="p-16 text-center space-y-4">
+            <Users className="w-12 h-12 text-[#8793A5] mx-auto opacity-40" />
             <div className="font-display font-bold text-lg text-white">No Auction Players Acquired Yet</div>
-            <p className="text-xs text-cricket-muted max-w-sm mx-auto">
+            <p className="text-xs text-[#8793A5] max-w-sm mx-auto">
               Once players are sold in the auction room, they will be listed here as contenders for Orange Cap, Purple Cap, and MVP awards.
             </p>
             <Link
               href="/auction"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-teal/40 text-cricket-teal text-xs font-bold transition-all"
+              className="btn-press shimmer-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D8AD55]/20 hover:bg-[#D8AD55]/30 border border-[#D8AD55]/40 text-[#F2D69A] text-xs font-bold transition-all"
             >
               <Gavel className="w-3.5 h-3.5" />
               <span>Go to Live Auction</span>
