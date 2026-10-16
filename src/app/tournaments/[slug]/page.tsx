@@ -318,7 +318,7 @@ export default function TournamentDetailPage() {
                     setIsRegModalOpen(true);
                   }
                 }}
-                className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-black text-sm tracking-wide shadow-xl shadow-emerald-500/25 active:scale-95 transition-all flex items-center gap-2"
+                className="btn-press shimmer-btn px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 hover:brightness-110 text-cricket-dark font-display font-black text-sm tracking-wide shadow-xl shadow-emerald-500/25 transition-all flex items-center gap-2"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>{user ? 'Register for Tournament' : 'Sign In to Register'}</span>
@@ -336,28 +336,28 @@ export default function TournamentDetailPage() {
       <div className="flex flex-wrap items-center gap-3">
         <Link
           href={`/auction?tournament=${slug}`}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-gold/40 text-sm font-bold text-cricket-gold transition-all shadow-md"
+          className="btn-press shimmer-btn flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-cricket-gold/50 text-sm font-bold text-cricket-gold transition-all shadow-md"
         >
           <Gavel className="w-4 h-4 text-cricket-gold" />
           <span>Live Player Auction Room</span>
         </Link>
         <Link
           href={`/standings?tournament=${slug}`}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
+          className="btn-press flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
         >
           <Trophy className="w-4 h-4 text-purple-400" />
           <span>Points Table &amp; Standings</span>
         </Link>
         <Link
           href={`/teams?tournament=${slug}`}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
+          className="btn-press flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
         >
           <Users className="w-4 h-4 text-blue-400" />
           <span>Franchises &amp; Squads</span>
         </Link>
         <Link
           href={`/matches?tournament=${slug}`}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
+          className="btn-press flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
         >
           <Calendar className="w-4 h-4 text-emerald-400" />
           <span>Fixtures &amp; Schedule</span>

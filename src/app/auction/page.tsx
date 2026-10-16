@@ -1186,7 +1186,7 @@ export default function AuctionPage() {
                                     setIsOpeningAtBase(false);
                                     setSelectedIncrement(step);
                                   }}
-                                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                  className={`btn-press px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                     (!isOpeningRound && selectedIncrement === step) || (isOpeningRound && !isOpeningAtBase && selectedIncrement === step)
                                       ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark font-black shadow-lg shadow-emerald-500/20 scale-105'
                                       : 'bg-cricket-card text-gray-300 hover:text-white border border-cricket-border'
@@ -1278,7 +1278,7 @@ export default function AuctionPage() {
                               type="button"
                               onClick={() => handleBid(userTeam, isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement)}
                               disabled={!canUserBidForTeam(userTeam) || !hasSufficientBudget || isSquadFull}
-                              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:brightness-110 text-cricket-dark font-display font-black text-lg tracking-wide shadow-2xl shadow-emerald-500/30 active:scale-95 transition-all flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed animate-pulse"
+                              className="btn-press shimmer-btn w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:brightness-110 text-cricket-dark font-display font-black text-lg tracking-wide shadow-2xl shadow-emerald-500/30 transition-all flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <div className="flex items-center gap-2">
                                 <Gavel className="w-6 h-6" />
@@ -1444,7 +1444,7 @@ export default function AuctionPage() {
                         <div className="flex gap-3">
                           <button
                             onClick={handleUnsold}
-                            className="px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all active:scale-95"
+                            className="btn-press px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all cursor-pointer"
                           >
                             Pass as Unsold
                           </button>
@@ -1452,9 +1452,9 @@ export default function AuctionPage() {
                           <button
                             onClick={handleSold}
                             disabled={!currentLot.leadingTeam}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-display font-black text-sm tracking-wide shadow-xl transition-all active:scale-95 ${
+                            className={`btn-press shimmer-btn flex items-center gap-2 px-6 py-2.5 rounded-xl font-display font-black text-sm tracking-wide shadow-xl transition-all cursor-pointer ${
                               currentLot.leadingTeam
-                                ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark hover:brightness-110 shadow-emerald-500/20'
+                                ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 text-cricket-dark hover:brightness-110 shadow-emerald-500/25'
                                 : 'bg-cricket-card text-gray-500 border border-cricket-border cursor-not-allowed'
                             }`}
                           >

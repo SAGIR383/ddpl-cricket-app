@@ -168,15 +168,15 @@ export default function MatchesPage() {
         </div>
 
         {/* Tournament Switcher */}
-        <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md">
+        <div className="flex rounded-full glass-pill p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md border border-white/10">
           {tournamentsList.map((t) => (
             <button
               key={t.slug}
               onClick={() => setSelectedTournament(t.slug)}
-              className={`px-3 py-2 rounded-lg transition-all whitespace-nowrap ${
+              className={`btn-press px-4 py-2 rounded-full transition-all whitespace-nowrap cursor-pointer ${
                 selectedTournament === t.slug
-                  ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                  : 'text-cricket-muted hover:text-white'
+                  ? 'bg-gradient-to-r from-teal-500/20 to-blue-500/20 text-cricket-teal border border-cricket-teal/40 shadow-[0_0_12px_rgba(0,245,212,0.2)]'
+                  : 'text-gray-400 hover:text-white border border-transparent'
               }`}
             >
               {t.name} Fixtures
@@ -216,7 +216,7 @@ export default function MatchesPage() {
             return (
               <div
                 key={m.id}
-                className={`glass-card p-6 border transition-all ${
+                className={`glass-card card-press p-6 border transition-all ${
                   m.status === 'live'
                     ? 'border-emerald-500/60 shadow-lg shadow-emerald-500/10'
                     : isPlayoff
@@ -327,7 +327,7 @@ export default function MatchesPage() {
                   <div className="flex md:flex-col justify-end gap-2 shrink-0">
                     <Link
                       href={`/matches/${m.id}`}
-                      className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm shadow transition-all bg-cricket-card hover:bg-cricket-cardHover text-white border border-cricket-border hover:border-cricket-teal/40 hover:scale-105"
+                      className="btn-press shimmer-btn flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm shadow transition-all bg-gradient-to-r from-teal-500/20 to-blue-500/20 hover:from-teal-500/30 hover:to-blue-500/30 text-white border border-cricket-teal/40"
                     >
                       <Activity className="w-4 h-4 text-cricket-teal" />
                       <span>Open Live Scorer Console</span>

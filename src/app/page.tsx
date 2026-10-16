@@ -57,7 +57,7 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-2">
             <Link
               href="/matches"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-cricket-dark font-display font-extrabold text-base tracking-wide shadow-xl shadow-emerald-500/30 transition-all active:scale-95"
+              className="btn-press shimmer-btn w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-400 via-teal-400 to-blue-500 hover:brightness-110 text-cricket-dark font-display font-black text-base tracking-wide shadow-xl shadow-teal-500/25 transition-all"
             >
               <Activity className="w-5 h-5" />
               <span>Live Match Center</span>
@@ -65,7 +65,7 @@ export default function HomePage() {
 
             <Link
               href="/auction"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-cricket-card/90 hover:bg-cricket-cardHover border border-cricket-border hover:border-cricket-gold/60 text-white font-display font-bold text-base tracking-wide backdrop-blur-md transition-all active:scale-95 shadow-lg"
+              className="btn-press w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/15 hover:border-cricket-gold/60 text-white font-display font-bold text-base tracking-wide backdrop-blur-md transition-all shadow-lg"
             >
               <Gavel className="w-5 h-5 text-cricket-gold" />
               <span>Live Auction Room</span>
@@ -141,7 +141,7 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
           {/* DDPL Card with Ball Blast Visual */}
-          <div className="glass-card glass-card-hover overflow-hidden flex flex-col justify-between border-t-4 border-t-cricket-teal shadow-2xl relative">
+          <div className="glass-card card-press overflow-hidden flex flex-col justify-between border-t-4 border-t-cricket-teal shadow-2xl relative">
             {/* Background Texture Overlay */}
             <div className="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none overflow-hidden">
               <Image
@@ -159,7 +159,7 @@ export default function HomePage() {
                   DDPL 2026 Edition
                 </span>
                 <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 badge-live-radar" />
                   Active Tournament
                 </span>
               </div>
@@ -202,28 +202,29 @@ export default function HomePage() {
               </div>
             </div>
 
-          <div className="p-5 sm:p-6 pt-0 relative z-10">
-            <Link
-              href="/tournaments/ddpl"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-display font-bold text-base tracking-wide shadow-lg transition-all active:scale-95"
-            >
-              <span>Enter DDPL Portal</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-
-        {/* Game of RUN Card */}
-        <div className="glass-card glass-card-hover overflow-hidden flex flex-col justify-between border-t-4 border-t-cricket-gold shadow-2xl relative">
-          <div className="p-5 sm:p-8 space-y-4 sm:space-y-5 relative z-10">
-            <div className="flex items-center justify-between">
-              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-cricket-gold text-[11px] sm:text-xs font-black uppercase tracking-wider">
-                Game of RUN 2026
-              </span>
-              <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
-                Registrations Open
-              </span>
+            <div className="p-5 sm:p-6 pt-0 relative z-10">
+              <Link
+                href="/tournaments/ddpl"
+                className="btn-press shimmer-btn w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:brightness-110 text-white font-display font-bold text-base tracking-wide shadow-lg transition-all"
+              >
+                <span>Enter DDPL Portal</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
+          </div>
+
+          {/* Game of RUN Card */}
+          <div className="glass-card card-press overflow-hidden flex flex-col justify-between border-t-4 border-t-cricket-gold shadow-2xl relative">
+            <div className="p-5 sm:p-8 space-y-4 sm:space-y-5 relative z-10">
+              <div className="flex items-center justify-between">
+                <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-cricket-gold text-[11px] sm:text-xs font-black uppercase tracking-wider">
+                  Game of RUN 2026
+                </span>
+                <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 badge-live-radar" />
+                  Registrations Open
+                </span>
+              </div>
 
               <div className="flex items-center gap-4">
                 <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-amber-500/50 shadow-xl shadow-amber-500/20 shrink-0 bg-[#070d1e]">
@@ -266,7 +267,7 @@ export default function HomePage() {
             <div className="p-5 sm:p-6 pt-0 relative z-10">
               <Link
                 href="/tournaments/game-of-run"
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-cricket-dark font-display font-extrabold text-base tracking-wide shadow-lg transition-all active:scale-95"
+                className="btn-press shimmer-btn w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:brightness-110 text-cricket-dark font-display font-black text-base tracking-wide shadow-lg transition-all"
               >
                 <span>Enter Game of RUN Portal</span>
                 <ArrowRight className="w-4 h-4" />

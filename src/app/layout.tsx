@@ -3,6 +3,7 @@ import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { MobileNav } from '@/components/layout/MobileNav';
+import { NavigationProgress } from '@/components/common/NavigationProgress';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
 
@@ -42,22 +43,25 @@ export default function RootLayout({
       <body className="bg-[#040814] text-gray-100 flex flex-col min-h-screen antialiased selection:bg-cricket-teal selection:text-cricket-dark">
         <AuthProvider>
           <ServiceWorkerRegister />
-          {/* Full-bleed fixed stadium visual reaching all edges of any display (including ultra-wide) */}
+          {/* Top route change progress bar */}
+          <NavigationProgress />
+
+          {/* Full-bleed fixed stadium visual reaching all edges of any display */}
           <div className="stadium-bg-fixed" />
           <div className="stadium-overlay-fixed" />
 
-          {/* Top Header Navbar */}
+          {/* Top Floating Header Navbar */}
           <Navbar />
 
-          {/* Main Content Area */}
-          <main className="flex-1 relative z-10 pb-24 lg:pb-10">
+          {/* Main Content Area with fluid entry animation */}
+          <main className="flex-1 relative z-10 pb-24 lg:pb-12 page-enter">
             {children}
           </main>
 
           {/* Footer */}
           <Footer />
 
-          {/* Native Mobile App-Style Bottom Bar */}
+          {/* Modern Floating App Dock for Mobile */}
           <MobileNav />
         </AuthProvider>
       </body>

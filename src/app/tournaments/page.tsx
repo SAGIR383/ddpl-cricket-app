@@ -153,7 +153,7 @@ export default function TournamentsPage() {
         {isSuperAdmin && (
           <Link
             href="/admin"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+            className="btn-press shimmer-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
             <span>+ Create Tournament</span>
@@ -165,7 +165,7 @@ export default function TournamentsPage() {
         {tournaments.map((t) => (
           <div
             key={t.id}
-            className="glass-card glass-card-hover overflow-hidden flex flex-col justify-between border border-cricket-border"
+            className="glass-card card-press overflow-hidden flex flex-col justify-between border border-cricket-border"
           >
             {/* Tournament Top Banner */}
             <div className={`p-6 sm:p-8 bg-gradient-to-br ${t.bannerColor} border-b border-cricket-border space-y-4`}>
@@ -223,14 +223,14 @@ export default function TournamentsPage() {
               <div className="flex items-center gap-3">
                 <Link
                   href={`/tournaments/${t.id}`}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-teal/40 text-cricket-teal font-bold text-sm shadow transition-all hover:scale-[1.02]"
+                  className="btn-press shimmer-btn flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-teal-500/20 to-blue-500/20 hover:from-teal-500/30 hover:to-blue-500/30 border border-cricket-teal/40 text-cricket-teal font-bold text-sm shadow transition-all"
                 >
                   <span>Explore Tournament</span>
                   <ChevronRight className="w-4 h-4" />
                 </Link>
                 <Link
                   href={`/archive?tournament=${t.id}`}
-                  className="px-4 py-3 rounded-xl bg-cricket-dark/80 hover:bg-cricket-card border border-cricket-border text-gray-300 text-sm font-semibold transition-colors"
+                  className="btn-press px-4 py-3 rounded-xl bg-cricket-dark/80 hover:bg-cricket-card border border-cricket-border text-gray-300 text-sm font-semibold transition-colors"
                   title="View Historical Records"
                 >
                   <Award className="w-4 h-4" />
