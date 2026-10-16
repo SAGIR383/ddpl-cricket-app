@@ -1,12 +1,13 @@
-// CricPlus Service Worker - Style D Live Sync Version
-const CACHE_NAME = 'cricplus-cache-v3-live';
+// CricPlus Service Worker - 4K Stadium Live Sync Version
+const CACHE_NAME = 'cricplus-cache-v4-live';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/images/cricplus-logo.jpg',
   '/images/ddpl-logo.jpg',
-  '/images/game-of-run-logo.jpg'
+  '/images/game-of-run-logo.jpg',
+  '/images/cricplus-stadium-4k.jpg'
 ];
 
 self.addEventListener('install', (event) => {

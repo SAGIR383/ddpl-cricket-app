@@ -36,12 +36,12 @@ body {
   bottom: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: url('/images/cricket-hero.jpg');
+  background-image: url('/images/cricplus-stadium-4k.jpg');
   background-size: cover;
   background-position: 85% 0%;
   background-repeat: no-repeat;
-  opacity: 0.58;
-  filter: contrast(1.14) brightness(1.04) saturate(1.18);
+  opacity: 0.72;
+  filter: contrast(1.18) brightness(1.06) saturate(1.22);
 }
 
 /* Atmospheric stadium floodlight & midnight-navy color grading overlay */
@@ -54,9 +54,9 @@ body {
   z-index: 0;
   pointer-events: none;
   background: 
-    radial-gradient(circle 900px at 85% 5%, rgba(242, 214, 154, 0.20), transparent 60%),
-    radial-gradient(circle 800px at 15% 15%, rgba(216, 173, 85, 0.15), transparent 65%),
-    linear-gradient(to bottom, rgba(8, 17, 31, 0.35) 0%, rgba(8, 17, 31, 0.65) 45%, rgba(8, 17, 31, 0.88) 100%);
+    radial-gradient(circle 900px at 85% 5%, rgba(242, 214, 154, 0.22), transparent 60%),
+    radial-gradient(circle 800px at 15% 15%, rgba(216, 173, 85, 0.16), transparent 65%),
+    linear-gradient(to bottom, rgba(8, 17, 31, 0.25) 0%, rgba(8, 17, 31, 0.55) 45%, rgba(8, 17, 31, 0.82) 100%);
 }
 
 /* Typography utilities */

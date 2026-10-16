@@ -309,18 +309,18 @@ export default function HomePage() {
         {/* Immersive Stadium Photography Background (4K HD Crystal-Clear Sporty Hero) */}
         <div className="absolute inset-0 z-0">
           <Image
-            src="/images/cricket-hero.jpg"
+            src="/images/cricplus-stadium-4k.jpg"
             alt="CricPlus 4K Cricket Stadium Lights"
             fill
             priority
             unoptimized
             quality={100}
-            className="object-cover object-[88%_top] sm:object-[center_top] filter brightness-[1.04] contrast-[1.14] saturate-[1.18]"
+            className="object-cover object-[88%_top] sm:object-[85%_top] md:object-[center_top] filter brightness-[1.06] contrast-[1.16] saturate-[1.20]"
           />
           {/* Transparent directional vignette balancing text legibility on the left while keeping batsman, sparks, CricPlus board & blazing ball 100% visible */}
-          <div className="absolute inset-y-0 left-0 w-full sm:w-3/5 md:w-1/2 bg-gradient-to-r from-[#08111F]/88 via-[#08111F]/45 to-transparent z-10" />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#08111F] via-[#08111F]/30 to-transparent z-10" />
-          <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-[#D8AD55]/20 via-transparent to-transparent blur-3xl pointer-events-none z-10" />
+          <div className="absolute inset-y-0 left-0 w-full sm:w-3/5 md:w-1/2 bg-gradient-to-r from-[#08111F]/88 via-[#08111F]/35 to-transparent z-10" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#08111F] via-[#08111F]/20 to-transparent z-10" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#D8AD55]/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none z-10" />
         </div>
 
         {/* Content Over Stadium */}
