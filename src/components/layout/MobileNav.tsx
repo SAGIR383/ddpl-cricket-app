@@ -24,7 +24,7 @@ export function MobileNav() {
 
   return (
     <nav className="lg:hidden fixed bottom-3 left-3 right-3 z-50 max-w-md mx-auto pointer-events-auto">
-      <div className="bg-[#08111F]/90 backdrop-blur-2xl rounded-full px-2 py-1.5 border border-[#D8AD55]/30 shadow-[0_12px_40px_rgba(0,0,0,0.95)] flex items-center justify-around">
+      <div className="bg-[#08111F]/95 backdrop-blur-2xl rounded-full px-2 py-1.5 border border-[#D8AD55]/40 shadow-[0_12px_40px_rgba(0,0,0,0.95),inset_0_1px_1px_rgba(242,214,154,0.3),0_0_20px_rgba(216,173,85,0.15)] ring-1 ring-[#D8AD55]/20 flex items-center justify-around">
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = link.href === '/' ? pathname === '/' : pathname.startsWith(link.href);
@@ -35,14 +35,14 @@ export function MobileNav() {
               href={link.href}
               className={`nav-item-press relative flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all ${
                 isActive
-                  ? 'text-[#F2D69A] font-extrabold'
-                  : 'text-[#8793A5] hover:text-gray-200 font-semibold'
+                  ? 'bg-gradient-to-r from-[#D8AD55]/25 via-[#F2D69A]/15 to-[#D8AD55]/25 text-[#FFF] border border-[#D8AD55]/50 shadow-[0_0_14px_rgba(216,173,85,0.3)] font-extrabold'
+                  : 'text-[#C2CBD8] hover:text-white font-semibold'
               }`}
             >
               <div className="relative">
                 <Icon
                   className={`w-5 h-5 transition-transform duration-200 ${
-                    isActive ? 'scale-115 text-[#D8AD55] drop-shadow-[0_0_8px_rgba(216,173,85,0.8)]' : ''
+                    isActive ? 'scale-110 text-[#D8AD55] drop-shadow-[0_0_8px_rgba(216,173,85,0.8)]' : 'text-[#D8AD55]/70'
                   }`}
                 />
                 {link.isLive && (
@@ -52,7 +52,7 @@ export function MobileNav() {
               
               <span
                 className={`text-[9.5px] mt-0.5 tracking-tight transition-colors ${
-                  isActive ? 'text-[#F2D69A] font-bold' : 'text-[#8793A5]'
+                  isActive ? 'text-[#F2D69A] font-bold' : 'text-[#C2CBD8]'
                 }`}
               >
                 {link.label}

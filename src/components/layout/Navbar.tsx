@@ -27,6 +27,7 @@ export function Navbar() {
   }, []);
 
   const navLinks = [
+    { href: '/', label: 'Home', icon: Sparkles, exact: true },
     { href: '/tournaments', label: 'Tournaments', icon: Trophy },
     { href: '/matches', label: 'Matches', icon: Calendar },
     { href: '/auction', label: 'Auction', icon: Gavel },
@@ -40,7 +41,7 @@ export function Navbar() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-[#08111F]/90 backdrop-blur-xl border-b border-[#D8AD55]/20 shadow-[0_12px_40px_rgba(0,0,0,0.8)] py-2 sm:py-2.5'
+          ? 'bg-[#08111F]/90 backdrop-blur-xl border-b border-[#D8AD55]/25 shadow-[0_12px_40px_rgba(0,0,0,0.85)] py-2 sm:py-2.5'
           : 'bg-transparent border-b border-transparent py-3 sm:py-4'
       }`}
     >
@@ -76,25 +77,29 @@ export function Navbar() {
             </div>
           </Link>
 
-          {/* Desktop Navigation Links (Floating League Glass Pill Strip) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-[#111D2D]/80 backdrop-blur-md px-2 py-1.5 rounded-full border border-[#D8AD55]/15 shadow-inner">
+          {/* Desktop Navigation Links (Floating League Glass Pill Strip - Premium Highlighting) */}
+          <nav className="hidden lg:flex items-center gap-1.5 bg-gradient-to-r from-[#0D1B2A]/95 via-[#111D2D]/90 to-[#0D1B2A]/95 backdrop-blur-2xl px-2.5 py-1.5 rounded-full border border-[#D8AD55]/35 shadow-[0_8px_32px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(242,214,154,0.3),0_0_24px_rgba(216,173,85,0.15)] ring-1 ring-[#D8AD55]/20">
             {navLinks.map((link) => {
               const Icon = link.icon;
-              const isActive = pathname.startsWith(link.href);
+              const isActive = link.exact ? pathname === link.href : (link.href !== '/' && pathname.startsWith(link.href));
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`nav-item-press relative flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all ${
+                  className={`nav-item-press group relative flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all ${
                     isActive
-                      ? 'bg-gradient-to-r from-[#D8AD55]/25 to-[#F2D69A]/15 text-[#F2D69A] border border-[#D8AD55]/40 shadow-[0_0_15px_rgba(216,173,85,0.25)]'
-                      : 'text-[#8793A5] hover:text-white hover:bg-white/[0.05] border border-transparent'
+                      ? 'bg-gradient-to-r from-[#D8AD55]/30 via-[#F2D69A]/20 to-[#D8AD55]/30 text-[#F2D69A] border border-[#D8AD55]/60 shadow-[0_0_18px_rgba(216,173,85,0.35),inset_0_1px_1px_rgba(255,255,255,0.25)] font-extrabold'
+                      : 'text-[#C2CBD8] hover:text-white hover:bg-white/[0.08] hover:border-[#D8AD55]/30 border border-transparent hover:shadow-[0_0_12px_rgba(216,173,85,0.15)]'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#D8AD55]' : 'text-[#8793A5]'}`} />
+                  <Icon className={`w-3.5 h-3.5 transition-all ${
+                    isActive 
+                      ? 'text-[#D8AD55] drop-shadow-[0_0_8px_rgba(216,173,85,0.8)] scale-110' 
+                      : 'text-[#D8AD55]/70 group-hover:text-[#F2D69A] group-hover:scale-110'
+                  }`} />
                   <span>{link.label}</span>
                   {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#D8AD55] shadow-[0_0_6px_rgba(216,173,85,0.9)] ml-0.5" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#D8AD55] shadow-[0_0_8px_rgba(216,173,85,1)] ml-0.5 animate-pulse" />
                   )}
                 </Link>
               );
@@ -190,7 +195,7 @@ export function Navbar() {
           <div className="grid grid-cols-2 gap-2 pt-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
-              const isActive = pathname.startsWith(link.href);
+              const isActive = link.exact ? pathname === link.href : (link.href !== '/' && pathname.startsWith(link.href));
               return (
                 <Link
                   key={link.href}
@@ -198,11 +203,11 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`btn-press flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     isActive
-                      ? 'bg-gradient-to-r from-[#D8AD55]/25 to-[#F2D69A]/15 text-[#F2D69A] border border-[#D8AD55]/50'
-                      : 'text-gray-300 hover:bg-white/[0.05] border border-transparent'
+                      ? 'bg-gradient-to-r from-[#D8AD55]/30 to-[#F2D69A]/20 text-[#F2D69A] border border-[#D8AD55]/60 shadow-[0_0_14px_rgba(216,173,85,0.3)]'
+                      : 'text-gray-200 hover:bg-white/[0.08] hover:text-white border border-transparent'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#D8AD55]' : 'text-[#8793A5]'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#D8AD55]' : 'text-[#D8AD55]/70'}`} />
                   <span>{link.label}</span>
                 </Link>
               );
