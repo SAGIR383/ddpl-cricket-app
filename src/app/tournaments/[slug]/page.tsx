@@ -4,7 +4,22 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { Trophy, Calendar, Users, Gavel, Shield, Award, Settings, CheckCircle2, DollarSign, UserPlus, Phone, X } from 'lucide-react';
+import {
+  Trophy,
+  Calendar,
+  Users,
+  Gavel,
+  Shield,
+  Award,
+  Settings,
+  CheckCircle2,
+  DollarSign,
+  UserPlus,
+  Phone,
+  X,
+  Sparkles,
+  ArrowRight,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -167,7 +182,7 @@ export default function TournamentDetailPage() {
 
       const data = await res.json();
       if (data.success) {
-        setRegSuccessMsg(data.message || 'Registration confirmed!');
+        setRegSuccessMsg(data.message || 'Registration confirmed! Added to live auction pool.');
         if (data.registrations) setRegistrations(data.registrations);
         if (user?.id && regForm.phone) {
           try {
@@ -210,17 +225,19 @@ export default function TournamentDetailPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-950 via-cricket-card to-cricket-dark border border-cricket-border p-6 sm:p-10 shadow-2xl">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
+      
+      {/* 1. EDITORIAL HEADER BANNER */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border border-[#D8AD55]/30 p-6 sm:p-10 shadow-2xl">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-cricket-teal border border-blue-500/30 text-xs font-bold uppercase">
-              <Trophy className="w-3.5 h-3.5" />
-              Tournament Portal
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/30 text-xs font-bold uppercase tracking-wider">
+              <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
+              <span>Official Tournament Hub</span>
             </div>
+            
             <div className="flex items-center gap-4">
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl shrink-0 bg-[#070d1e]">
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-2xl shrink-0 bg-[#08111F]">
                 <Image
                   src={tournamentConfig.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg')}
                   alt={`${tournament.name} Logo`}
@@ -229,29 +246,35 @@ export default function TournamentDetailPage() {
                   priority
                 />
               </div>
-              <h1 className="font-display font-extrabold text-4xl sm:text-5xl text-white tracking-wide">
-                {tournament.name}
-              </h1>
+              <div>
+                <h1 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight">
+                  {tournament.name}
+                </h1>
+                <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider mt-0.5">
+                  {tournament.fullName}
+                </div>
+              </div>
             </div>
+
             <p className="text-sm text-gray-300 max-w-2xl leading-relaxed">
               {tournament.description}
             </p>
           </div>
 
           {/* Season Selector */}
-          <div className="flex flex-col sm:items-end gap-2">
-            <span className="text-xs font-semibold text-cricket-muted uppercase tracking-wider">
-              Edition / Season
+          <div className="flex flex-col sm:items-end gap-2 shrink-0">
+            <span className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
+              Tournament Edition
             </span>
-            <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1">
+            <div className="flex rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 p-1 shadow-md">
               {tournament.seasons.map((year) => (
                 <button
                   key={year}
                   onClick={() => setSelectedSeason(year)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                     selectedSeason === year
-                      ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                      : 'text-cricket-muted hover:text-white'
+                      ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
+                      : 'text-[#8793A5] hover:text-white'
                   }`}
                 >
                   Season {year}
@@ -262,17 +285,17 @@ export default function TournamentDetailPage() {
         </div>
       </div>
 
-      {/* Registration Callout Banner */}
-      <div className={`glass-card p-6 sm:p-8 border shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 ${
+      {/* 2. REGISTRATION CALLOUT BANNER (SYNCED TO AUCTION POOL) */}
+      <div className={`p-6 sm:p-8 rounded-3xl border shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-md ${
         tournamentConfig.status === 'open'
-          ? 'bg-gradient-to-r from-emerald-950/70 via-cricket-card to-blue-950/70 border-emerald-500/50'
-          : 'bg-gradient-to-r from-amber-950/50 via-cricket-card to-gray-900/50 border-amber-500/30'
+          ? 'bg-[#0D1B2A]/90 border-emerald-500/40 shadow-emerald-500/5'
+          : 'bg-[#0D1B2A]/90 border-[#D8AD55]/30 shadow-black/80'
       }`}>
         <div className="flex items-center gap-4">
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border ${
             tournamentConfig.status === 'open'
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-              : 'bg-amber-500/20 text-cricket-gold border-amber-500/30'
+              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
+              : 'bg-[#D8AD55]/15 text-[#D8AD55] border-[#D8AD55]/30'
           }`}>
             <UserPlus className="w-7 h-7" />
           </div>
@@ -281,11 +304,11 @@ export default function TournamentDetailPage() {
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                 tournamentConfig.status === 'open'
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 animate-pulse'
-                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  : 'bg-[#D8AD55]/20 text-[#F2D69A] border-[#D8AD55]/30'
               }`}>
                 {tournamentConfig.status === 'open' ? '● Registration Open' : 'Upcoming Tournament'}
               </span>
-              <span className="text-xs text-gray-400 font-mono">
+              <span className="text-xs text-[#8793A5] font-mono">
                 • {registrations.length} Players Enrolled
               </span>
             </div>
@@ -294,9 +317,9 @@ export default function TournamentDetailPage() {
                 ? `Join the Official Player Auction Pool for ${tournament.name}`
                 : `Upcoming Tournament: ${tournament.name}`}
             </h3>
-            <p className="text-xs text-gray-300 mt-0.5 max-w-xl">
+            <p className="text-xs text-[#8793A5] mt-0.5 max-w-xl">
               {tournamentConfig.status === 'open'
-                ? 'Complete your profile, select your cricket specialism and upload your player photo (max 100 KB) to enter the live auction pool.'
+                ? 'Register your profile and cricket specialism. Upon confirmation, you will automatically enter the live auction pool for franchises to bid on.'
                 : 'Player registration will open soon once announced by the Super Admin.'}
             </p>
           </div>
@@ -307,7 +330,7 @@ export default function TournamentDetailPage() {
             isUserRegistered ? (
               <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold text-sm shadow">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                <span>You are Registered!</span>
+                <span>You are in the Auction Pool!</span>
               </div>
             ) : (
               <button
@@ -318,141 +341,145 @@ export default function TournamentDetailPage() {
                     setIsRegModalOpen(true);
                   }
                 }}
-                className="btn-press shimmer-btn px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 hover:brightness-110 text-cricket-dark font-display font-black text-sm tracking-wide shadow-xl shadow-emerald-500/25 transition-all flex items-center gap-2"
+                className="btn-press shimmer-btn px-7 py-4 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 transition-all flex items-center gap-2"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>{user ? 'Register for Tournament' : 'Sign In to Register'}</span>
               </button>
             )
           ) : (
-            <span className="px-5 py-2.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-gray-400 font-bold text-xs">
+            <span className="px-5 py-3 rounded-xl bg-[#08111F] border border-white/10 text-[#8793A5] font-bold text-xs">
               Registration Opening Soon
             </span>
           )}
         </div>
       </div>
 
-      {/* Action Navigation Bar */}
+      {/* 3. ACTION QUICK-NAV BAR */}
       <div className="flex flex-wrap items-center gap-3">
         <Link
           href={`/auction?tournament=${slug}`}
-          className="btn-press shimmer-btn flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-cricket-gold/50 text-sm font-bold text-cricket-gold transition-all shadow-md"
+          className="btn-press shimmer-btn flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:brightness-110"
         >
-          <Gavel className="w-4 h-4 text-cricket-gold" />
+          <Gavel className="w-4 h-4" />
           <span>Live Player Auction Room</span>
         </Link>
         <Link
           href={`/standings?tournament=${slug}`}
-          className="btn-press flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
+          className="btn-press flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0D1B2A] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-xs font-bold text-white transition-all"
         >
-          <Trophy className="w-4 h-4 text-purple-400" />
+          <Trophy className="w-4 h-4 text-[#D8AD55]" />
           <span>Points Table &amp; Standings</span>
         </Link>
         <Link
           href={`/teams?tournament=${slug}`}
-          className="btn-press flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
+          className="btn-press flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0D1B2A] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-xs font-bold text-white transition-all"
         >
           <Users className="w-4 h-4 text-blue-400" />
           <span>Franchises &amp; Squads</span>
         </Link>
         <Link
           href={`/matches?tournament=${slug}`}
-          className="btn-press flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-sm font-bold text-white transition-all hover:border-cricket-teal/40"
+          className="btn-press flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0D1B2A] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-xs font-bold text-white transition-all"
         >
           <Calendar className="w-4 h-4 text-emerald-400" />
           <span>Fixtures &amp; Schedule</span>
         </Link>
       </div>
 
-      {/* Rules & Playing Conditions Banner */}
-      <div className="glass-card p-6 border-l-4 border-l-cricket-teal space-y-4">
-        <div className="flex items-center justify-between">
+      {/* 4. RULES & PLAYING CONDITIONS BANNER */}
+      <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-[#D8AD55]/30 space-y-5 shadow-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-display font-bold text-xl text-white">
-            <Settings className="w-5 h-5 text-cricket-teal" />
+            <Settings className="w-5 h-5 text-[#D8AD55]" />
             <span>Tournament Rules &amp; Purse Settings ({selectedSeason})</span>
           </div>
-          <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">
+          <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 text-xs font-bold self-start sm:self-auto">
             {tournament.status}
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
-          <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-            <div className="text-[11px] text-cricket-muted">Overs / Innings</div>
-            <div className="font-display font-bold text-lg text-white">{tournament.overs} Overs</div>
+          <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
+            <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Overs / Innings</div>
+            <div className="font-display font-bold text-base sm:text-lg text-white">{tournament.overs} Overs</div>
           </div>
-          <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-            <div className="text-[11px] text-cricket-muted">Max Bowler Quota</div>
-            <div className="font-display font-bold text-lg text-emerald-400">
+          <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
+            <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Max Bowler Quota</div>
+            <div className="font-display font-bold text-base sm:text-lg text-emerald-400">
               {rules.maxBowlerOvers || Math.max(1, Math.ceil(tournament.overs / 5))} Ov / Bowler
             </div>
           </div>
-          <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-            <div className="text-[11px] text-cricket-muted">Franchise Purse</div>
-            <div className="font-display font-bold text-lg text-cricket-gold">₹{rules.basePurse?.toLocaleString('en-IN') || '10,000'}</div>
+          <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
+            <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Franchise Purse</div>
+            <div className="font-display font-bold text-base sm:text-lg text-[#D8AD55]">₹{rules.basePurse?.toLocaleString('en-IN') || '10,000'}</div>
           </div>
-          <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-            <div className="text-[11px] text-cricket-muted">Owner Blocked</div>
-            <div className="font-display font-bold text-lg text-amber-400">₹{rules.ownerBlockedPrice || '500'}</div>
+          <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
+            <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Owner Blocked</div>
+            <div className="font-display font-bold text-base sm:text-lg text-[#F2D69A]">₹{rules.ownerBlockedPrice || '500'}</div>
           </div>
-          <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-            <div className="text-[11px] text-cricket-muted">Squad Limits</div>
-            <div className="font-display font-bold text-lg text-white">
+          <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
+            <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Squad Limits</div>
+            <div className="font-display font-bold text-base sm:text-lg text-white">
               {rules.minSquadSize || 7} - {rules.maxSquadSize || 11}
             </div>
           </div>
-          <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-            <div className="text-[11px] text-cricket-muted">Base Player Price</div>
-            <div className="font-display font-bold text-lg text-white">₹{rules.defaultPlayerBasePrice || '500'}</div>
+          <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
+            <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Base Price</div>
+            <div className="font-display font-bold text-base sm:text-lg text-white">₹{rules.defaultPlayerBasePrice || '500'}</div>
           </div>
-          <div className="p-3 rounded-xl bg-cricket-dark/80 border border-cricket-border">
-            <div className="text-[11px] text-cricket-muted">Points / Win</div>
-            <div className="font-display font-bold text-lg text-cricket-teal">{rules.pointsPerWin || 2} Pts (Tie {Math.max(1, Math.floor((rules.pointsPerWin || 2) / 2))})</div>
+          <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
+            <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Points / Win</div>
+            <div className="font-display font-bold text-base sm:text-lg text-cyan-400">{rules.pointsPerWin || 2} Pts</div>
           </div>
         </div>
       </div>
 
-      {/* Participating Franchises & Squad Leadership */}
+      {/* 5. PARTICIPATING FRANCHISES & SQUAD LEADERSHIP */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-400" />
-            <h2 className="font-display font-bold text-2xl text-white">
+            <Users className="w-5 h-5 text-[#D8AD55]" />
+            <h2 className="font-display font-black text-2xl text-white tracking-tight">
               Auction Franchises &amp; Current Squads ({teams.length})
             </h2>
           </div>
-          <span className="text-xs font-bold text-cricket-muted">
+          <span className="text-xs font-bold text-[#8793A5]">
             Synced Live with Auction Engine
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {teams.map((t) => (
-            <div key={t.short} className="glass-card p-5 space-y-4 border border-cricket-border">
+            <div key={t.short} className="bg-[#0D1B2A]/90 backdrop-blur-md p-6 rounded-3xl border border-[#D8AD55]/30 space-y-4 shadow-xl hover:border-[#D8AD55]/60 transition-all">
               <div className="flex items-center justify-between">
-                <span className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 font-display font-bold text-base flex items-center justify-center">
+                <span className="w-10 h-10 rounded-2xl bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#D8AD55] font-display font-black text-base flex items-center justify-center">
                   {t.short}
                 </span>
-                <span className="text-xs font-semibold text-cricket-gold px-2 py-0.5 rounded bg-cricket-dark border border-cricket-border">
+                <span className="text-xs font-bold text-[#F2D69A] px-2.5 py-1 rounded-full bg-[#08111F] border border-[#D8AD55]/30">
                   {t.squadCount} Players
                 </span>
               </div>
+
               <div>
-                <h3 className="font-display font-bold text-xl text-white">{t.name}</h3>
-                <div className="text-xs text-cricket-muted mt-0.5">Owner: <span className="text-gray-300 font-medium">{t.owner}</span></div>
+                <h3 className="font-display font-black text-xl text-white">{t.name}</h3>
+                <div className="text-xs text-[#8793A5] mt-0.5">
+                  Owner: <span className="text-gray-200 font-semibold">{t.owner}</span>
+                </div>
               </div>
-              <div className="space-y-1.5 pt-2 border-t border-cricket-border text-xs">
+
+              <div className="space-y-2 pt-3 border-t border-white/5 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-cricket-muted">Captain:</span>
-                  <span className="font-bold text-white truncate max-w-[140px]">{t.captain}</span>
+                  <span className="text-[#8793A5]">Captain:</span>
+                  <span className="font-bold text-white truncate max-w-[150px]">{t.captain}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-cricket-muted">Spent in Auction:</span>
+                  <span className="text-[#8793A5]">Spent in Auction:</span>
                   <span className="font-semibold text-rose-300">₹{t.spent?.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-cricket-muted">Remaining Purse:</span>
-                  <span className="font-bold text-cricket-teal">{t.left}</span>
+                  <span className="text-[#8793A5]">Remaining Purse:</span>
+                  <span className="font-black text-[#D8AD55] text-sm">{t.left}</span>
                 </div>
               </div>
             </div>
@@ -460,26 +487,26 @@ export default function TournamentDetailPage() {
         </div>
       </div>
 
-      {/* Registered Players Pool */}
+      {/* 6. REGISTERED PLAYERS POOL */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-cricket-teal" />
-            <h2 className="font-display font-bold text-2xl text-white">
+            <Users className="w-5 h-5 text-emerald-400" />
+            <h2 className="font-display font-black text-2xl text-white tracking-tight">
               Registered Players ({registrations.length})
             </h2>
           </div>
-          <span className="text-xs font-bold text-cricket-muted">
+          <span className="text-xs font-bold text-[#8793A5]">
             Live Player Pool for Auction
           </span>
         </div>
 
         {registrations.length === 0 ? (
-          <div className="glass-card p-10 text-center space-y-3 border border-cricket-border">
-            <UserPlus className="w-8 h-8 text-cricket-muted mx-auto" />
-            <div className="text-sm text-gray-300 font-semibold">No players registered yet</div>
-            <p className="text-xs text-cricket-muted max-w-sm mx-auto">
-              Be the first corporate athlete to register for {tournament.name} and enter the auction!
+          <div className="bg-[#0D1B2A]/80 backdrop-blur-md p-12 text-center space-y-3 rounded-3xl border border-[#D8AD55]/20">
+            <UserPlus className="w-10 h-10 text-[#8793A5] mx-auto opacity-40" />
+            <div className="text-sm text-gray-200 font-semibold">No players registered yet</div>
+            <p className="text-xs text-[#8793A5] max-w-sm mx-auto">
+              Be the first corporate athlete to register for {tournament.name} and enter the auction pool!
             </p>
           </div>
         ) : (
@@ -487,9 +514,9 @@ export default function TournamentDetailPage() {
             {registrations.map((p) => (
               <div
                 key={p.id}
-                className="glass-card p-3 text-center space-y-2 border border-cricket-border hover:border-cricket-teal/50 transition-all shadow-md group"
+                className="bg-[#0D1B2A]/90 backdrop-blur-md p-4 text-center space-y-2 rounded-2xl border border-[#D8AD55]/20 hover:border-[#D8AD55]/50 transition-all shadow-md group"
               >
-                <div className="w-16 h-16 rounded-2xl mx-auto overflow-hidden bg-cricket-dark border-2 border-cricket-border group-hover:border-cricket-teal flex items-center justify-center font-display font-bold text-xl text-cricket-teal shadow">
+                <div className="w-16 h-16 rounded-2xl mx-auto overflow-hidden bg-[#08111F] border-2 border-[#D8AD55]/40 group-hover:border-[#D8AD55] flex items-center justify-center font-display font-black text-xl text-[#F2D69A] shadow">
                   {p.avatarUrl ? (
                     <img src={p.avatarUrl} alt={p.name} className="w-full h-full object-cover" />
                   ) : (
@@ -500,13 +527,13 @@ export default function TournamentDetailPage() {
                   <div className="font-bold text-white text-sm truncate" title={p.name}>
                     {p.name}
                   </div>
-                  <div className="text-[11px] text-cricket-muted">{p.role}</div>
+                  <div className="text-[11px] text-[#8793A5]">{p.role}</div>
                   {p.isOwner ? (
-                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-cricket-gold text-[9px] font-bold uppercase border border-amber-500/30">
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-[#D8AD55] text-[9px] font-bold uppercase border border-amber-500/30">
                       Owner ({p.franchiseTeam || 'Franchise'})
                     </span>
                   ) : (
-                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-semibold">
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-[9px] font-semibold border border-emerald-500/30">
                       Auction Pool
                     </span>
                   )}
@@ -517,58 +544,57 @@ export default function TournamentDetailPage() {
         )}
       </div>
 
-      {/* Registration Modal */}
+      {/* 7. REGISTRATION MODAL */}
       {isRegModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card w-full max-w-xl max-h-[90vh] overflow-y-auto border border-emerald-500/40 p-6 sm:p-8 space-y-6 shadow-2xl animate-fade-in relative">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0D1B2A] w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-[#D8AD55]/40 p-6 sm:p-8 space-y-6 shadow-2xl relative">
             <button
               onClick={() => setIsRegModalOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-cricket-dark hover:bg-cricket-card text-gray-400 hover:text-white transition-colors"
+              className="absolute top-5 right-5 p-2 rounded-xl bg-[#08111F] hover:bg-[#111D2D] text-gray-400 hover:text-white transition-colors border border-white/5"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-3 border-b border-cricket-border pb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <UserPlus className="w-5 h-5" />
+            <div className="flex items-center gap-3 border-b border-[#D8AD55]/15 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#D8AD55] flex items-center justify-center shrink-0">
+                <UserPlus className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-display font-extrabold text-2xl text-white">
+                <h3 className="font-display font-black text-2xl text-white">
                   Register for {tournament.name}
                 </h3>
-                <p className="text-xs text-cricket-muted">
-                  Your profile details and photo are linked automatically. Add your phone number to enter the auction pool.
+                <p className="text-xs text-[#8793A5] mt-0.5">
+                  Your profile and photo link automatically. Add your contact number to be drafted into the auction pool.
                 </p>
               </div>
             </div>
 
             {regSuccessMsg && (
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-2">
+              <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-sm flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 shrink-0" />
                 <span>{regSuccessMsg}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmitRegistration} className="space-y-5 text-sm">
-              {/* Prefilled Profile Card with Attached Photo */}
-              <div className="p-4 rounded-2xl bg-cricket-dark/90 border border-cricket-border/80 shadow-lg space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-cricket-border/50">
-                  <span className="text-[11px] font-bold text-cricket-teal uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-cricket-teal" />
-                    <span>Prefilled from Account Profile</span>
+              {/* Profile Card Preview */}
+              <div className="p-5 rounded-2xl bg-[#08111F] border border-[#D8AD55]/20 shadow-lg space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                  <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Prefilled from Player Profile</span>
                   </span>
                   <Link
                     href="/profile"
-                    className="text-[11px] font-semibold text-cricket-gold hover:text-amber-300 underline"
+                    className="text-[11px] font-bold text-[#F2D69A] hover:underline"
                   >
                     Edit Profile
                   </Link>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {/* Photo Preview from Profile */}
-                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 via-cricket-teal to-amber-400 p-0.5 shadow-md shrink-0">
-                    <div className="w-full h-full bg-[#070d1e] rounded-2xl overflow-hidden flex items-center justify-center font-display font-extrabold text-2xl text-cricket-teal">
+                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] p-0.5 shadow-md shrink-0">
+                    <div className="w-full h-full bg-[#08111F] rounded-2xl overflow-hidden flex items-center justify-center font-display font-black text-2xl text-[#F2D69A]">
                       {regForm.avatarUrl ? (
                         <img
                           src={regForm.avatarUrl}
@@ -581,20 +607,19 @@ export default function TournamentDetailPage() {
                     </div>
                   </div>
 
-                  {/* Player Info */}
                   <div className="flex-1 min-w-0">
                     <div className="font-display font-bold text-lg text-white truncate">
                       {regForm.name || 'Tournament Player'}
                     </div>
-                    <div className="text-xs text-cricket-muted truncate">{regForm.email}</div>
+                    <div className="text-xs text-[#8793A5] truncate">{regForm.email}</div>
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <span className="px-2 py-0.5 rounded-md bg-cricket-card text-emerald-300 border border-cricket-border text-[11px] font-semibold">
+                      <span className="px-2 py-0.5 rounded-md bg-[#111D2D] text-[#F2D69A] border border-[#D8AD55]/20 text-[11px] font-semibold">
                         🏏 {regForm.role}
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-cricket-card text-gray-300 border border-cricket-border text-[11px]">
+                      <span className="px-2 py-0.5 rounded-md bg-[#111D2D] text-gray-300 border border-white/5 text-[11px]">
                         {regForm.battingStyle}
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-cricket-card text-gray-300 border border-cricket-border text-[11px]">
+                      <span className="px-2 py-0.5 rounded-md bg-[#111D2D] text-gray-300 border border-white/5 text-[11px]">
                         {regForm.bowlingStyle}
                       </span>
                     </div>
@@ -602,7 +627,7 @@ export default function TournamentDetailPage() {
                 </div>
 
                 {!regForm.avatarUrl && (
-                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-cricket-gold text-xs flex items-center justify-between">
+                  <div className="p-3 rounded-xl bg-[#D8AD55]/10 border border-[#D8AD55]/20 text-[#F2D69A] text-xs flex items-center justify-between">
                     <span>No profile photo attached yet. You can upload one anytime in your profile.</span>
                     <Link href="/profile" className="font-bold underline ml-2 shrink-0">
                       Add Photo
@@ -611,15 +636,15 @@ export default function TournamentDetailPage() {
                 )}
               </div>
 
-              {/* ONLY Input Field: Phone / WhatsApp Number */}
-              <div className="space-y-1.5 p-4 rounded-2xl bg-cricket-dark/60 border border-cricket-teal/40 shadow-inner">
+              {/* Phone / WhatsApp Input */}
+              <div className="space-y-1.5 p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30">
                 <label className="text-xs font-bold text-white flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-cricket-teal" />
+                    <Phone className="w-3.5 h-3.5 text-[#D8AD55]" />
                     <span>Phone / WhatsApp Number</span>
                     <span className="text-rose-400">*</span>
                   </span>
-                  <span className="text-[10px] text-cricket-gold uppercase font-mono tracking-wider">
+                  <span className="text-[10px] text-[#F2D69A] uppercase font-mono tracking-wider">
                     Required for Auction
                   </span>
                 </label>
@@ -630,25 +655,25 @@ export default function TournamentDetailPage() {
                   placeholder="e.g. +91 98765 43210"
                   value={regForm.phone}
                   onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-cricket-dark border border-cricket-border focus:border-cricket-teal focus:ring-1 focus:ring-cricket-teal text-white text-base tracking-wide outline-none transition-all placeholder:text-gray-500 font-medium"
+                  className="w-full px-4 py-3 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 focus:border-[#D8AD55] text-white text-base tracking-wide outline-none transition-all placeholder:text-gray-500 font-medium"
                 />
-                <p className="text-[11px] text-cricket-muted pt-0.5">
+                <p className="text-[11px] text-[#8793A5] pt-0.5">
                   Franchise owners and tournament organizers will contact you on this number during auctions and team groupings.
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-cricket-border flex justify-end gap-3">
+              <div className="pt-3 border-t border-white/5 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsRegModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-cricket-dark hover:bg-cricket-card text-gray-300 text-xs font-bold transition-colors"
+                  className="px-4 py-2.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] text-gray-300 text-xs font-bold transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingReg}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-extrabold text-sm tracking-wide shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                  className="btn-press shimmer-btn px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 hover:brightness-110 active:scale-95 transition-all"
                 >
                   {isSubmittingReg ? 'Confirming…' : 'Confirm Registration'}
                 </button>
