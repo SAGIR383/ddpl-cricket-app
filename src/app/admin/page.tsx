@@ -1243,83 +1243,83 @@ export default function AdminDashboardPage() {
 
       {/* Admin KPI Quick Counters */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card p-5 border-l-4 border-l-blue-500 space-y-1">
-          <div className="text-xs text-cricket-muted font-bold uppercase">Franchises</div>
-          <div className="font-display font-black text-3xl text-white">{teams.length} Teams</div>
+        <div className="rounded-3xl p-5 sm:p-6 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/25 shadow-xl space-y-1">
+          <div className="text-xs text-[#8793A5] font-bold uppercase tracking-wider">Franchises</div>
+          <div className="font-display font-black text-3xl sm:text-4xl text-white">{teams.length} <span className="text-xs text-[#8793A5] font-normal">Teams</span></div>
         </div>
-        <div className="glass-card p-5 border-l-4 border-l-emerald-500 space-y-1">
-          <div className="text-xs text-cricket-muted font-bold uppercase">Scheduled Fixtures</div>
-          <div className="font-display font-black text-3xl text-white">{matches.length} Matches</div>
+        <div className="rounded-3xl p-5 sm:p-6 bg-[#0D1B2A]/90 backdrop-blur-md border border-emerald-500/30 shadow-xl space-y-1">
+          <div className="text-xs text-[#8793A5] font-bold uppercase tracking-wider">Scheduled Fixtures</div>
+          <div className="font-display font-black text-3xl sm:text-4xl text-white">{matches.length} <span className="text-xs text-emerald-400 font-normal">Matches</span></div>
         </div>
-        <div className="glass-card p-5 border-l-4 border-l-cricket-gold space-y-1">
-          <div className="text-xs text-cricket-muted font-bold uppercase">Auction Player Pool</div>
-          <div className="font-display font-black text-3xl text-white">{players.filter(p => p.status === 'approved').length} Players</div>
+        <div className="rounded-3xl p-5 sm:p-6 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/40 shadow-xl space-y-1">
+          <div className="text-xs text-[#8793A5] font-bold uppercase tracking-wider">Auction Player Pool</div>
+          <div className="font-display font-black text-3xl sm:text-4xl text-[#F2D69A]">{players.filter(p => p.status === 'approved').length} <span className="text-xs text-[#D8AD55] font-normal">Ready</span></div>
         </div>
-        <div className="glass-card p-5 border-l-4 border-l-purple-500 space-y-1">
-          <div className="text-xs text-cricket-muted font-bold uppercase">Pending Registrations</div>
-          <div className="font-display font-black text-3xl text-purple-400">{players.filter(p => p.status === 'pending').length} Pending</div>
+        <div className="rounded-3xl p-5 sm:p-6 bg-[#0D1B2A]/90 backdrop-blur-md border border-purple-500/30 shadow-xl space-y-1">
+          <div className="text-xs text-[#8793A5] font-bold uppercase tracking-wider">Pending Registrations</div>
+          <div className="font-display font-black text-3xl sm:text-4xl text-purple-300">{players.filter(p => p.status === 'pending').length} <span className="text-xs text-purple-400 font-normal">Queue</span></div>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-cricket-border text-sm font-bold overflow-x-auto">
+      <div className="flex border-b border-[#D8AD55]/20 text-sm font-bold overflow-x-auto gap-2">
         <button
           onClick={() => setActiveTab('teams')}
-          className={`flex items-center gap-2 px-6 py-3.5 border-b-2 font-display text-lg tracking-wide transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
             activeTab === 'teams'
-              ? 'border-cricket-teal text-cricket-teal'
-              : 'border-transparent text-cricket-muted hover:text-white'
+              ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
           }`}
         >
-          <Users className="w-5 h-5" />
-          <span>Franchise &amp; Teams ({teams.length})</span>
+          <Users className="w-5 h-5 text-[#D8AD55]" />
+          <span>Franchises &amp; Teams ({teams.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('fixtures')}
-          className={`flex items-center gap-2 px-6 py-3.5 border-b-2 font-display text-lg tracking-wide transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
             activeTab === 'fixtures'
-              ? 'border-cricket-teal text-cricket-teal'
-              : 'border-transparent text-cricket-muted hover:text-white'
+              ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
           }`}
         >
-          <Calendar className="w-5 h-5" />
+          <Calendar className="w-5 h-5 text-[#D8AD55]" />
           <span>Fixtures &amp; Scheduling ({matches.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('players')}
-          className={`flex items-center gap-2 px-6 py-3.5 border-b-2 font-display text-lg tracking-wide transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
             activeTab === 'players'
-              ? 'border-cricket-teal text-cricket-teal'
-              : 'border-transparent text-cricket-muted hover:text-white'
+              ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
           }`}
         >
-          <Gavel className="w-5 h-5" />
+          <Gavel className="w-5 h-5 text-[#D8AD55]" />
           <span>Player Pool &amp; Approvals ({players.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('rules')}
-          className={`flex items-center gap-2 px-6 py-3.5 border-b-2 font-display text-lg tracking-wide transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
             activeTab === 'rules'
-              ? 'border-cricket-teal text-cricket-teal'
-              : 'border-transparent text-cricket-muted hover:text-white'
+              ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
           }`}
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-5 h-5 text-[#D8AD55]" />
           <span>Tournament Rules</span>
         </button>
 
         <button
           onClick={() => setActiveTab('roles')}
-          className={`flex items-center gap-2 px-6 py-3.5 border-b-2 font-display text-lg tracking-wide transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
             activeTab === 'roles'
-              ? 'border-cricket-teal text-cricket-teal'
-              : 'border-transparent text-cricket-muted hover:text-white'
+              ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
           }`}
         >
-          <ShieldCheck className="w-5 h-5" />
+          <ShieldCheck className="w-5 h-5 text-[#D8AD55]" />
           <span>User Roles &amp; Permissions ({userAccounts.length})</span>
         </button>
       </div>

@@ -225,28 +225,28 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md glass-card p-6 sm:p-8 shadow-2xl border border-cricket-border space-y-6">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 relative z-10">
+      <div className="w-full max-w-md rounded-3xl p-6 sm:p-8 bg-[#0D1B2A]/95 backdrop-blur-md border border-[#D8AD55]/30 shadow-2xl space-y-6">
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 to-cricket-teal items-center justify-center p-0.5 shadow-lg shadow-blue-500/20">
-            <div className="w-full h-full bg-cricket-dark rounded-full flex items-center justify-center font-display font-extrabold text-2xl text-cricket-teal">
+          <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] items-center justify-center p-0.5 shadow-xl shadow-[#D8AD55]/20">
+            <div className="w-full h-full bg-[#08111F] rounded-[14px] flex items-center justify-center font-display font-black text-xl text-[#F2D69A]">
               {authMode === 'forgot_password' ? (
-                <KeyRound className="w-5 h-5 text-amber-400" />
+                <KeyRound className="w-6 h-6 text-[#F2D69A]" />
               ) : (
                 'CP'
               )}
             </div>
           </div>
-          <h2 className="font-display font-bold text-3xl text-white">
+          <h2 className="font-display font-black text-3xl text-white tracking-tight">
             {authMode === 'forgot_password'
               ? 'Reset Password'
               : authMode === 'register'
               ? 'Join CricPlus'
               : 'Welcome Back'}
           </h2>
-          <p className="text-xs text-cricket-muted max-w-xs mx-auto">
+          <p className="text-xs text-[#8793A5] max-w-xs mx-auto">
             {authMode === 'forgot_password'
               ? resetStep === 'send_otp'
                 ? 'Enter your registered email to receive a secure password reset link.'
@@ -259,12 +259,12 @@ export default function LoginPage() {
 
         {/* Tab Selector (Hidden during Forgot Password) */}
         {authMode !== 'forgot_password' ? (
-          <div className="flex rounded-xl bg-cricket-dark/80 p-1 border border-cricket-border text-xs font-bold">
+          <div className="flex rounded-2xl bg-[#08111F] p-1 border border-[#D8AD55]/20 text-xs font-bold shadow-inner">
             <button
               type="button"
               onClick={() => { setAuthMode('signin'); setErrorMsg(null); setSuccessMsg(null); }}
-              className={`flex-1 py-2 rounded-lg transition-all ${
-                authMode === 'signin' ? 'bg-cricket-card text-cricket-teal shadow' : 'text-cricket-muted hover:text-white'
+              className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${
+                authMode === 'signin' ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-md' : 'text-[#8793A5] hover:text-white'
               }`}
             >
               Sign In
@@ -272,8 +272,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setAuthMode('register'); setErrorMsg(null); setSuccessMsg(null); }}
-              className={`flex-1 py-2 rounded-lg transition-all ${
-                authMode === 'register' ? 'bg-cricket-card text-cricket-teal shadow' : 'text-cricket-muted hover:text-white'
+              className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${
+                authMode === 'register' ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-md' : 'text-[#8793A5] hover:text-white'
               }`}
             >
               Create Account
@@ -288,12 +288,12 @@ export default function LoginPage() {
                 setErrorMsg(null);
                 setSuccessMsg(null);
               }}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-cricket-teal hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#F2D69A] hover:underline cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Sign In</span>
             </button>
-            <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-3 py-1 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/30">
               Account Recovery
             </span>
           </div>
@@ -301,14 +301,14 @@ export default function LoginPage() {
 
         {/* Status Alerts */}
         {errorMsg && (
-          <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-xs text-red-400">
+          <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-xs text-red-300">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2.5 text-xs text-emerald-400">
+          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2.5 text-xs text-emerald-300">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{successMsg}</span>
           </div>
@@ -320,16 +320,16 @@ export default function LoginPage() {
             /* STEP 1: ENTER EMAIL TO RECEIVE RESET LINK */
             <form onSubmit={handleSendOtp} className="space-y-4 text-sm">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Registered Email Address</label>
+                <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">Registered Email Address</label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-cricket-muted absolute left-3 top-3.5" />
+                  <Mail className="w-4 h-4 text-[#8793A5] absolute left-3.5 top-3.5" />
                   <input
                     type="email"
                     required
                     placeholder="e.g. rahul.cricket@gmail.com"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 text-sm transition-colors"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white placeholder-gray-500 focus:outline-none focus:border-[#D8AD55] text-sm transition-colors"
                   />
                 </div>
               </div>
@@ -337,7 +337,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:brightness-110 text-cricket-dark font-display font-extrabold text-sm shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                className="btn-press shimmer-btn w-full py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>{loading ? 'Sending Reset Instructions…' : 'Send Password Reset Link'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -346,8 +346,8 @@ export default function LoginPage() {
           ) : (
             /* STEP 2: INSTRUCTIONS & RESEND */
             <div className="space-y-5 text-sm">
-              <div className="p-5 rounded-2xl bg-[#060b19] border border-cricket-teal/30 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/30 text-cricket-teal flex items-center justify-center mx-auto shadow-inner">
+              <div className="p-5 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#D8AD55] flex items-center justify-center mx-auto shadow-inner">
                   <Mail className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
@@ -355,18 +355,18 @@ export default function LoginPage() {
                   <p className="text-xs text-gray-300">
                     We sent a secure password reset link to:
                   </p>
-                  <p className="font-mono text-sm text-cricket-teal font-bold">{resetEmail}</p>
+                  <p className="font-mono text-sm text-[#F2D69A] font-bold">{resetEmail}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-cricket-dark/90 border border-cricket-border text-xs text-gray-300 leading-relaxed text-left">
+                <div className="p-3 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-xs text-gray-300 leading-relaxed text-left">
                   👉 Open your email app (Gmail, Apple Mail, etc.) and tap the <strong className="text-white">"Reset password"</strong> button. It will open CricPlus directly to set your new password.
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-gray-400">
+              <div className="flex items-center justify-between text-xs text-[#8793A5]">
                 <button
                   type="button"
                   onClick={() => setResetStep('send_otp')}
-                  className="hover:text-white hover:underline"
+                  className="hover:text-white hover:underline cursor-pointer"
                 >
                   Change email address
                 </button>
@@ -377,7 +377,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => handleSendOtp()}
-                    className="text-amber-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+                    className="text-[#F2D69A] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Resend Link</span>
@@ -391,39 +391,39 @@ export default function LoginPage() {
           <form onSubmit={handleAuth} className="space-y-4 text-sm">
             {authMode === 'register' && (
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Full Name</label>
+                <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">Full Name</label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-cricket-muted absolute left-3 top-3.5" />
+                  <User className="w-4 h-4 text-[#8793A5] absolute left-3.5 top-3.5" />
                   <input
                     type="text"
                     required
                     placeholder="e.g. Shakib Rahman"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-white placeholder-gray-500 focus:outline-none focus:border-cricket-teal text-sm transition-colors"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white placeholder-gray-500 focus:outline-none focus:border-[#D8AD55] text-sm transition-colors"
                   />
                 </div>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-300">Email Address</label>
+              <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">Email Address</label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-cricket-muted absolute left-3 top-3.5" />
+                <Mail className="w-4 h-4 text-[#8793A5] absolute left-3.5 top-3.5" />
                 <input
                   type="email"
                   required
                   placeholder="e.g. rahul.cricket@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-white placeholder-gray-500 focus:outline-none focus:border-cricket-teal text-sm transition-colors"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white placeholder-gray-500 focus:outline-none focus:border-[#D8AD55] text-sm transition-colors"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-semibold text-gray-300">Password</label>
+                <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">Password</label>
                 {authMode === 'signin' && (
                   <button
                     type="button"
@@ -434,14 +434,14 @@ export default function LoginPage() {
                       setErrorMsg(null);
                       setSuccessMsg(null);
                     }}
-                    className="text-xs font-bold text-cricket-teal hover:underline transition-colors"
+                    className="text-xs font-bold text-[#F2D69A] hover:underline transition-colors cursor-pointer"
                   >
                     Forgot Password?
                   </button>
                 )}
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-cricket-muted absolute left-3 top-3.5" />
+                <Lock className="w-4 h-4 text-[#8793A5] absolute left-3.5 top-3.5" />
                 <input
                   type="password"
                   required
@@ -449,7 +449,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-white placeholder-gray-500 focus:outline-none focus:border-cricket-teal text-sm transition-colors"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white placeholder-gray-500 focus:outline-none focus:border-[#D8AD55] text-sm transition-colors"
                 />
               </div>
             </div>
@@ -457,14 +457,14 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="btn-press shimmer-btn w-full py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
             >
               {loading ? 'Please wait…' : authMode === 'register' ? 'Create My Account' : 'Sign In to CricPlus'}
             </button>
           </form>
         )}
 
-        <div className="pt-2 text-center text-xs text-cricket-muted">
+        <div className="pt-2 text-center text-xs text-[#8793A5]">
           <span>By continuing, you agree to Corporate Sports Community guidelines.</span>
         </div>
       </div>

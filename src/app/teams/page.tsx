@@ -107,30 +107,30 @@ export default function TeamsPage() {
   }, [selectedTournament]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-cricket-border pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <Users className="w-6 h-6 text-blue-400" />
+            <Users className="w-6 h-6 text-[#D8AD55]" />
             <h1 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight">
-              Teams &amp; Squad Rosters
+              Franchise Squad Rosters
             </h1>
           </div>
-          <p className="text-sm text-cricket-muted mt-1">
-            Dynamic franchise squads, owner deductions, purse allocations, and acquired player rosters synchronized with live auction.
+          <p className="text-sm text-[#8793A5] mt-1 max-w-2xl">
+            Dynamic franchise squads, owner deductions, purse allocations, and acquired player rosters synchronized with the live auction.
           </p>
         </div>
 
-        <div className="flex rounded-xl bg-cricket-dark border border-cricket-border p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md">
+        <div className="flex rounded-2xl bg-[#08111F] border border-[#D8AD55]/20 p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md shadow-inner">
           {tournamentsList.map((t) => (
             <button
               key={t.slug}
               onClick={() => setSelectedTournament(t.slug)}
-              className={`px-3 py-2 rounded-lg transition-all whitespace-nowrap ${
+              className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
                 selectedTournament === t.slug
-                  ? 'bg-cricket-card text-cricket-teal border border-cricket-teal/30 shadow'
-                  : 'text-cricket-muted hover:text-white'
+                  ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-md'
+                  : 'text-[#8793A5] hover:text-white'
               }`}
             >
               {t.name}
@@ -147,64 +147,74 @@ export default function TeamsPage() {
             return (
               <div
                 key={t.id}
-                className={`glass-card p-6 border-t-4 ${t.color} space-y-5 shadow-xl transition-all`}
+                className="rounded-3xl p-6 sm:p-7 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/25 space-y-5 shadow-2xl transition-all hover:border-[#D8AD55]/50 hover:shadow-[#D8AD55]/5"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="w-10 h-10 rounded-xl bg-cricket-dark border border-cricket-border flex items-center justify-center font-display font-bold text-lg text-cricket-teal mb-2">
+                    <span className="w-12 h-12 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 flex items-center justify-center font-display font-black text-lg text-[#F2D69A] mb-2 shadow-inner">
                       {t.short}
                     </span>
-                    <h3 className="font-display font-black text-2xl text-white">{t.name}</h3>
-                    <div className="text-xs text-cricket-muted mt-0.5">Franchise Owner: <span className="text-gray-300 font-semibold">{t.owner}</span></div>
+                    <h3 className="font-display font-black text-2xl text-white tracking-tight">{t.name}</h3>
+                    <div className="text-xs text-[#8793A5] mt-1">
+                      Franchise Owner: <span className="text-[#F2D69A] font-semibold">{t.owner}</span>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-cricket-muted">Squad Size</div>
-                    <div className="font-display font-black text-2xl text-white">{t.squadSize} Players</div>
-                    <div className="text-[11px] text-amber-400 font-bold mt-1">₹500 Owner Retained</div>
+                    <div className="text-xs text-[#8793A5] uppercase tracking-wider font-semibold">Squad Size</div>
+                    <div className="font-display font-black text-2xl text-white mt-0.5">{t.squadSize} Players</div>
+                    <div className="text-[11px] text-[#D8AD55] font-bold mt-1.5 px-2.5 py-0.5 rounded-full bg-[#D8AD55]/15 border border-[#D8AD55]/30 inline-block">
+                      ₹500 Blocked
+                    </div>
                   </div>
                 </div>
 
                 {/* Leadership & Purse Metrics */}
-                <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-cricket-dark/80 border border-cricket-border text-xs">
+                <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#08111F]/80 border border-[#D8AD55]/15 text-xs">
                   <div>
-                    <span className="text-cricket-muted block">Captain:</span>
-                    <span className="font-bold text-white truncate block">{t.captain}</span>
+                    <span className="text-[#8793A5] block font-semibold">Captain:</span>
+                    <span className="font-bold text-white truncate block mt-0.5">{t.captain}</span>
                   </div>
                   <div>
-                    <span className="text-cricket-muted block">Vice-Captain:</span>
-                    <span className="font-bold text-gray-300 truncate block">{t.viceCaptain}</span>
+                    <span className="text-[#8793A5] block font-semibold">Vice-Captain:</span>
+                    <span className="font-bold text-gray-300 truncate block mt-0.5">{t.viceCaptain}</span>
                   </div>
-                  <div className="pt-1 border-t border-cricket-border/50">
-                    <span className="text-cricket-muted block">Purse Spent:</span>
-                    <span className="font-semibold text-rose-400">{t.budgetSpent}</span>
+                  <div className="pt-2 border-t border-white/5">
+                    <span className="text-[#8793A5] block font-semibold">Purse Spent:</span>
+                    <span className="font-display font-bold text-sm text-rose-400 mt-0.5 block">{t.budgetSpent}</span>
                   </div>
-                  <div className="pt-1 border-t border-cricket-border/50">
-                    <span className="text-cricket-muted block">Purse Left:</span>
-                    <span className="font-bold text-cricket-teal">{t.budgetLeft}</span>
+                  <div className="pt-2 border-t border-white/5">
+                    <span className="text-[#8793A5] block font-semibold">Purse Remaining:</span>
+                    <span className="font-display font-black text-sm text-[#F2D69A] mt-0.5 block">{t.budgetLeft}</span>
                   </div>
                 </div>
 
                 {/* Squad Roster Accordion */}
-                <div>
+                <div className="pt-1">
                   <button
                     onClick={() => setExpandedTeamId(isExpanded ? null : t.id)}
-                    className="w-full flex items-center justify-between py-2 text-xs font-bold text-cricket-teal hover:underline"
+                    className="w-full flex items-center justify-between py-2.5 px-4 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/20 text-xs font-bold text-[#F2D69A] transition-all cursor-pointer"
                   >
                     <span>{isExpanded ? 'Hide Squad Roster' : `View Acquired Squad Players (${t.players.length})`}</span>
-                    <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    <ChevronRight className={`w-4 h-4 text-[#D8AD55] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                   </button>
 
                   {isExpanded && (
-                    <div className="mt-2 divide-y divide-cricket-border border-t border-cricket-border text-xs max-h-60 overflow-y-auto pr-1">
-                      {t.players.map((p, idx) => (
-                        <div key={idx} className="py-2 flex items-center justify-between">
-                          <div>
-                            <span className="font-bold text-white">{p.name}</span>
-                            <span className="text-[11px] text-cricket-muted ml-2">({p.role})</span>
-                          </div>
-                          <span className="font-display font-bold text-sm text-cricket-gold">{p.price}</span>
+                    <div className="mt-3 divide-y divide-white/5 rounded-2xl bg-[#08111F]/50 border border-[#D8AD55]/15 p-3 text-xs max-h-60 overflow-y-auto pr-2">
+                      {t.players.length === 0 ? (
+                        <div className="py-4 text-center text-[#8793A5] italic">
+                          No players acquired in the auction yet.
                         </div>
-                      ))}
+                      ) : (
+                        t.players.map((p, idx) => (
+                          <div key={idx} className="py-2.5 flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-white">{p.name}</span>
+                              <span className="text-[11px] text-[#8793A5] ml-2">({p.role})</span>
+                            </div>
+                            <span className="font-display font-bold text-sm text-[#F2D69A]">{p.price}</span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
                 </div>
@@ -213,15 +223,15 @@ export default function TeamsPage() {
           })}
         </div>
       ) : (
-        <div className="glass-card p-12 text-center space-y-4 border border-cricket-border">
-          <Users className="w-12 h-12 text-cricket-muted mx-auto" />
+        <div className="rounded-3xl p-12 text-center space-y-4 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/25 shadow-2xl">
+          <Users className="w-12 h-12 text-[#D8AD55]/60 mx-auto" />
           <h3 className="font-display font-black text-2xl text-white">No Team Rosters Found</h3>
-          <p className="text-sm text-cricket-muted max-w-md mx-auto">
+          <p className="text-sm text-[#8793A5] max-w-md mx-auto">
             Import franchises and conduct the live auction to populate squad rosters automatically.
           </p>
           <Link
             href="/auction"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-cricket-teal text-cricket-dark font-display font-bold text-sm shadow transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 hover:brightness-110 transition-all cursor-pointer"
           >
             <Gavel className="w-4 h-4" />
             <span>Open Player Auction Room</span>

@@ -399,43 +399,45 @@ export default function MatchDetailPage() {
   const currentRunRate = legalBalls > 0 ? ((totalRuns * 6) / legalBalls).toFixed(2) : '0.00';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
       {/* Live Match Top Scoreboard */}
-      <div className="glass-card overflow-hidden border border-emerald-500/40 shadow-2xl">
-        <div className="p-6 bg-gradient-to-r from-blue-950 via-cricket-card to-cricket-dark flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-cricket-border">
+      <div className="rounded-3xl overflow-hidden bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/30 shadow-2xl">
+        <div className="p-6 sm:p-8 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-[#D8AD55]/20">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-wider border border-emerald-500/30">
+              <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 DDPL 2026 • Match 1 • Live
               </span>
 
               {/* Supabase Realtime Channel Badge */}
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-500/30">
-                <Radio className="w-3 h-3 text-blue-400 animate-pulse" />
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/15 text-blue-300 text-xs font-bold border border-blue-500/30">
+                <Radio className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
                 <span>Live Sync: {syncStatus}</span>
               </span>
 
-              <span className="text-[11px] text-cricket-muted">
+              <span className="text-xs text-[#8793A5]">
                 Last ball: {lastSyncTime}
               </span>
             </div>
 
-            <h1 className="font-display font-black text-3xl sm:text-4xl text-white mt-2">
-              Teoco Knight Riders <span className="text-cricket-muted font-normal text-2xl">vs</span> Aircom Avengers
+            <h1 className="font-display font-black text-3xl sm:text-4xl text-white mt-3 tracking-tight">
+              Teoco Knight Riders <span className="text-[#D8AD55] font-light text-2xl mx-1">vs</span> Aircom Avengers
             </h1>
-            <div className="text-xs text-cricket-muted mt-1">
-              Knight Riders won toss &amp; decided to bat first • {matchRules.matchOvers} Overs Limit • Max {matchRules.maxBowlerOvers} Ov/Bowler
+            <div className="text-xs text-[#8793A5] mt-1.5 flex flex-wrap items-center gap-2">
+              <span>Knight Riders won toss &amp; decided to bat first</span>
+              <span>•</span>
+              <span className="text-[#F2D69A] font-semibold">{matchRules.matchOvers} Overs Limit (Max {matchRules.maxBowlerOvers} Ov/Bowler)</span>
             </div>
           </div>
 
           <div className="flex flex-col md:items-end gap-3">
-            <div className="text-right">
-              <div className="font-display font-black text-5xl sm:text-6xl text-cricket-teal tracking-tight">
-                {totalRuns} / {wickets}
+            <div className="text-left md:text-right">
+              <div className="font-display font-black text-6xl sm:text-7xl text-[#F2D69A] tracking-tighter drop-shadow-md">
+                {totalRuns} <span className="text-[#D8AD55]/60 font-light text-5xl">/</span> {wickets}
               </div>
-              <div className="text-sm font-bold text-gray-300">
-                Overs: <span className="text-white font-extrabold">{calculateOversString(legalBalls)}</span> ({matchRules.matchOvers}.0) • CRR: <span className="text-cricket-gold">{currentRunRate}</span>
+              <div className="text-sm font-semibold text-[#8793A5] mt-1">
+                Overs: <span className="text-white font-black">{calculateOversString(legalBalls)}</span> / {matchRules.matchOvers}.0 • CRR: <span className="text-[#D8AD55] font-black">{currentRunRate}</span>
               </div>
             </div>
 
@@ -445,10 +447,10 @@ export default function MatchDetailPage() {
                 onClick={() => {
                   window.print();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-white text-xs font-bold transition-all shadow"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-white text-xs font-bold transition-all shadow cursor-pointer"
                 title="Download or Print Match Scorecard as PDF"
               >
-                <Download className="w-3.5 h-3.5 text-cricket-teal" />
+                <Download className="w-3.5 h-3.5 text-[#D8AD55]" />
                 <span>Download PDF</span>
               </button>
 
@@ -458,7 +460,7 @@ export default function MatchDetailPage() {
                   const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
                   window.open(url, '_blank');
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow shadow-emerald-600/30"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-600/20 cursor-pointer"
                 title="Share instant scorecard update to WhatsApp"
               >
                 <Share2 className="w-3.5 h-3.5" />
@@ -469,40 +471,43 @@ export default function MatchDetailPage() {
         </div>
 
         {/* Current Players on Pitch */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-cricket-dark/60">
+        <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#08111F]/60 border-t border-[#D8AD55]/10">
           {/* Batters */}
           <div className="space-y-3">
-            <div className="text-xs font-bold text-cricket-muted uppercase tracking-wider">
-              Batters at the Crease
+            <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider flex items-center gap-2">
+              <span>Batters at the Crease</span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {/* Striker */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-cricket-card border border-cricket-teal/40">
-                <div className="flex items-center gap-2">
-                  <span className="text-cricket-teal font-black text-sm">★</span>
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#111D2D] border border-[#D8AD55]/50 shadow-lg shadow-[#D8AD55]/5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[#D8AD55] font-black text-base animate-pulse">★</span>
                   <span className="font-bold text-white text-sm">{batters[strikerIndex]?.name}</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/30 uppercase">
+                    On Strike
+                  </span>
                 </div>
                 <div className="text-right">
-                  <span className="font-display font-black text-lg text-white">
+                  <span className="font-display font-black text-xl text-[#F2D69A]">
                     {batters[strikerIndex]?.runs}
                   </span>
-                  <span className="text-xs text-cricket-muted ml-1.5">
+                  <span className="text-xs text-[#8793A5] ml-2">
                     ({batters[strikerIndex]?.balls}b, {batters[strikerIndex]?.fours}x4, {batters[strikerIndex]?.sixes}x6)
                   </span>
                 </div>
               </div>
 
               {/* Non-Striker */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-cricket-card/60 border border-cricket-border">
-                <div className="flex items-center gap-2">
-                  <span className="text-cricket-muted text-sm">•</span>
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#0D1B2A]/60 border border-[#D8AD55]/15">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[#8793A5] text-base">•</span>
                   <span className="font-semibold text-gray-300 text-sm">{batters[nonStrikerIndex]?.name}</span>
                 </div>
                 <div className="text-right">
                   <span className="font-display font-bold text-lg text-gray-300">
                     {batters[nonStrikerIndex]?.runs}
                   </span>
-                  <span className="text-xs text-cricket-muted ml-1.5">
+                  <span className="text-xs text-[#8793A5] ml-2">
                     ({batters[nonStrikerIndex]?.balls}b, {batters[nonStrikerIndex]?.fours}x4)
                   </span>
                 </div>
@@ -512,45 +517,49 @@ export default function MatchDetailPage() {
 
           {/* Current Bowler */}
           <div className="space-y-3">
-            <div className="text-xs font-bold text-cricket-muted uppercase tracking-wider">
-              Current Bowler
+            <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider flex items-center gap-2">
+              <span>Current Bowler</span>
             </div>
-            <div className="p-3.5 rounded-xl bg-cricket-card border border-cricket-border flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/20 flex items-center justify-between">
               <div>
                 <div className="font-bold text-white text-sm">{currentBowler.name}</div>
-                <div className="text-xs text-cricket-muted mt-0.5">Spell Figures</div>
+                <div className="text-xs text-[#8793A5] mt-0.5">Spell Figures</div>
               </div>
               <div className="text-right">
-                <div className="font-display font-black text-lg text-white">
-                  {currentBowler.wickets} / {currentBowler.runsConceded}
+                <div className="font-display font-black text-xl text-[#F2D69A]">
+                  {currentBowler.wickets} <span className="text-[#D8AD55]/60 text-base">/</span> {currentBowler.runsConceded}
                 </div>
-                <div className="text-xs text-cricket-muted">
-                  {currentBowler.overs}.{currentBowler.ballsInOver} ov • Econ: {calculateEconomyRate(currentBowler.runsConceded, currentBowler.overs * 6 + currentBowler.ballsInOver)}
+                <div className="text-xs text-[#8793A5]">
+                  {currentBowler.overs}.{currentBowler.ballsInOver} ov • Econ: <span className="text-white font-bold">{calculateEconomyRate(currentBowler.runsConceded, currentBowler.overs * 6 + currentBowler.ballsInOver)}</span>
                 </div>
               </div>
             </div>
 
             {/* This Over Visual Balls */}
-            <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-cricket-muted">This Over:</span>
-              <div className="flex items-center gap-2">
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-[#8793A5]">This Over Deliveries:</span>
+              <div className="flex items-center gap-2 flex-wrap">
                 {currentOverDeliveries.length === 0 ? (
-                  <span className="text-xs text-cricket-muted italic">Ready for first delivery…</span>
+                  <span className="text-xs text-[#8793A5] italic">Ready for first delivery…</span>
                 ) : (
-                  currentOverDeliveries.map((ball, idx) => (
-                    <span
-                      key={idx}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center font-display font-bold text-xs ${
-                        ball === 'W'
-                          ? 'bg-red-500 text-white'
-                          : ball.includes('4') || ball.includes('6')
-                          ? 'bg-cricket-teal text-cricket-dark'
-                          : 'bg-cricket-dark text-gray-200 border border-cricket-border'
-                      }`}
-                    >
-                      {ball}
-                    </span>
-                  ))
+                  currentOverDeliveries.map((ball, idx) => {
+                    const isBoundary = ball.includes('4') || ball.includes('6');
+                    const isWicket = ball === 'W';
+                    return (
+                      <span
+                        key={idx}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-xs shadow-md transition-transform hover:scale-110 ${
+                          isWicket
+                            ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-red-500/30'
+                            : isBoundary
+                            ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] shadow-[#D8AD55]/30'
+                            : 'bg-[#08111F] text-[#F7F5F0] border border-[#D8AD55]/30'
+                        }`}
+                      >
+                        {ball}
+                      </span>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -560,85 +569,89 @@ export default function MatchDetailPage() {
 
       {/* Scorer Dial Keypad vs Spectator Mode (RBAC) */}
       {isScorer ? (
-        <div className="glass-card p-6 space-y-4 border border-cricket-border shadow-2xl">
-          <div className="flex items-center justify-between border-b border-cricket-border pb-3">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-cricket-teal" />
+        <div className="rounded-3xl p-6 sm:p-8 space-y-6 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/30 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-[#D8AD55]/15 pb-4">
+            <div className="flex items-center gap-2.5">
+              <Shield className="w-5 h-5 text-[#D8AD55]" />
               <span className="font-display font-bold text-xl text-white">
                 Official Scorer Console
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cricket-teal/20 text-cricket-teal uppercase">
-                Authorized
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/30 uppercase">
+                Authorized Ref
               </span>
             </div>
             <button
               onClick={handleUndo}
               disabled={deliveryHistory.length === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cricket-dark hover:bg-cricket-card border border-red-500/30 text-red-400 text-xs font-bold disabled:opacity-40 transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-red-500/30 text-red-400 text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Undo Ball</span>
             </button>
           </div>
 
-        {/* Primary Runs Row */}
-        <div className="grid grid-cols-6 gap-2 sm:gap-3">
-          {[0, 1, 2, 3, 4, 6].map((run) => (
-            <button
-              key={run}
-              onClick={() => recordBall(run)}
-              className="py-4 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-white font-display font-extrabold text-2xl sm:text-3xl transition-transform active:scale-95 shadow"
-            >
-              {run}
-            </button>
-          ))}
-        </div>
+          {/* Primary Runs Row */}
+          <div className="grid grid-cols-6 gap-2 sm:gap-3">
+            {[0, 1, 2, 3, 4, 6].map((run) => (
+              <button
+                key={run}
+                onClick={() => recordBall(run)}
+                className={`py-4 sm:py-5 rounded-2xl font-display font-black text-2xl sm:text-3xl transition-all active:scale-95 shadow cursor-pointer ${
+                  run === 4 || run === 6
+                    ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] hover:brightness-110 shadow-lg shadow-[#D8AD55]/20'
+                    : 'bg-[#08111F] hover:bg-[#111D2D] hover:border-[#D8AD55]/60 border border-[#D8AD55]/20 text-white'
+                }`}
+              >
+                {run}
+              </button>
+            ))}
+          </div>
 
-        {/* Extras & Wicket Action Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 pt-2">
-          <button
-            onClick={() => recordBall(0, 'wide')}
-            className="py-3 rounded-xl bg-cricket-dark hover:bg-cricket-card border border-blue-500/40 text-blue-400 font-bold text-sm transition-all"
-          >
-            Wide (+1)
-          </button>
-          <button
-            onClick={() => recordBall(0, 'noBall')}
-            className="py-3 rounded-xl bg-cricket-dark hover:bg-cricket-card border border-amber-500/40 text-amber-400 font-bold text-sm transition-all"
-          >
-            No Ball (+1)
-          </button>
-          <button
-            onClick={() => recordBall(1, 'bye')}
-            className="py-3 rounded-xl bg-cricket-dark hover:bg-cricket-card border border-cricket-border text-gray-300 font-bold text-sm transition-all"
-          >
-            Bye (1)
-          </button>
-          <button
-            onClick={() => recordBall(1, 'legBye')}
-            className="py-3 rounded-xl bg-cricket-dark hover:bg-cricket-card border border-cricket-border text-gray-300 font-bold text-sm transition-all"
-          >
-            Leg Bye (1)
-          </button>
-          <button
-            onClick={() => setWicketModalOpen(true)}
-            className="py-3 sm:col-span-1 col-span-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white font-display font-extrabold text-lg uppercase tracking-wider shadow-lg active:scale-95 transition-all"
-          >
-            WICKET (OUT)
-          </button>
+          {/* Extras & Wicket Action Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 pt-2">
+            <button
+              onClick={() => recordBall(0, 'wide')}
+              className="py-3.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-blue-500/40 text-blue-400 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+            >
+              Wide (+1)
+            </button>
+            <button
+              onClick={() => recordBall(0, 'noBall')}
+              className="py-3.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-amber-500/40 text-amber-400 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+            >
+              No Ball (+1)
+            </button>
+            <button
+              onClick={() => recordBall(1, 'bye')}
+              className="py-3.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/20 text-[#8793A5] hover:text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+            >
+              Bye (1)
+            </button>
+            <button
+              onClick={() => recordBall(1, 'legBye')}
+              className="py-3.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/20 text-[#8793A5] hover:text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+            >
+              Leg Bye (1)
+            </button>
+            <button
+              onClick={() => setWicketModalOpen(true)}
+              className="py-3.5 sm:col-span-1 col-span-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-display font-black text-sm uppercase tracking-wider shadow-lg shadow-red-600/30 active:scale-95 transition-all cursor-pointer"
+            >
+              WICKET (OUT)
+            </button>
+          </div>
         </div>
-      </div>
       ) : (
         /* Spectator Live Stream Feed (View-Only Mode) */
-        <div className="glass-card p-6 border border-cricket-border/80 text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold border border-blue-500/30">
-            <Radio className="w-3.5 h-3.5 animate-pulse" />
+        <div className="rounded-3xl p-8 bg-[#0D1B2A]/80 backdrop-blur-md border border-[#D8AD55]/20 text-center space-y-3">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/15 text-blue-300 text-xs font-bold border border-blue-500/30">
+            <Radio className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
             <span>Spectator View • Realtime Broadcast Active</span>
           </div>
-          <h3 className="font-display font-bold text-xl text-white">
+          <h3 className="font-display font-black text-2xl text-white">
             Live Ball-by-Ball Spectator Feed
           </h3>
-          <p className="text-xs text-cricket-muted max-w-md mx-auto">
+          <p className="text-xs text-[#8793A5] max-w-md mx-auto leading-relaxed">
             You are watching this match in live spectator mode. Every delivery scored by the match referee synchronizes automatically with zero refresh. Scoring controls are reserved for official scorers and tournament organizers.
           </p>
         </div>
@@ -646,42 +659,45 @@ export default function MatchDetailPage() {
 
       {/* Full Professional Scorecard Tables */}
       <div className="space-y-6">
-        <h2 className="font-display font-bold text-2xl text-white">
+        <h2 className="font-display font-black text-2xl sm:text-3xl text-white">
           Full Scorecard — 1st Innings
         </h2>
 
         {/* Batting Scorecard Table */}
-        <div className="glass-card overflow-hidden border border-cricket-border">
-          <div className="p-4 bg-cricket-card/80 border-b border-cricket-border font-bold text-sm text-gray-200">
+        <div className="rounded-3xl overflow-hidden bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/25 shadow-xl">
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-[#08111F] to-[#111D2D] border-b border-[#D8AD55]/15 font-display font-bold text-sm text-[#F2D69A]">
             Batting — Teoco Knight Riders (DDPL)
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm table-nums">
-              <thead className="bg-cricket-dark/80 text-xs font-semibold text-cricket-muted uppercase border-b border-cricket-border">
+              <thead className="bg-[#08111F]/90 text-xs font-bold text-[#8793A5] uppercase tracking-wider border-b border-[#D8AD55]/15">
                 <tr>
-                  <th className="px-4 py-3">Batter</th>
-                  <th className="px-4 py-3">Dismissal</th>
-                  <th className="px-3 py-3 text-right">R</th>
-                  <th className="px-3 py-3 text-right">B</th>
-                  <th className="px-3 py-3 text-right">4s</th>
-                  <th className="px-3 py-3 text-right">6s</th>
-                  <th className="px-4 py-3 text-right">SR</th>
+                  <th className="px-5 py-3.5">Batter</th>
+                  <th className="px-5 py-3.5">Dismissal</th>
+                  <th className="px-4 py-3.5 text-right">R</th>
+                  <th className="px-4 py-3.5 text-right">B</th>
+                  <th className="px-4 py-3.5 text-right">4s</th>
+                  <th className="px-4 py-3.5 text-right">6s</th>
+                  <th className="px-5 py-3.5 text-right">SR</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-cricket-border">
+              <tbody className="divide-y divide-white/5">
                 {batters.map((b, idx) => (
-                  <tr key={b.id} className="hover:bg-cricket-card/30">
-                    <td className="px-4 py-3 font-bold text-white">
-                      {b.name} {!b.isOut && (idx === strikerIndex ? ' ★' : '')}
+                  <tr key={b.id} className="hover:bg-[#111D2D]/60 transition-colors">
+                    <td className="px-5 py-3.5 font-bold text-white flex items-center gap-2">
+                      <span>{b.name}</span>
+                      {!b.isOut && idx === strikerIndex && (
+                        <span className="text-[#D8AD55] text-xs font-black">★</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-cricket-muted">
+                    <td className="px-5 py-3.5 text-xs text-[#8793A5]">
                       {b.isOut ? b.dismissal : <span className="text-emerald-400 font-bold">Not Out</span>}
                     </td>
-                    <td className="px-3 py-3 text-right font-display font-bold text-base text-white">{b.runs}</td>
-                    <td className="px-3 py-3 text-right text-gray-400">{b.balls}</td>
-                    <td className="px-3 py-3 text-right text-gray-400">{b.fours}</td>
-                    <td className="px-3 py-3 text-right text-gray-400">{b.sixes}</td>
-                    <td className="px-4 py-3 text-right text-cricket-teal font-semibold">
+                    <td className="px-4 py-3.5 text-right font-display font-black text-base text-white">{b.runs}</td>
+                    <td className="px-4 py-3.5 text-right text-gray-400">{b.balls}</td>
+                    <td className="px-4 py-3.5 text-right text-gray-400">{b.fours}</td>
+                    <td className="px-4 py-3.5 text-right text-gray-400">{b.sixes}</td>
+                    <td className="px-5 py-3.5 text-right text-[#F2D69A] font-bold">
                       {calculateStrikeRate(b.runs, b.balls)}
                     </td>
                   </tr>
@@ -689,45 +705,46 @@ export default function MatchDetailPage() {
               </tbody>
             </table>
           </div>
-          <div className="p-4 bg-cricket-dark/60 border-t border-cricket-border flex justify-between text-xs text-cricket-muted">
+          <div className="p-4 bg-[#08111F]/80 border-t border-[#D8AD55]/15 flex flex-wrap items-center justify-between gap-3 text-xs text-[#8793A5]">
             <span>Extras: <strong className="text-white">{extras.wide + extras.noBall + extras.bye + extras.legBye}</strong> (w {extras.wide}, nb {extras.noBall}, b {extras.bye}, lb {extras.legBye})</span>
-            <span>Total: <strong className="text-cricket-teal font-bold">{totalRuns}/{wickets}</strong> ({calculateOversString(legalBalls)} ov)</span>
+            <span>Total: <strong className="text-[#F2D69A] font-black text-sm">{totalRuns}/{wickets}</strong> ({calculateOversString(legalBalls)} ov)</span>
           </div>
         </div>
 
         {/* Bowling Scorecard Table */}
-        <div className="glass-card overflow-hidden border border-cricket-border">
-          <div className="p-4 bg-cricket-card/80 border-b border-cricket-border font-bold text-sm text-gray-200">
-            Bowling — Power Hitters XI
+        <div className="rounded-3xl overflow-hidden bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/25 shadow-xl">
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-[#08111F] to-[#111D2D] border-b border-[#D8AD55]/15 font-display font-bold text-sm text-[#F2D69A]">
+            Bowling — Aircom Avengers
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm table-nums">
-              <thead className="bg-cricket-dark/80 text-xs font-semibold text-cricket-muted uppercase border-b border-cricket-border">
+              <thead className="bg-[#08111F]/90 text-xs font-bold text-[#8793A5] uppercase tracking-wider border-b border-[#D8AD55]/15">
                 <tr>
-                  <th className="px-4 py-3">Bowler</th>
-                  <th className="px-3 py-3 text-right">O</th>
-                  <th className="px-3 py-3 text-right">M</th>
-                  <th className="px-3 py-3 text-right">R</th>
-                  <th className="px-3 py-3 text-right">W</th>
-                  <th className="px-4 py-3 text-right">Econ</th>
+                  <th className="px-5 py-3.5">Bowler</th>
+                  <th className="px-4 py-3.5 text-right">O</th>
+                  <th className="px-4 py-3.5 text-right">M</th>
+                  <th className="px-4 py-3.5 text-right">R</th>
+                  <th className="px-4 py-3.5 text-right">W</th>
+                  <th className="px-5 py-3.5 text-right">Econ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-cricket-border">
+              <tbody className="divide-y divide-white/5">
                 {bowlersList.map((bw) => {
                   const isCurrent = bw.id === currentBowler.id;
                   const activeBw = isCurrent ? currentBowler : bw;
                   return (
-                    <tr key={bw.id} className="hover:bg-cricket-card/30">
-                      <td className="px-4 py-3 font-bold text-white">
-                        {activeBw.name} {isCurrent ? ' •' : ''}
+                    <tr key={bw.id} className="hover:bg-[#111D2D]/60 transition-colors">
+                      <td className="px-5 py-3.5 font-bold text-white flex items-center gap-2">
+                        <span>{activeBw.name}</span>
+                        {isCurrent && <span className="text-[#D8AD55] text-xs font-black">•</span>}
                       </td>
-                      <td className="px-3 py-3 text-right text-gray-300">
+                      <td className="px-4 py-3.5 text-right text-gray-300">
                         {activeBw.overs}.{activeBw.ballsInOver}
                       </td>
-                      <td className="px-3 py-3 text-right text-gray-400">{activeBw.maidens}</td>
-                      <td className="px-3 py-3 text-right font-display font-bold text-white">{activeBw.runsConceded}</td>
-                      <td className="px-3 py-3 text-right font-display font-bold text-cricket-gold">{activeBw.wickets}</td>
-                      <td className="px-4 py-3 text-right text-cricket-teal font-semibold">
+                      <td className="px-4 py-3.5 text-right text-gray-400">{activeBw.maidens}</td>
+                      <td className="px-4 py-3.5 text-right font-display font-bold text-white">{activeBw.runsConceded}</td>
+                      <td className="px-4 py-3.5 text-right font-display font-black text-[#F2D69A]">{activeBw.wickets}</td>
+                      <td className="px-5 py-3.5 text-right text-[#D8AD55] font-bold">
                         {calculateEconomyRate(activeBw.runsConceded, activeBw.overs * 6 + activeBw.ballsInOver)}
                       </td>
                     </tr>
@@ -741,24 +758,24 @@ export default function MatchDetailPage() {
 
       {/* Dismissal Modal */}
       {wicketModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="glass-card max-w-md w-full p-6 border-2 border-red-500/40 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-[#0D1B2A] border border-red-500/40 shadow-2xl space-y-5">
             <h3 className="font-display font-black text-2xl text-white flex items-center gap-2">
               <AlertOctagon className="w-6 h-6 text-red-500" />
               <span>Record Dismissal</span>
             </h3>
 
             <div className="space-y-4 text-sm">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-300">Who is Out?</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">Who is Out?</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setOutBatter('striker')}
-                    className={`p-2.5 rounded-lg text-xs font-bold border ${
+                    className={`p-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                       outBatter === 'striker'
-                        ? 'bg-red-500/20 border-red-500 text-red-400'
-                        : 'bg-cricket-dark border-cricket-border text-gray-400'
+                        ? 'bg-red-500/20 border-red-500 text-red-300 shadow-md shadow-red-500/20'
+                        : 'bg-[#08111F] border-[#D8AD55]/20 text-[#8793A5] hover:text-white'
                     }`}
                   >
                     Striker: {batters[strikerIndex]?.name}
@@ -766,10 +783,10 @@ export default function MatchDetailPage() {
                   <button
                     type="button"
                     onClick={() => setOutBatter('nonStriker')}
-                    className={`p-2.5 rounded-lg text-xs font-bold border ${
+                    className={`p-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                       outBatter === 'nonStriker'
-                        ? 'bg-red-500/20 border-red-500 text-red-400'
-                        : 'bg-cricket-dark border-cricket-border text-gray-400'
+                        ? 'bg-red-500/20 border-red-500 text-red-300 shadow-md shadow-red-500/20'
+                        : 'bg-[#08111F] border-[#D8AD55]/20 text-[#8793A5] hover:text-white'
                     }`}
                   >
                     Non-Striker: {batters[nonStrikerIndex]?.name}
@@ -777,12 +794,12 @@ export default function MatchDetailPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-300">Wicket Mode</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">Wicket Mode</label>
                 <select
                   value={wicketType}
                   onChange={(e) => setWicketType(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-sm focus:outline-none focus:border-[#D8AD55]"
                 >
                   <option value="caught">Caught</option>
                   <option value="bowled">Bowled</option>
@@ -793,14 +810,14 @@ export default function MatchDetailPage() {
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-300">Incoming Next Batter Name</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">Incoming Next Batter Name</label>
                 <input
                   type="text"
                   placeholder="e.g. Shakil Anowar"
                   value={newBatterName}
                   onChange={(e) => setNewBatterName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-sm focus:outline-none focus:border-[#D8AD55]"
                 />
               </div>
             </div>
@@ -809,14 +826,14 @@ export default function MatchDetailPage() {
               <button
                 type="button"
                 onClick={() => setWicketModalOpen(false)}
-                className="flex-1 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-gray-300 font-bold text-sm"
+                className="flex-1 py-3 rounded-xl bg-[#08111F] border border-white/10 text-[#8793A5] hover:text-white font-bold text-sm transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmWicket}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow"
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm shadow-lg shadow-red-600/30 active:scale-95 transition-all cursor-pointer"
               >
                 Confirm Out
               </button>
