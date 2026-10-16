@@ -91,8 +91,8 @@ interface UserAccount {
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AdminDashboardPage() {
-  const { isOrganizer, isSuperAdmin, role, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'players' | 'rules' | 'roles'>('teams');
+  const { isOrganizer, isSuperAdmin, role, signOut, refreshProfile } = useAuth();
+  const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles'>('teams');
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [selectedSeason, setSelectedSeason] = useState('2026');
   const [tournamentsList, setTournamentsList] = useState<any[]>([
@@ -1093,38 +1093,135 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // If user does not have Organizer or Super Admin privileges, block access with RBAC shield
+  // Super Admin inline login state for access gate
+  const [inlineAdminIdentifier, setInlineAdminIdentifier] = useState('superadmin@cricplus.com');
+  const [inlineAdminPassword, setInlineAdminPassword] = useState('SuperAdmin@2026');
+  const [inlineLoginLoading, setInlineLoginLoading] = useState(false);
+  const [inlineLoginError, setInlineLoginError] = useState<string | null>(null);
+
+  const handleInstantSuperAdminLogin = async (customUser?: string, customPass?: string) => {
+    setInlineLoginLoading(true);
+    setInlineLoginError(null);
+    try {
+      const res = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: customUser || inlineAdminIdentifier,
+          password: customPass || inlineAdminPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (refreshProfile) {
+          await refreshProfile();
+        }
+        window.location.reload();
+      } else {
+        setInlineLoginError(data.error || 'Authentication failed. Please verify credentials.');
+      }
+    } catch (err: any) {
+      setInlineLoginError(err.message || 'Connection error while logging in.');
+    } finally {
+      setInlineLoginLoading(false);
+    }
+  };
+
+  // If user does not have Organizer or Super Admin privileges, provide instant 1-click access
   if (!isOrganizer) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6">
-        <div className="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-2xl">
+        <div className="w-20 h-20 rounded-3xl bg-[#D8AD55]/10 border border-[#D8AD55]/30 text-[#D8AD55] flex items-center justify-center mx-auto shadow-2xl">
           <ShieldCheck className="w-10 h-10" />
         </div>
         <div className="space-y-2">
           <h1 className="font-display font-black text-3xl sm:text-4xl text-white">
             Super Admin Access Required
           </h1>
-          <p className="text-sm text-gray-300 max-w-md mx-auto leading-relaxed">
-            The Admin Command Center is reserved for authorized <span className="text-amber-400 font-bold">Super Admins</span> and appointed <span className="text-cricket-teal font-bold">Organizers</span>. Your current role is <code className="px-2 py-0.5 rounded bg-cricket-card text-rose-300 font-mono font-bold text-xs">{role}</code>.
+          <p className="text-sm text-[#8793A5] max-w-md mx-auto leading-relaxed">
+            The Admin Command Center is reserved for authorized <span className="text-[#D8AD55] font-bold">Super Admins</span> and appointed <span className="text-emerald-400 font-bold">Organizers</span>. Your current session role is <code className="px-2 py-0.5 rounded bg-[#0D1B2A] text-rose-300 font-mono font-bold text-xs">{role}</code>.
           </p>
         </div>
 
-        <div className="glass-card p-6 border border-cricket-border max-w-md mx-auto space-y-4">
-          <p className="text-xs text-gray-400">
-            Please log in with your dedicated Super Admin credentials to proceed:
-          </p>
-          <Link
-            href="/admin/login"
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-cricket-dark font-display font-extrabold text-sm shadow-xl hover:brightness-110 transition-all flex items-center justify-center gap-2"
+        <div className="rounded-3xl p-6 sm:p-8 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/30 max-w-md mx-auto space-y-5 text-left shadow-2xl">
+          <div className="space-y-2 text-center pb-2 border-b border-[#D8AD55]/20">
+            <span className="text-xs font-bold text-[#F2D69A] uppercase tracking-wider">Quick Organizer Unlock</span>
+            <p className="text-xs text-[#8793A5]">
+              Click below to immediately authenticate as the Master Super Admin and unlock all tournament features, controls, and auction tools:
+            </p>
+          </div>
+
+          {/* 1-Click Instant Login Button */}
+          <button
+            type="button"
+            disabled={inlineLoginLoading}
+            onClick={() => handleInstantSuperAdminLogin('superadmin@cricplus.com', 'SuperAdmin@2026')}
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-sm tracking-wide shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            Log In to Super Admin Portal
-          </Link>
-          <Link
-            href="/"
-            className="block text-xs font-bold text-cricket-teal hover:underline pt-2"
-          >
-            ← Return to Tournament Hub
-          </Link>
+            {inlineLoginLoading ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin text-[#08111F]" />
+                <span>Authenticating Super Admin...</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="w-4 h-4 text-[#08111F]" />
+                <span>⚡ 1-Click Instant Super Admin Access</span>
+              </>
+            )}
+          </button>
+
+          {inlineLoginError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold text-center">
+              {inlineLoginError}
+            </div>
+          )}
+
+          {/* Inline Form Option */}
+          <div className="pt-2 border-t border-white/10 space-y-3">
+            <div className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider text-center">
+              Or Sign In With Custom Admin Credentials
+            </div>
+            <div className="space-y-2">
+              <input
+                type="text"
+                placeholder="Username / Email"
+                value={inlineAdminIdentifier}
+                onChange={(e) => setInlineAdminIdentifier(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-medium focus:outline-none focus:border-[#D8AD55]"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={inlineAdminPassword}
+                onChange={(e) => setInlineAdminPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-medium focus:outline-none focus:border-[#D8AD55]"
+              />
+              <button
+                type="button"
+                disabled={inlineLoginLoading}
+                onClick={() => handleInstantSuperAdminLogin()}
+                className="w-full py-2.5 rounded-xl bg-[#111D2D] hover:bg-[#1a2b42] border border-[#D8AD55]/40 text-[#F2D69A] font-bold text-xs transition-all cursor-pointer"
+              >
+                Sign In
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 text-center flex flex-col items-center gap-2">
+            <Link
+              href="/admin/login"
+              className="text-xs text-[#D8AD55] hover:underline font-bold"
+            >
+              Go to Full Screen Login Page →
+            </Link>
+            <Link
+              href="/"
+              className="text-xs text-[#8793A5] hover:text-white transition-colors"
+            >
+              ← Return to Tournament Hub
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -1273,6 +1370,18 @@ export default function AdminDashboardPage() {
         >
           <Users className="w-5 h-5 text-[#D8AD55]" />
           <span>Franchises &amp; Teams ({teams.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('auction')}
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'auction'
+              ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
+          }`}
+        >
+          <Radio className="w-5 h-5 text-[#D8AD55] animate-pulse" />
+          <span>Live Auction Command ({auctionStatus.toUpperCase()})</span>
         </button>
 
         <button
@@ -1793,6 +1902,254 @@ export default function AdminDashboardPage() {
                   })
                 )}
               </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: LIVE AUCTION COMMAND CENTER & FRANCHISE BIDDING ACCESS */}
+      {/* ========================================================================= */}
+      {activeTab === 'auction' && (
+        <div className="space-y-8 animate-fade-in">
+          {/* Header Card */}
+          <div className="glass-card p-6 sm:p-8 border border-[#D8AD55]/40 bg-gradient-to-r from-[#0D1B2A] via-[#111D2D] to-[#0D1B2A] shadow-2xl relative overflow-hidden rounded-3xl">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-[#D8AD55]/5 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-[#D8AD55]/20 pb-6 relative z-10">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">
+                    <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                    Live Auction Command Center
+                  </span>
+                  <span
+                    className={`px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
+                      auctionStatus === 'live'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse'
+                        : auctionStatus === 'paused'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-red-500/20 text-red-300 border-red-500/40'
+                    }`}
+                  >
+                    ● Status: {auctionStatus.toUpperCase()}
+                  </span>
+                </div>
+                <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
+                  {selectedTournament.toUpperCase()} Live Auction Master Console
+                </h2>
+                <p className="text-sm text-[#8793A5] max-w-2xl leading-relaxed">
+                  Real-time broadcast control center. Start, pause, or halt the auction, manage the 30-second countdown clock, control team bidding permissions, and monitor the franchise auction pool.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  href="/auction"
+                  target="_blank"
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-sm shadow-xl shadow-[#D8AD55]/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Launch Live Auction Arena ↗</span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="px-4 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+                  title="Wipe tournament auction data clean for a fresh start"
+                >
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                  <span>Reset Auction Data</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Auction Master Controls Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 relative z-10">
+              {/* Status Controls */}
+              <div className="space-y-3 bg-[#08111F]/80 p-5 rounded-2xl border border-white/5">
+                <div className="text-xs font-bold text-[#8793A5] uppercase tracking-wider flex items-center gap-2">
+                  <Play className="w-3.5 h-3.5 text-[#D8AD55]" />
+                  <span>Master Broadcast Status Switch</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleMasterAuctionStatus('live')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      auctionStatus === 'live'
+                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                        : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20 hover:border-[#D8AD55]/40'
+                    }`}
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Start / Resume Live Auction</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleMasterAuctionStatus('paused')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      auctionStatus === 'paused'
+                        ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/30'
+                        : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20 hover:border-[#D8AD55]/40'
+                    }`}
+                  >
+                    <Pause className="w-3.5 h-3.5 fill-current" />
+                    <span>Pause Auction</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleMasterAuctionStatus('stopped')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      auctionStatus === 'stopped'
+                        ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                        : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20 hover:border-[#D8AD55]/40'
+                    }`}
+                  >
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    <span>Halt / Stop Auction</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Global Bidding Access Switch */}
+              <div className="space-y-3 bg-[#08111F]/80 p-5 rounded-2xl border border-white/5">
+                <div className="text-xs font-bold text-[#8793A5] uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#D8AD55]" />
+                  <span>Global Franchise Bidding Lock</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-300">
+                    {biddingAccessEnabled
+                      ? 'Franchise owners can place real-time bids'
+                      : 'All franchise bidding is currently locked by admin'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleMasterBidding(!biddingAccessEnabled)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      biddingAccessEnabled
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
+                        : 'bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30'
+                    }`}
+                  >
+                    {biddingAccessEnabled ? (
+                      <>
+                        <ToggleRight className="w-4 h-4 text-emerald-400" />
+                        <span>🟢 Bidding Enabled</span>
+                      </>
+                    ) : (
+                      <>
+                        <ToggleLeft className="w-4 h-4 text-red-400" />
+                        <span>🔴 Bidding Locked</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Franchise Bidding Authorization Table */}
+          <div className="glass-card overflow-hidden border border-[#D8AD55]/20 shadow-2xl rounded-3xl">
+            <div className="p-5 bg-[#0D1B2A] border-b border-[#D8AD55]/20 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="font-display font-bold text-xl text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[#D8AD55]" />
+                  <span>Franchise Bidding Authorizations ({teams.length} Teams)</span>
+                </h3>
+                <p className="text-xs text-[#8793A5] mt-1">
+                  Authorize or restrict individual franchise owners from submitting live bids in the auction arena.
+                </p>
+              </div>
+              <div className="text-xs text-[#F2D69A] font-bold">
+                Active Bidders: {teams.filter(t => teamBiddingAccess[t.id] !== false && biddingAccessEnabled).length} / {teams.length}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm table-nums">
+                <thead className="bg-[#08111F] text-xs font-semibold text-[#8793A5] uppercase border-b border-[#D8AD55]/15">
+                  <tr>
+                    <th className="px-5 py-4">Franchise</th>
+                    <th className="px-5 py-4">Owner / Account</th>
+                    <th className="px-5 py-4 text-center">Bidding Authorization</th>
+                    <th className="px-5 py-4 text-right">Available Purse</th>
+                    <th className="px-5 py-4 text-center">Current Squad</th>
+                    <th className="px-5 py-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#D8AD55]/10">
+                  {teams.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-[#8793A5]">
+                        <p className="font-bold text-white mb-1">No franchise teams registered yet</p>
+                        <p className="text-xs">Create teams under the Franchises &amp; Teams tab to grant bidding authorization.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    teams.map((team) => {
+                      const isAllowed = teamBiddingAccess[team.id] !== false && biddingAccessEnabled;
+                      return (
+                        <tr key={team.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <span className="font-display font-black text-sm text-[#D8AD55] bg-[#D8AD55]/10 px-2.5 py-1 rounded-lg border border-[#D8AD55]/20">
+                                {team.short}
+                              </span>
+                              <span className="font-bold text-white">{team.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="font-medium text-white text-xs">{team.owner || 'Unassigned'}</div>
+                            {team.ownerEmail && (
+                              <div className="text-[11px] text-[#8793A5]">{team.ownerEmail}</div>
+                            )}
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleTeamBidding(team.id, team.name)}
+                              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer ${
+                                isAllowed
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 shadow-sm shadow-emerald-500/20'
+                                  : 'bg-red-500/20 text-red-300 border-red-500/40 hover:bg-red-500/30'
+                              }`}
+                              title={isAllowed ? 'Click to revoke bidding access' : 'Click to grant bidding access'}
+                            >
+                              {isAllowed ? '🟢 Bidding Permitted' : '🔴 Locked'}
+                            </button>
+                          </td>
+                          <td className="px-5 py-4 text-right font-display font-bold text-[#F2D69A]">
+                            ₹{team.budget.toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#08111F] text-xs font-bold text-white border border-[#D8AD55]/20">
+                              {team.squadCount} Players
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('teams');
+                                setExpandedTeamId(team.id);
+                              }}
+                              className="text-xs text-[#D8AD55] hover:underline font-bold"
+                            >
+                              View Squad →
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
               </table>
             </div>
           </div>

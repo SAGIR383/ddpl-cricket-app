@@ -25,6 +25,7 @@ import {
   Zap,
   Play,
   Pause,
+  Square,
   Eye
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -911,16 +912,18 @@ export default function AuctionPage() {
       {/* ========================================================================= */}
       <div className="space-y-4">
         {/* Status Alert for Role */}
-        {isSuperAdmin ? (
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-cricket-card to-amber-950/70 border border-amber-500/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-cricket-gold flex items-center justify-center font-bold text-lg border border-amber-500/30">
+        {isAccessAllowed ? (
+          <div className="p-5 rounded-3xl bg-[#0D1B2A]/95 backdrop-blur-md border border-[#D8AD55]/40 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#D8AD55] flex items-center justify-center font-bold text-xl shadow-inner">
                 👑
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-display font-extrabold text-base text-white">Super Admin Auction Master Console</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                  <span className="font-display font-black text-lg text-white">
+                    {isSuperAdmin ? 'Super Admin Auction Master Console' : 'Tournament Organizer Command Console'}
+                  </span>
+                  <span className={`px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                     auctionStatus === 'live'
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 animate-pulse'
                       : auctionStatus === 'paused'
@@ -930,13 +933,13 @@ export default function AuctionPage() {
                     ● Auction {auctionStatus.toUpperCase()}
                   </span>
                 </div>
-                <p className="text-xs text-cricket-muted">
-                  Full hammer authority (Sold / Unsold), 30s auto-timer controls, live auction toggles, and franchise bidding management.
+                <p className="text-xs text-[#8793A5] mt-1">
+                  Full hammer authority (Sold / Unsold), 30s auto-timer controls, live auction pause/stop toggles, and franchise bidding management.
                 </p>
               </div>
             </div>
 
-            {/* Super Admin Master Live Toggles */}
+            {/* Super Admin / Organizer Master Live Toggles */}
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => {
@@ -945,7 +948,7 @@ export default function AuctionPage() {
                   broadcastAuctionState({ auctionStatus: newStatus });
                   showToast(`Auction status changed to ${newStatus.toUpperCase()}`);
                 }}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   auctionStatus === 'live'
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
                     : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
@@ -962,29 +965,43 @@ export default function AuctionPage() {
                   broadcastAuctionState({ auctionStatus: newStatus });
                   showToast(newStatus === 'stopped' ? 'Auction Stopped' : 'Auction Live');
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cricket-card hover:bg-cricket-cardHover border border-cricket-border text-gray-300 text-xs font-bold transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-white/10 text-gray-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
               >
+                <Square className="w-3.5 h-3.5" />
                 <span>{auctionStatus === 'stopped' ? 'Start Auction' : 'Stop Auction'}</span>
               </button>
 
               <button
                 onClick={() => advanceToNextPlayer()}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cricket-teal/15 hover:bg-cricket-teal/25 border border-cricket-teal/40 text-cricket-teal text-xs font-bold transition-all"
+                className="btn-press shimmer-btn flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-md hover:brightness-110 transition-all cursor-pointer"
                 title="Board next player from pool immediately"
               >
                 <span>Board Next Player →</span>
               </button>
+
+              <button
+                onClick={() => {
+                  setCountdown(30);
+                  broadcastAuctionState({ countdown: 30 });
+                  showToast('Timer reset to 30s');
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all cursor-pointer"
+                title="Reset 30-second live bidding timer"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-[#D8AD55]" />
+                <span>Reset 30s</span>
+              </button>
             </div>
           </div>
         ) : isFranchiseOwner && userTeam ? (
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/70 via-cricket-card to-emerald-950/70 border border-cricket-teal/40 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-5 rounded-3xl bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/30 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cricket-teal/20 text-cricket-teal flex items-center justify-center font-display font-black text-lg border border-cricket-teal/40">
+              <div className="w-12 h-12 rounded-2xl bg-[#08111F] text-[#F2D69A] flex items-center justify-center font-display font-black text-lg border border-[#D8AD55]/30 shadow-inner">
                 {userTeam.short}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-display font-extrabold text-base text-white">Franchise Owner Bidding Mode</span>
+                  <span className="font-display font-black text-base text-white">Franchise Owner Bidding Mode</span>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
                     canUserBidForTeam(userTeam)
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
@@ -993,7 +1010,7 @@ export default function AuctionPage() {
                     {canUserBidForTeam(userTeam) ? '✓ Bidding Allowed' : 'Bidding Locked'}
                   </span>
                 </div>
-                <p className="text-xs text-cricket-muted">
+                <p className="text-xs text-[#8793A5] mt-0.5">
                   Logged in as owner of <strong className="text-white">{userTeam.name}</strong>. Tap the button below to place live bids.
                 </p>
               </div>
@@ -1001,50 +1018,49 @@ export default function AuctionPage() {
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <span className="text-[10px] text-cricket-muted font-bold uppercase">Your Available Purse</span>
-                <div className="font-display font-extrabold text-xl text-cricket-gold">
+                <span className="text-[10px] text-[#8793A5] font-bold uppercase tracking-wider">Your Available Purse</span>
+                <div className="font-display font-black text-2xl text-[#F2D69A]">
                   ₹{(userTeam.allocated - userTeam.spent).toLocaleString('en-IN')}
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="p-3.5 rounded-2xl bg-cricket-card/80 border border-cricket-border shadow-md flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5 text-gray-300">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold shrink-0">
+          <div className="p-4 rounded-3xl bg-[#0D1B2A]/80 backdrop-blur-md border border-[#D8AD55]/20 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <div className="flex items-center gap-3 text-gray-300">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center font-bold shrink-0">
                 <Eye className="w-4 h-4" />
               </div>
               <div>
                 <span className="font-bold text-white">Live Spectator Broadcast Mode: </span>
-                <span className="text-cricket-muted">Watch bids, timers, and sold/unsold 3D mascot celebrations in real time.</span>
+                <span className="text-[#8793A5]">Watch bids, timers, and sold/unsold celebrations in real time.</span>
               </div>
             </div>
-            {!user ? (
-              <Link href="/auth/login" className="px-3 py-1.5 rounded-lg bg-cricket-teal/15 hover:bg-cricket-teal/25 text-cricket-teal border border-cricket-teal/30 font-bold shrink-0">
-                Sign In
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin/login"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow hover:brightness-110 transition-all cursor-pointer"
+              >
+                👑 Organizer / Admin Login
               </Link>
-            ) : (
-              <span className="text-[11px] text-cricket-gold font-mono font-semibold shrink-0">
-                Signed in: {user.email?.split('@')[0]}
-              </span>
-            )}
+            </div>
           </div>
         )}
 
         {/* The Auction Console (100% visible to all without blur) */}
         <div>
           {/* Active Rules Snapshot Banner */}
-          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-cricket-card to-cricket-dark border border-cricket-border flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cricket-teal/10 border border-cricket-teal/30 flex items-center justify-center text-cricket-teal">
+          <div className="mb-6 p-4 sm:p-5 rounded-3xl bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/25 shadow-xl flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-[#D8AD55]/15 border border-[#D8AD55]/30 flex items-center justify-center text-[#D8AD55] shadow-inner">
                 <Info className="w-5 h-5" />
               </div>
               <div>
                 <div className="text-xs font-bold text-white">
-                  Active Auction Rule Set: Base Purse ₹{rules.basePurse.toLocaleString('en-IN')} pts • {rules.matchOvers || 10} Overs Innings • Squad Cap {rules.maxSquadSize || 11} Players
+                  Active Auction Rule Set: Base Purse <span className="text-[#F2D69A] font-extrabold">₹{rules.basePurse.toLocaleString('en-IN')} pts</span> • {rules.matchOvers || 10} Overs Innings • Squad Cap {rules.maxSquadSize || 11} Players
                 </div>
-                <div className="text-[11px] text-cricket-muted">
-                  Franchise owner retention: <span className="text-amber-400 font-bold">₹{rules.ownerBlockedPrice} pts</span> • Remaining Purse: <span className="text-cricket-teal font-bold">₹{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')} pts</span> • Base Player Price: <span className="text-white font-bold">₹{rules.defaultPlayerBasePrice} pts</span>
+                <div className="text-[11px] text-[#8793A5] mt-0.5">
+                  Franchise owner retention: <span className="text-[#F2D69A] font-bold">₹{rules.ownerBlockedPrice} pts</span> • Remaining Starting Purse: <span className="text-white font-bold">₹{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')} pts</span> • Base Player Price: <span className="text-white font-bold">₹{rules.defaultPlayerBasePrice} pts</span>
                 </div>
               </div>
             </div>
@@ -1052,7 +1068,7 @@ export default function AuctionPage() {
             {(isOrganizer || isSuperAdmin) && (
               <Link
                 href="/admin"
-                className="text-xs font-bold text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-[#F2D69A] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Edit Tournament Rules &amp; Overs</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -1113,14 +1129,15 @@ export default function AuctionPage() {
                           </div>
                         </div>
 
-                        {isSuperAdmin && (
+                        {isAccessAllowed && (
                           <button
                             onClick={() => {
                               setCountdown(30);
                               broadcastAuctionState({ countdown: 30 });
+                              showToast('Timer reset to 30s');
                             }}
                             title="Reset Timer to 30s"
-                            className="px-2.5 py-1.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all shadow-sm"
+                            className="px-2.5 py-1.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all shadow-sm cursor-pointer"
                           >
                             ↺ 30s
                           </button>
