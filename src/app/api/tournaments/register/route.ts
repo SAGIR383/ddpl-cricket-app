@@ -253,6 +253,73 @@ export async function POST(req: Request) {
         `registrations_${tSlug}.json`
       );
 
+      // Automatically keep the Live Auction Pool in sync with tournament registrations
+      try {
+        const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', {
+          tournaments: {},
+        });
+
+        const currentTourneyData = allAuction.tournaments?.[tSlug] || {
+          teams: [],
+          playerPool: [],
+          soldTransactions: [],
+          unsoldPlayers: [],
+        };
+
+        const existingPool: any[] = currentTourneyData.playerPool || [];
+        const targetReg = updatedRegistrations.find(
+          (r) => r.email.toLowerCase() === registration.email.toLowerCase()
+        );
+        const isOwner = targetReg?.isOwner || false;
+
+        // If not an assigned franchise owner, auto-add or update in auction player pool
+        if (!isOwner) {
+          const playerIdx = existingPool.findIndex(
+            (p: any) => p.name?.toLowerCase() === registration.name.trim().toLowerCase()
+          );
+
+          const playerEntry = {
+            id: playerIdx >= 0 ? existingPool[playerIdx].id : `p-reg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            name: registration.name.trim(),
+            role: registration.role || 'All Rounder',
+            basePrice: 500,
+            avatarUrl: registration.avatarUrl || null,
+            battingStyle: registration.battingStyle || 'Right-hand bat',
+            bowlingStyle: registration.bowlingStyle || 'Right-arm medium',
+            phone: registration.phone || '',
+          };
+
+          if (playerIdx >= 0) {
+            existingPool[playerIdx] = { ...existingPool[playerIdx], ...playerEntry };
+          } else {
+            existingPool.push(playerEntry);
+          }
+
+          currentTourneyData.playerPool = existingPool;
+
+          // If there is currently no active lot on the auction block, board this first player
+          if (!currentTourneyData.currentLot && existingPool.length > 0) {
+            currentTourneyData.currentLot = {
+              ...existingPool[0],
+              currentBid: existingPool[0].basePrice || 500,
+              leadingTeam: null,
+              history: [],
+            };
+          }
+
+          currentTourneyData.lastUpdated = new Date().toISOString();
+
+          allAuction.tournaments = {
+            ...allAuction.tournaments,
+            [tSlug]: currentTourneyData,
+          };
+
+          await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+        }
+      } catch (syncErr) {
+        console.error('Auto-sync to auction pool failed during registration:', syncErr);
+      }
+
       return NextResponse.json({
         success: true,
         message: isAlreadyRegistered
@@ -349,6 +416,19 @@ export async function POST(req: Request) {
       };
       const newTxList = [...existingTx.filter((tx: any) => tx.player !== resolvedOwnerName), ownerTx];
 
+      // Remove owner from open auction pool (since owner is already assigned to their team)
+      currentTourneyData.playerPool = (currentTourneyData.playerPool || []).filter(
+        (p: any) => p.name?.toLowerCase() !== resolvedOwnerName.toLowerCase()
+      );
+      if (currentTourneyData.currentLot?.name?.toLowerCase() === resolvedOwnerName.toLowerCase()) {
+        currentTourneyData.currentLot = currentTourneyData.playerPool.length > 0 ? {
+          ...currentTourneyData.playerPool[0],
+          currentBid: currentTourneyData.playerPool[0].basePrice || 500,
+          leadingTeam: null,
+          history: [],
+        } : null;
+      }
+
       currentTourneyData.teams = newTeamsList;
       currentTourneyData.soldTransactions = newTxList;
       currentTourneyData.lastUpdated = new Date().toISOString();
@@ -405,6 +485,39 @@ export async function POST(req: Request) {
 
       if (currentTourneyData.teamBiddingAccess && teamId) {
         delete currentTourneyData.teamBiddingAccess[teamId];
+      }
+
+      // Restore freed owner back into auction playerPool if registered
+      const freedReg = (await getStoreData<TournamentPlayerRegistration[]>(
+        `tournament_registrations_${tSlug}`,
+        `registrations_${tSlug}.json`,
+        []
+      )).find(
+        (r) =>
+          (resolvedName && r.franchiseTeam?.toLowerCase() === resolvedName.toLowerCase()) ||
+          (targetTeam?.ownerEmail && r.email.toLowerCase() === targetTeam.ownerEmail.toLowerCase()) ||
+          (targetTeam?.owner && r.name.toLowerCase() === targetTeam.owner.toLowerCase())
+      );
+
+      if (freedReg) {
+        const alreadyInPool = (currentTourneyData.playerPool || []).some(
+          (p: any) => p.name?.toLowerCase() === freedReg.name.toLowerCase()
+        );
+        if (!alreadyInPool) {
+          currentTourneyData.playerPool = [
+            ...(currentTourneyData.playerPool || []),
+            {
+              id: `p-reg-${Date.now()}`,
+              name: freedReg.name,
+              role: freedReg.role || 'All Rounder',
+              basePrice: 500,
+              avatarUrl: freedReg.avatarUrl || null,
+              battingStyle: freedReg.battingStyle || 'Right-hand bat',
+              bowlingStyle: freedReg.bowlingStyle || 'Right-arm medium',
+              phone: freedReg.phone || '',
+            },
+          ];
+        }
       }
 
       allAuction.tournaments = {
