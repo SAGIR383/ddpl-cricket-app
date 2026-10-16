@@ -305,12 +305,12 @@ export default function HomePage() {
             alt="Cricket Stadium Stadium Lights"
             fill
             priority
-            className="object-cover object-center filter brightness-[0.72] contrast-[1.2] scale-105 transition-transform duration-1000"
+            className="object-cover object-right sm:object-center filter brightness-[1.06] contrast-[1.12] saturate-[1.18] scale-105 transition-transform duration-1000"
           />
-          {/* Style D Midnight Vignette & Gold Atmospheric Glow */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#08111F] via-[#08111F]/85 to-transparent z-10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#08111F] via-transparent to-[#08111F]/70 z-10" />
-          <div className="absolute inset-0 bg-radial-at-c from-transparent via-[#08111F]/30 to-[#08111F] z-10" />
+          {/* Subtle directional vignette protecting text legibility on the left while leaving batsman & floodlights glowing on the right */}
+          <div className="absolute inset-y-0 left-0 w-full sm:w-4/5 md:w-3/5 bg-gradient-to-r from-[#08111F]/95 via-[#08111F]/60 to-transparent z-10" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#08111F] via-[#08111F]/40 to-transparent z-10" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#D8AD55]/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none z-10" />
         </div>
 
         {/* Content Over Stadium */}
@@ -372,7 +372,7 @@ export default function HomePage() {
 
         {/* Live Broadcast Badge (Desktop Float - Dynamically Synced) */}
         <div className="hidden lg:block absolute right-12 bottom-12 z-20 max-w-xs">
-          <div className="bg-[#0D1B2A]/90 backdrop-blur-xl p-5 rounded-2xl border border-[#D8AD55]/40 shadow-2xl space-y-3">
+          <div className="bg-[#0D1B2A]/75 backdrop-blur-md p-5 rounded-2xl border border-[#D8AD55]/30 shadow-2xl space-y-3">
             {liveMatch ? (
               <>
                 <div className="flex items-center justify-between">

@@ -27,7 +27,7 @@ body {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
 }
 
-/* Vivid, clearly visible stadium background covering the entire screen */
+/* Vivid, highlighted stadium background covering the entire screen */
 .stadium-bg-fixed {
   position: fixed;
   top: 0;
@@ -38,10 +38,10 @@ body {
   pointer-events: none;
   background-image: url('/images/cricket-hero.jpg');
   background-size: cover;
-  background-position: center top;
+  background-position: center 15%;
   background-repeat: no-repeat;
-  opacity: 0.52;
-  filter: contrast(1.15) brightness(0.88);
+  opacity: 0.84;
+  filter: contrast(1.15) brightness(1.08) saturate(1.22);
 }
 
 /* Atmospheric stadium floodlight & midnight-navy color grading overlay */
@@ -54,10 +54,10 @@ body {
   z-index: 0;
   pointer-events: none;
   background: 
-    radial-gradient(circle 600px at 50% 0%, rgba(216, 173, 85, 0.12), transparent 70%),
-    radial-gradient(circle 900px at 15% 30%, rgba(13, 27, 42, 0.45), transparent 75%),
-    radial-gradient(circle 900px at 85% 30%, rgba(13, 27, 42, 0.45), transparent 75%),
-    linear-gradient(to bottom, rgba(8, 17, 31, 0.55) 0%, rgba(8, 17, 31, 0.82) 45%, #08111F 100%);
+    radial-gradient(circle 900px at 50% 0%, rgba(216, 173, 85, 0.28), transparent 60%),
+    radial-gradient(circle 800px at 85% 15%, rgba(242, 214, 154, 0.22), transparent 65%),
+    radial-gradient(circle 800px at 15% 15%, rgba(216, 173, 85, 0.18), transparent 65%),
+    linear-gradient(to bottom, rgba(8, 17, 31, 0.22) 0%, rgba(8, 17, 31, 0.52) 40%, rgba(8, 17, 31, 0.78) 100%);
 }
 
 /* Typography utilities */
