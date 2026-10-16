@@ -188,9 +188,8 @@ export function Navbar() {
       {/* Modern Mobile Slide-Down Glass Drawer */}
       {mobileMenuOpen && (
         <div className="lg:hidden mt-2 mx-3 rounded-2xl bg-[#0D1B2A]/95 backdrop-blur-2xl border border-[#D8AD55]/30 p-4 space-y-2 shadow-2xl animate-mascot-walk duration-200">
-          <div className="text-[10px] font-bold text-[#D8AD55] uppercase tracking-widest px-2 pb-1 border-b border-[#D8AD55]/15 flex items-center justify-between">
+          <div className="text-[10px] font-bold text-[#D8AD55] uppercase tracking-widest px-2 pb-1.5 border-b border-[#D8AD55]/15 flex items-center justify-between">
             <span>Navigation Directory</span>
-            <span className="text-[9px] text-[#8793A5]">CricPlus Style D</span>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-1">
             {navLinks.map((link) => {
