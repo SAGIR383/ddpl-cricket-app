@@ -304,22 +304,23 @@ export default function HomePage() {
     <div className="space-y-12 sm:space-y-16 pb-16 relative z-10">
       
       {/* 1. CINEMATIC HERO (Storyboard Panel 1) */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#D8AD55]/30 shadow-[0_25px_60px_rgba(0,0,0,0.85)] min-h-[500px] sm:min-h-[580px] flex items-center bg-[#08111F]">
+      <section className="relative overflow-hidden rounded-3xl border border-[#D8AD55]/35 shadow-[0_25px_60px_rgba(0,0,0,0.85)] min-h-[500px] sm:min-h-[560px] lg:min-h-[600px] flex items-center bg-[#08111F]">
         
-        {/* Immersive Stadium Photography Background (4K High Quality Sporty Hero) */}
+        {/* Immersive Stadium Photography Background (4K HD Crystal-Clear Sporty Hero) */}
         <div className="absolute inset-0 z-0">
           <Image
             src="/images/cricket-hero.jpg"
-            alt="Cricket Stadium Stadium Lights"
+            alt="CricPlus 4K Cricket Stadium Lights"
             fill
             priority
-            className="object-cover object-right sm:object-center filter brightness-[0.92] contrast-[1.06] saturate-[1.10] scale-105 transition-transform duration-1000"
+            unoptimized
+            quality={100}
+            className="object-cover object-[88%_top] sm:object-[center_top] filter brightness-[1.04] contrast-[1.14] saturate-[1.18]"
           />
-          {/* Balanced directional vignette protecting text legibility on the left while leaving batsman, sparks & CricPlus jumbotron clearly visible on the right */}
-          <div className="absolute inset-y-0 left-0 w-full sm:w-4/5 md:w-3/5 bg-gradient-to-r from-[#08111F]/90 via-[#08111F]/60 to-transparent z-10" />
-          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#08111F] via-[#08111F]/50 to-transparent z-10" />
-          <div className="absolute inset-0 bg-[#08111F]/15 z-10 pointer-events-none" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#D8AD55]/15 via-amber-500/5 to-transparent blur-3xl pointer-events-none z-10" />
+          {/* Transparent directional vignette balancing text legibility on the left while keeping batsman, sparks, CricPlus board & blazing ball 100% visible */}
+          <div className="absolute inset-y-0 left-0 w-full sm:w-3/5 md:w-1/2 bg-gradient-to-r from-[#08111F]/88 via-[#08111F]/45 to-transparent z-10" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#08111F] via-[#08111F]/30 to-transparent z-10" />
+          <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-[#D8AD55]/20 via-transparent to-transparent blur-3xl pointer-events-none z-10" />
         </div>
 
         {/* Content Over Stadium */}
@@ -380,8 +381,8 @@ export default function HomePage() {
         </div>
 
         {/* Live Broadcast Badge (Desktop Float - Dynamically Synced) */}
-        <div className="hidden lg:block absolute right-12 bottom-12 z-20 max-w-xs">
-          <div className="bg-[#0D1B2A]/75 backdrop-blur-md p-5 rounded-2xl border border-[#D8AD55]/30 shadow-2xl space-y-3">
+        <div className="hidden lg:block absolute right-6 bottom-6 z-20 max-w-[280px]">
+          <div className="bg-[#0D1B2A]/85 backdrop-blur-md p-4 rounded-2xl border border-[#D8AD55]/30 shadow-2xl space-y-2.5">
             {liveMatch ? (
               <>
                 <div className="flex items-center justify-between">
