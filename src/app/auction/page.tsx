@@ -61,23 +61,7 @@ interface TeamBudget {
   maxSquad: number;
 }
 
-const DEFAULT_AUCTION_PLAYER_POOL = [
-  { id: 'p1', name: 'Md Sagir Hossain', role: 'All Rounder', basePrice: 500 },
-  { id: 'p2', name: 'Arinday Roy', role: 'Bowler', basePrice: 500 },
-  { id: 'p3', name: 'Akash Chakraborty', role: 'Batsman', basePrice: 500 },
-  { id: 'p4', name: 'Aman Manna', role: 'Bowler', basePrice: 500 },
-  { id: 'p5', name: 'Apurba Mukherjee', role: 'All Rounder', basePrice: 500 },
-  { id: 'p6', name: 'Chanchal Chakraborty', role: 'Batsman', basePrice: 500 },
-  { id: 'p7', name: 'Mritin Ghosh', role: 'Batsman', basePrice: 500 },
-  { id: 'p8', name: 'Partha Roy', role: 'Batsman', basePrice: 500 },
-  { id: 'p9', name: 'Prantik Bose', role: 'Batsman', basePrice: 500 },
-  { id: 'p10', name: 'Samaresh Das', role: 'Bowler', basePrice: 500 },
-  { id: 'p11', name: 'Sudipto Chowdhury', role: 'Batsman', basePrice: 500 },
-  { id: 'p12', name: 'Wali Haider', role: 'Bowler', basePrice: 500 },
-  { id: 'p13', name: 'Zeeshan', role: 'Bowler', basePrice: 500 },
-  { id: 'p14', name: 'Saikat Das', role: 'Batsman', basePrice: 500 },
-  { id: 'p15', name: 'Ranjit', role: 'Batsman', basePrice: 500 },
-];
+const DEFAULT_AUCTION_PLAYER_POOL: ParsedPlayer[] = [];
 
 export default function AuctionPage() {
   const { isOrganizer, isSuperAdmin, role, user } = useAuth();
@@ -108,35 +92,11 @@ export default function AuctionPage() {
     maxBowlerOvers: 2,
   });
 
-  // Teams & Purse State (Defaults: 10,000 - 500 owner deduction = 9,500 remaining)
-  const [teams, setTeams] = useState<TeamBudget[]>([
-    { id: 't1', name: 'Teoco Knight Riders', short: 'TKR', owner: 'Gour Singha Roy', allocated: 10000, spent: 500, playersBought: 1, maxSquad: 11 },
-    { id: 't2', name: 'Aircom Avengers', short: 'AA', owner: 'Yubaraj Roy', allocated: 10000, spent: 500, playersBought: 1, maxSquad: 11 },
-    { id: 't3', name: 'Teoco Blues', short: 'TB', owner: 'Sunam Banerjee', allocated: 10000, spent: 500, playersBought: 1, maxSquad: 11 },
-    { id: 't4', name: 'Aircom Superstar', short: 'AS', owner: 'Surojit Das', allocated: 10000, spent: 500, playersBought: 1, maxSquad: 11 },
-  ]);
-
-  const [playerPool, setPlayerPool] = useState<ParsedPlayer[]>(DEFAULT_AUCTION_PLAYER_POOL);
-
-  // Current Player on the Block
-  const [currentLot, setCurrentLot] = useState<PlayerLot | null>({
-    id: DEFAULT_AUCTION_PLAYER_POOL[0].id,
-    name: DEFAULT_AUCTION_PLAYER_POOL[0].name,
-    role: DEFAULT_AUCTION_PLAYER_POOL[0].role,
-    basePrice: DEFAULT_AUCTION_PLAYER_POOL[0].basePrice,
-    currentBid: DEFAULT_AUCTION_PLAYER_POOL[0].basePrice,
-    leadingTeam: null,
-    history: [],
-  });
-
-  // Sold Transactions (Franchise Owners initially retained with 500 blocked base price deducted)
-  const [soldTransactions, setSoldTransactions] = useState<any[]>([
-    { id: 'tx-owner-1', player: 'Gour Singha Roy', team: 'Teoco Knight Riders', price: 500, role: 'All Rounder (Franchise Owner)' },
-    { id: 'tx-owner-2', player: 'Yubaraj Roy', team: 'Aircom Avengers', price: 500, role: 'Batsman (Franchise Owner)' },
-    { id: 'tx-owner-3', player: 'Sunam Banerjee', team: 'Teoco Blues', price: 500, role: 'Batsman/WK (Franchise Owner)' },
-    { id: 'tx-owner-4', player: 'Surojit Das', team: 'Aircom Superstar', price: 500, role: 'Batsman (Franchise Owner)' },
-  ]);
-
+  // Teams & Purse State (Clean Slate: empty until assigned or imported)
+  const [teams, setTeams] = useState<TeamBudget[]>([]);
+  const [playerPool, setPlayerPool] = useState<ParsedPlayer[]>([]);
+  const [currentLot, setCurrentLot] = useState<PlayerLot | null>(null);
+  const [soldTransactions, setSoldTransactions] = useState<any[]>([]);
   const [unsoldPlayers, setUnsoldPlayers] = useState<string[]>([]);
 
   // Import Modal State
@@ -218,10 +178,10 @@ export default function AuctionPage() {
 
         if (auctionData?.success && auctionData.data) {
           const d = auctionData.data;
-          if (d.teams && d.teams.length > 0) setTeams(d.teams);
-          if (d.playerPool && d.playerPool.length > 0) setPlayerPool(d.playerPool);
-          if (d.soldTransactions) setSoldTransactions(d.soldTransactions);
-          if (d.unsoldPlayers) setUnsoldPlayers(d.unsoldPlayers);
+          setTeams(Array.isArray(d.teams) ? d.teams : []);
+          setPlayerPool(Array.isArray(d.playerPool) ? d.playerPool : []);
+          setSoldTransactions(Array.isArray(d.soldTransactions) ? d.soldTransactions : []);
+          setUnsoldPlayers(Array.isArray(d.unsoldPlayers) ? d.unsoldPlayers : []);
           if (d.auctionStatus) setAuctionStatus(d.auctionStatus);
           if (d.biddingAccessEnabled !== undefined) setBiddingAccessEnabled(d.biddingAccessEnabled);
           if (d.teamBiddingAccess) setTeamBiddingAccess(d.teamBiddingAccess);
@@ -239,7 +199,15 @@ export default function AuctionPage() {
               leadingTeam: null,
               history: [],
             });
+          } else {
+            setCurrentLot(null);
           }
+        } else {
+          setTeams([]);
+          setPlayerPool([]);
+          setSoldTransactions([]);
+          setUnsoldPlayers([]);
+          setCurrentLot(null);
         }
       } catch (err) {
         console.error('Error loading initial auction state:', err);
@@ -1574,18 +1542,24 @@ export default function AuctionPage() {
                 </div>
 
                 <div className="divide-y divide-cricket-border text-sm max-h-80 overflow-y-auto pr-1">
-                  {soldTransactions.map((tx) => (
-                    <div key={tx.id} className="py-2.5 flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-white">{tx.player}</span>
-                        <span className="text-xs text-cricket-muted ml-2">({tx.role})</span>
-                        <div className="text-xs text-blue-400 font-semibold">{tx.team}</div>
-                      </div>
-                      <div className="font-display font-bold text-lg text-cricket-gold">
-                        ₹{tx.price.toLocaleString('en-IN')}
-                      </div>
+                  {soldTransactions.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-cricket-muted">
+                      No players acquired yet. Players hammered as SOLD will appear here.
                     </div>
-                  ))}
+                  ) : (
+                    soldTransactions.map((tx) => (
+                      <div key={tx.id} className="py-2.5 flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-white">{tx.player}</span>
+                          <span className="text-xs text-cricket-muted ml-2">({tx.role})</span>
+                          <div className="text-xs text-blue-400 font-semibold">{tx.team}</div>
+                        </div>
+                        <div className="font-display font-bold text-lg text-cricket-gold">
+                          ₹{tx.price.toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -1604,44 +1578,53 @@ export default function AuctionPage() {
                 </div>
 
                 <div className="space-y-4">
-                  {teams.map((t) => {
-                    const remaining = t.allocated - t.spent;
-                    const percentSpent = (t.spent / t.allocated) * 100;
-                    return (
-                      <div key={t.id} className="p-3.5 rounded-xl bg-cricket-dark/80 border border-cricket-border space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-bold text-white text-sm">{t.name}</span>
-                            {t.owner && (
-                              <div className="text-[11px] text-amber-400 font-semibold">
-                                Owner: {t.owner} (Blocked ₹{rules.ownerBlockedPrice})
-                              </div>
-                            )}
+                  {teams.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-cricket-dark/50 border border-dashed border-cricket-border/60 text-center space-y-1">
+                      <p className="text-sm font-semibold text-gray-300">No franchise teams registered yet</p>
+                      <p className="text-xs text-cricket-muted">
+                        Assign franchise owners in Super Admin or click &apos;Import Sheet&apos; to load teams.
+                      </p>
+                    </div>
+                  ) : (
+                    teams.map((t) => {
+                      const remaining = t.allocated - t.spent;
+                      const percentSpent = (t.spent / t.allocated) * 100;
+                      return (
+                        <div key={t.id} className="p-3.5 rounded-xl bg-cricket-dark/80 border border-cricket-border space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-white text-sm">{t.name}</span>
+                              {t.owner && (
+                                <div className="text-[11px] text-amber-400 font-semibold">
+                                  Owner: {t.owner} (Blocked ₹{rules.ownerBlockedPrice})
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs font-semibold text-cricket-muted">
+                              {t.playersBought} / {t.maxSquad} Players
+                            </span>
                           </div>
-                          <span className="text-xs font-semibold text-cricket-muted">
-                            {t.playersBought} / {t.maxSquad} Players
-                          </span>
-                        </div>
 
-                        {/* Purse Bar */}
-                        <div className="w-full h-2 rounded-full bg-cricket-card overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-blue-500 to-cricket-teal transition-all duration-300"
-                            style={{ width: `${Math.min(100, percentSpent)}%` }}
-                          />
-                        </div>
+                          {/* Purse Bar */}
+                          <div className="w-full h-2 rounded-full bg-cricket-card overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-blue-500 to-cricket-teal transition-all duration-300"
+                              style={{ width: `${Math.min(100, percentSpent)}%` }}
+                            />
+                          </div>
 
-                        <div className="flex items-center justify-between text-xs pt-1">
-                          <span className="text-cricket-muted">
-                            Spent: ₹{t.spent.toLocaleString('en-IN')}
-                          </span>
-                          <span className="font-bold text-cricket-teal">
-                            Remaining: ₹{remaining.toLocaleString('en-IN')}
-                          </span>
+                          <div className="flex items-center justify-between text-xs pt-1">
+                            <span className="text-cricket-muted">
+                              Spent: ₹{t.spent.toLocaleString('en-IN')}
+                            </span>
+                            <span className="font-bold text-cricket-teal">
+                              Remaining: ₹{remaining.toLocaleString('en-IN')}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
