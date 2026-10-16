@@ -336,21 +336,21 @@ export default function HomePage() {
             <span>CONNECT</span>
           </div>
 
-          {/* Master Headline - Matching Image 1 Editorial Serif & Exact Colour Combination */}
-          <div className="space-y-4">
-            <h1 className="font-editorial font-bold text-5xl sm:text-7xl lg:text-[80px] tracking-tight leading-[1.04] drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
-              <span className="text-white block">
+          {/* Master Headline - Progressive Escalating Hierarchy Matching Image 1 */}
+          <div className="space-y-1 sm:space-y-2">
+            <h1 className="font-editorial tracking-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
+              <span className="text-white block font-bold text-3xl sm:text-5xl lg:text-[56px] xl:text-[60px] leading-[1.08] sm:leading-[1.04]">
                 Every Match.
               </span>
-              <span className="text-white block">
+              <span className="text-white block font-bold text-4xl sm:text-6xl lg:text-[72px] xl:text-[76px] leading-[1.05] sm:leading-[1.02]">
                 Every Moment.
               </span>
-              <span className="text-[#E5A93C] block drop-shadow-[0_0_20px_rgba(229,169,60,0.35)]">
+              <span className="text-[#E5A93C] block font-extrabold text-5xl sm:text-7xl lg:text-[90px] xl:text-[96px] leading-[1.0] drop-shadow-[0_0_24px_rgba(229,169,60,0.35)]">
                 Every Legend.
               </span>
             </h1>
 
-            <p className="text-sm sm:text-lg text-gray-200 font-medium leading-relaxed drop-shadow-md max-w-xl pt-1">
+            <p className="text-sm sm:text-lg text-gray-200 font-medium leading-relaxed drop-shadow-md max-w-xl pt-2">
               The premier digital home for corporate cricket leagues. Real-time ball-by-ball scorecards, high-stakes franchise live auctions, verified statistics, and championship archives.
             </p>
           </div>
