@@ -306,19 +306,20 @@ export default function HomePage() {
       {/* 1. CINEMATIC HERO (Storyboard Panel 1) */}
       <section className="relative overflow-hidden rounded-3xl border border-[#D8AD55]/30 shadow-[0_25px_60px_rgba(0,0,0,0.85)] min-h-[500px] sm:min-h-[580px] flex items-center bg-[#08111F]">
         
-        {/* Immersive Stadium Photography Background */}
+        {/* Immersive Stadium Photography Background (4K High Quality Sporty Hero) */}
         <div className="absolute inset-0 z-0">
           <Image
             src="/images/cricket-hero.jpg"
             alt="Cricket Stadium Stadium Lights"
             fill
             priority
-            className="object-cover object-right sm:object-center filter brightness-[1.06] contrast-[1.12] saturate-[1.18] scale-105 transition-transform duration-1000"
+            className="object-cover object-right sm:object-center filter brightness-[0.92] contrast-[1.06] saturate-[1.10] scale-105 transition-transform duration-1000"
           />
-          {/* Subtle directional vignette protecting text legibility on the left while leaving batsman & floodlights glowing on the right */}
-          <div className="absolute inset-y-0 left-0 w-full sm:w-4/5 md:w-3/5 bg-gradient-to-r from-[#08111F]/95 via-[#08111F]/60 to-transparent z-10" />
-          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#08111F] via-[#08111F]/40 to-transparent z-10" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#D8AD55]/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none z-10" />
+          {/* Balanced directional vignette protecting text legibility on the left while leaving batsman, sparks & CricPlus jumbotron clearly visible on the right */}
+          <div className="absolute inset-y-0 left-0 w-full sm:w-4/5 md:w-3/5 bg-gradient-to-r from-[#08111F]/90 via-[#08111F]/60 to-transparent z-10" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#08111F] via-[#08111F]/50 to-transparent z-10" />
+          <div className="absolute inset-0 bg-[#08111F]/15 z-10 pointer-events-none" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#D8AD55]/15 via-amber-500/5 to-transparent blur-3xl pointer-events-none z-10" />
         </div>
 
         {/* Content Over Stadium */}
