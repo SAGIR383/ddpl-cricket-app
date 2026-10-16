@@ -327,28 +327,30 @@ export default function HomePage() {
         {/* Content Over Stadium */}
         <div className="relative z-20 max-w-3xl p-6 sm:p-12 lg:p-16 space-y-6">
           
-          {/* Eyebrow Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#111D2D]/90 border border-[#D8AD55]/40 text-[#F2D69A] text-[11px] sm:text-xs font-black tracking-widest uppercase backdrop-blur-md shadow-lg shadow-[#D8AD55]/10">
-            <span className="w-2 h-2 rounded-full bg-[#D8AD55] animate-ping" />
-            <Sparkles className="w-3.5 h-3.5 text-[#D8AD55]" />
-            <span>Corporate Cricket • Compete • Connect</span>
+          {/* Eyebrow - Matching Image 1 (Clean Gold Editorial Spaced Text) */}
+          <div className="flex items-center gap-2.5 text-[#E5B358] text-[11px] sm:text-xs font-black tracking-[0.22em] uppercase">
+            <span>CORPORATE CRICKET</span>
+            <span className="w-1 h-1 rounded-full bg-[#E5B358]" />
+            <span>COMPETE</span>
+            <span className="w-1 h-1 rounded-full bg-[#E5B358]" />
+            <span>CONNECT</span>
           </div>
 
-          {/* Master Headline - Style D Editorial */}
-          <div className="space-y-3">
-            <h1 className="font-display font-black text-4xl sm:text-6xl lg:text-7xl text-white tracking-tight leading-[0.98] drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
-              Every Match.
-              <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F2D69A] to-[#D8AD55]">
+          {/* Master Headline - Matching Image 1 Editorial Serif & Exact Colour Combination */}
+          <div className="space-y-4">
+            <h1 className="font-editorial font-bold text-5xl sm:text-7xl lg:text-[80px] tracking-tight leading-[1.04] drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
+              <span className="text-white block">
+                Every Match.
+              </span>
+              <span className="text-white block">
                 Every Moment.
               </span>
-              <br />
-              <span className="text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]">
+              <span className="text-[#E5A93C] block drop-shadow-[0_0_20px_rgba(229,169,60,0.35)]">
                 Every Legend.
               </span>
             </h1>
 
-            <p className="text-sm sm:text-lg text-gray-100 font-medium leading-relaxed drop-shadow-md max-w-xl pt-1">
+            <p className="text-sm sm:text-lg text-gray-200 font-medium leading-relaxed drop-shadow-md max-w-xl pt-1">
               The premier digital home for corporate cricket leagues. Real-time ball-by-ball scorecards, high-stakes franchise live auctions, verified statistics, and championship archives.
             </p>
           </div>

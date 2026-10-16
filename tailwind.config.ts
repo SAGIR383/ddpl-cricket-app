@@ -44,6 +44,7 @@ const config: Config = {
       fontFamily: {
         sans: ["Nunito Sans", "system-ui", "-apple-system", "sans-serif"],
         display: ["Barlow Condensed", "Arial Narrow", "sans-serif"],
+        editorial: ["Playfair Display", "Merriweather", "Georgia", "serif"],
       },
     },
   },

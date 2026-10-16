@@ -64,6 +64,10 @@ body {
   font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
 }
 
+.font-editorial {
+  font-family: 'Playfair Display', Merriweather, Georgia, 'Times New Roman', serif;
+}
+
 .table-nums {
   font-variant-numeric: tabular-nums;
 }
