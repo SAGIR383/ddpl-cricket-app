@@ -317,9 +317,10 @@ export default function HomePage() {
             quality={100}
             className="object-cover object-[88%_top] sm:object-[85%_top] md:object-[center_top] filter brightness-[1.06] contrast-[1.16] saturate-[1.20]"
           />
-          {/* Transparent directional vignette balancing text legibility on the left while keeping batsman, sparks, CricPlus board & blazing ball 100% visible */}
-          <div className="absolute inset-y-0 left-0 w-full sm:w-3/5 md:w-1/2 bg-gradient-to-r from-[#08111F]/88 via-[#08111F]/35 to-transparent z-10" />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#08111F] via-[#08111F]/20 to-transparent z-10" />
+          {/* Cinema Poster Editorial Gradient Scrim: Solid high-contrast deep midnight navy behind text on left, fading smoothly to 100% clear transparency past the pitch */}
+          <div className="absolute inset-y-0 left-0 w-full sm:w-3/4 md:w-3/5 lg:w-[54%] bg-gradient-to-r from-[#08111F] via-[#08111F]/90 to-transparent z-10 pointer-events-none" />
+          <div className="absolute inset-y-0 left-0 w-full sm:w-1/2 bg-gradient-to-r from-[#08111F]/60 to-transparent z-10 pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#08111F] via-[#08111F]/40 to-transparent z-10 pointer-events-none" />
           <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#D8AD55]/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none z-10" />
         </div>
 
@@ -335,19 +336,19 @@ export default function HomePage() {
 
           {/* Master Headline - Style D Editorial */}
           <div className="space-y-3">
-            <h1 className="font-display font-black text-4xl sm:text-6xl lg:text-7xl text-white tracking-tight leading-[0.98] drop-shadow-2xl">
+            <h1 className="font-display font-black text-4xl sm:text-6xl lg:text-7xl text-white tracking-tight leading-[0.98] drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)]">
               Every Match.
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F2D69A] to-[#D8AD55]">
                 Every Moment.
               </span>
               <br />
-              <span className="text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
+              <span className="text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]">
                 Every Legend.
               </span>
             </h1>
 
-            <p className="text-sm sm:text-lg text-[#F7F5F0]/85 font-medium leading-relaxed drop-shadow max-w-xl pt-1">
+            <p className="text-sm sm:text-lg text-gray-100 font-medium leading-relaxed drop-shadow-md max-w-xl pt-1">
               The premier digital home for corporate cricket leagues. Real-time ball-by-ball scorecards, high-stakes franchise live auctions, verified statistics, and championship archives.
             </p>
           </div>
