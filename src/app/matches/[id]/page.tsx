@@ -29,6 +29,7 @@ import {
 import { MatchHero } from '@/components/match/MatchHero';
 import { SegmentedTabs, MatchCentreTab } from '@/components/match/SegmentedTabs';
 import { LiveTab } from '@/components/match/LiveTab';
+import { OversTab } from '@/components/match/OversTab';
 
 export default function MatchDetailPage() {
   const params = useParams();
@@ -499,19 +500,9 @@ export default function MatchDetailPage() {
         </div>
       )}
 
-      {/* C. OVERS TAB (Preview shell for Phase 4) */}
+      {/* C. OVERS TAB */}
       {activeTab === 'overs' && (
-        <div className="space-y-4">
-          <div className="p-6 rounded-3xl bg-[#0D1B2A]/90 border border-[#D8AD55]/25 text-center space-y-3">
-            <Layers className="w-8 h-8 text-[#D8AD55] mx-auto" />
-            <h3 className="font-display font-black text-xl text-white">
-              Over-by-Over Timeline
-            </h3>
-            <p className="text-xs text-[#8793A5] max-w-md mx-auto">
-              Inspect deliveries grouped by over cards with team selector and filters. Complete over cards implementation ready in Phase 4.
-            </p>
-          </div>
-        </div>
+        <OversTab state={matchState} />
       )}
 
       {/* D. INFO TAB (Preview shell for Phase 6) */}
