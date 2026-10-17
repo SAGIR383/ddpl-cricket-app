@@ -1,0 +1,144 @@
+{
+  "matchId": "ddpl-m1",
+  "tournament": "ddpl",
+  "matchNumber": 1,
+  "title": "Teoco Knight Riders vs Aircom Avengers",
+  "stage": "League",
+  "group": null,
+  "venue": "Arena Ground 1",
+  "matchDate": null,
+  "matchTime": "10:00 AM",
+  "status": "upcoming",
+  "toss": {
+    "winner": "Teoco Knight Riders",
+    "decision": "bat",
+    "text": "Teoco Knight Riders won toss & elected to bat first"
+  },
+  "currentInnings": 1,
+  "innings1": {
+    "battingTeam": "Teoco Knight Riders",
+    "battingTeamShort": "TKR",
+    "bowlingTeam": "Aircom Avengers",
+    "bowlingTeamShort": "ACA",
+    "totalRuns": 0,
+    "wickets": 0,
+    "legalBalls": 0,
+    "oversLimit": 8,
+    "extras": {
+      "wide": 0,
+      "noBall": 0,
+      "bye": 0,
+      "legBye": 0,
+      "penalty": 0,
+      "total": 0
+    },
+    "strikerIndex": 0,
+    "nonStrikerIndex": 1,
+    "currentBowlerIndex": 0,
+    "batters": [
+      {
+        "id": "p-TKR-1",
+        "name": "TKR Opener 1",
+        "runs": 0,
+        "balls": 0,
+        "fours": 0,
+        "sixes": 0,
+        "isOut": false,
+        "dismissal": null,
+        "strikeRate": 0
+      },
+      {
+        "id": "p-TKR-2",
+        "name": "TKR Opener 2",
+        "runs": 0,
+        "balls": 0,
+        "fours": 0,
+        "sixes": 0,
+        "isOut": false,
+        "dismissal": null,
+        "strikeRate": 0
+      }
+    ],
+    "bowlers": [
+      {
+        "id": "p-ACA-3",
+        "name": "ACA Bowler 1",
+        "overs": 0,
+        "ballsInOver": 0,
+        "oversStr": "0.0",
+        "maidens": 0,
+        "runsConceded": 0,
+        "wickets": 0,
+        "economy": 0,
+        "dots": 0,
+        "noBalls": 0,
+        "wides": 0
+      }
+    ],
+    "fallOfWickets": [],
+    "deliveries": []
+  },
+  "innings2": null,
+  "targetRuns": null,
+  "targetOvers": 8,
+  "result": null,
+  "manOfTheMatch": null,
+  "officials": {
+    "scorerName": "Official Match Referee",
+    "umpires": [
+      "Field Umpire 1",
+      "Field Umpire 2"
+    ],
+    "referee": "Tournament Technical Director"
+  },
+  "rules": {
+    "matchOvers": 8,
+    "maxBowlerOvers": 2,
+    "wideBallPenalty": "+1 Run & Extra Ball",
+    "noBallPenalty": "+1 Run + Free Hit",
+    "pointsPerWin": 2
+  },
+  "matchNotes": [
+    {
+      "id": "note-init",
+      "text": "Match initialized: Teoco Knight Riders vs Aircom Avengers (8 overs limit).",
+      "timestamp": "2026-10-17T04:19:30.879Z",
+      "type": "info"
+    }
+  ],
+  "teamASquad": [
+    {
+      "id": "p-TKR-1",
+      "name": "TKR Opener 1",
+      "role": "Batter"
+    },
+    {
+      "id": "p-TKR-2",
+      "name": "TKR Opener 2",
+      "role": "Batter"
+    },
+    {
+      "id": "p-TKR-3",
+      "name": "TKR Bowler 1",
+      "role": "Bowler"
+    }
+  ],
+  "teamBSquad": [
+    {
+      "id": "p-ACA-1",
+      "name": "ACA Opener 1",
+      "role": "Batter"
+    },
+    {
+      "id": "p-ACA-2",
+      "name": "ACA Opener 2",
+      "role": "Batter"
+    },
+    {
+      "id": "p-ACA-3",
+      "name": "ACA Bowler 1",
+      "role": "Bowler"
+    }
+  ],
+  "lastUpdated": "2026-10-17T04:19:30.883Z"
+}
