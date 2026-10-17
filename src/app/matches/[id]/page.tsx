@@ -31,6 +31,8 @@ import { SegmentedTabs, MatchCentreTab } from '@/components/match/SegmentedTabs'
 import { LiveTab } from '@/components/match/LiveTab';
 import { OversTab } from '@/components/match/OversTab';
 import { ScorecardTab } from '@/components/match/ScorecardTab';
+import { InfoTab } from '@/components/match/InfoTab';
+import { SquadsTab } from '@/components/match/SquadsTab';
 
 export default function MatchDetailPage() {
   const params = useParams();
@@ -306,50 +308,14 @@ export default function MatchDetailPage() {
         <OversTab state={matchState} />
       )}
 
-      {/* D. INFO TAB (Preview shell for Phase 6) */}
+      {/* D. INFO TAB */}
       {activeTab === 'info' && (
-        <div className="space-y-4">
-          <div className="rounded-3xl overflow-hidden bg-[#0D1B2A]/90 border border-[#D8AD55]/25 p-6 space-y-4">
-            <h3 className="font-display font-black text-xl text-white flex items-center gap-2">
-              <InfoIcon className="w-5 h-5 text-[#D8AD55]" />
-              <span>Match Information</span>
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5 space-y-1">
-                <span className="text-[#8793A5] font-semibold">Tournament & Stage</span>
-                <div className="text-white font-bold">{matchState.tournament.toUpperCase()} • {matchState.stage}</div>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5 space-y-1">
-                <span className="text-[#8793A5] font-semibold">Venue</span>
-                <div className="text-white font-bold">{matchState.venue}</div>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5 space-y-1">
-                <span className="text-[#8793A5] font-semibold">Match Overs Limit</span>
-                <div className="text-white font-bold">{matchState.rules.matchOvers} Overs (Max {matchState.rules.maxBowlerOvers} per bowler)</div>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5 space-y-1">
-                <span className="text-[#8793A5] font-semibold">Official Match Scorer</span>
-                <div className="text-white font-bold">{matchState.officials?.scorerName}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <InfoTab state={matchState} />
       )}
 
-      {/* E. SQUADS TAB (Preview shell for Phase 6) */}
+      {/* E. SQUADS TAB */}
       {activeTab === 'squads' && (
-        <div className="space-y-4">
-          <div className="p-6 rounded-3xl bg-[#0D1B2A]/90 border border-[#D8AD55]/25 text-center space-y-3">
-            <Users className="w-8 h-8 text-[#D8AD55] mx-auto" />
-            <h3 className="font-display font-black text-xl text-white">
-              Playing XI & Team Squads
-            </h3>
-            <p className="text-xs text-[#8793A5] max-w-md mx-auto">
-              Side-by-side roster comparison with player photos, captains, and wicketkeepers. Complete dual squad view ready in Phase 6.
-            </p>
-          </div>
-        </div>
+        <SquadsTab state={matchState} />
       )}
 
       {/* 4. SCORER DIAL KEYPAD VS SPECTATOR MODE */}
