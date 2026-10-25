@@ -312,6 +312,27 @@ body {
   animation: liveRadarPulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
 
+/* Smooth Infinite Live Announcement Marquee */
+@keyframes liveTickerMarquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-ticker {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: liveTickerMarquee 26s linear infinite;
+  will-change: transform;
+}
+
+.ticker-pause:hover .animate-ticker {
+  animation-play-state: paused;
+}
+
 /* Custom Minimalist Dark Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

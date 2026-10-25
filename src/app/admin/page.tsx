@@ -38,7 +38,8 @@ import {
   Flame,
   Clock,
   MapPin,
-  Save
+  Save,
+  Megaphone,
 } from 'lucide-react';
 import { invalidateClientCache } from '@/lib/clientCache';
 
@@ -92,9 +93,17 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function AdminDashboardPage() {
   const { isOrganizer, isSuperAdmin, role, signOut, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles'>('teams');
+  const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement'>('teams');
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [selectedSeason, setSelectedSeason] = useState('2026');
+  const [adminAnnouncement, setAdminAnnouncement] = useState<any>({
+    message: '🏏 Most awaited league for this year DDPL 2.0 is going to start soon... Keep playing hard! Live auction & player registration details updating daily.',
+    type: 'championship',
+    isActive: true,
+    linkText: 'Explore Tournaments',
+    linkUrl: '/tournaments',
+  });
+  const [savingAnnouncement, setSavingAnnouncement] = useState(false);
   const [tournamentsList, setTournamentsList] = useState<any[]>([
     { slug: 'ddpl', name: 'DDPL', shortName: 'DDPL', fullName: 'Desk to Dugout Premier League (DDPL)', season: '2026', status: 'open' },
     { slug: 'game-of-run', name: 'Game of RUN', shortName: 'GOR', fullName: 'Game of RUN Championship', season: '2026', status: 'upcoming' },
@@ -209,6 +218,55 @@ export default function AdminDashboardPage() {
       }
     } catch (err: any) {
       alert(`Error deleting tournament: ${err.message}`);
+    }
+  };
+
+  const loadAnnouncement = async () => {
+    try {
+      const res = await fetch('/api/announcement');
+      if (res.ok) {
+        const d = await res.json();
+        if (d.announcement) {
+          setAdminAnnouncement({
+            ...d.announcement,
+            link: d.announcement.linkUrl || d.announcement.link || '',
+            linkUrl: d.announcement.linkUrl || d.announcement.link || '',
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load announcement:', e);
+    }
+  };
+
+  const handleSaveAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingAnnouncement(true);
+    try {
+      const payload = {
+        ...adminAnnouncement,
+        linkUrl: adminAnnouncement.linkUrl || adminAnnouncement.link,
+      };
+      const res = await fetch('/api/announcement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAdminAnnouncement({
+          ...data.announcement,
+          link: data.announcement.linkUrl || data.announcement.link || '',
+          linkUrl: data.announcement.linkUrl || data.announcement.link || '',
+        });
+        showNotification('🎉 Live announcement updated and running on the front page!');
+      } else {
+        alert(data.error || 'Failed to update announcement');
+      }
+    } catch (err: any) {
+      alert(`Error updating announcement: ${err.message}`);
+    } finally {
+      setSavingAnnouncement(false);
     }
   };
 
@@ -981,6 +1039,7 @@ export default function AdminDashboardPage() {
       }
     }
     loadAdminData();
+    loadAnnouncement();
   }, [selectedTournament]);
 
   const handleSaveAuctionRules = async (e: React.FormEvent) => {
@@ -1428,6 +1487,18 @@ export default function AdminDashboardPage() {
         >
           <ShieldCheck className="w-5 h-5 text-[#D8AD55]" />
           <span>User Roles &amp; Permissions ({userAccounts.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('announcement')}
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'announcement'
+              ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
+          }`}
+        >
+          <Megaphone className="w-5 h-5 text-[#D8AD55]" />
+          <span>Live Broadcast Announcement</span>
         </button>
       </div>
 
@@ -3284,6 +3355,330 @@ export default function AdminDashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: LIVE BROADCAST ANNOUNCEMENT MANAGEMENT */}
+      {/* ========================================================================= */}
+      {activeTab === 'announcement' && (
+        <div className="space-y-8 animate-fade-in">
+          {/* Header Banner */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#08111F] via-[#0E1F35] to-[#142946] border border-[#D8AD55]/30 p-6 sm:p-8 shadow-2xl">
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-[#D8AD55]/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D8AD55]/20 border border-[#D8AD55]/40 text-[#F2D69A] text-xs font-bold tracking-wider uppercase">
+                  <Megaphone className="w-3.5 h-3.5 text-[#D8AD55]" />
+                  <span>Front Page Live Broadcast System</span>
+                </div>
+                <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-white tracking-wide">
+                  Live Marquee &amp; Broadcast Announcement
+                </h2>
+                <p className="text-xs sm:text-sm text-[#8793A5] max-w-2xl leading-relaxed">
+                  Broadcast real-time announcements, tournament alerts, schedule updates, and breaking news directly across the homepage running marquee strip and mobile live radar.
+                </p>
+              </div>
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-3">
+                <div className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
+                  adminAnnouncement.isActive 
+                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' 
+                    : 'bg-rose-500/10 border-rose-500/40 text-rose-300'
+                }`}>
+                  <span className={`w-2.5 h-2.5 rounded-full ${adminAnnouncement.isActive ? 'bg-emerald-400 animate-ping' : 'bg-rose-400'}`} />
+                  <span>{adminAnnouncement.isActive ? 'BROADCAST ACTIVE' : 'BROADCAST PAUSED'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Live Front Page Preview */}
+          <div className="rounded-3xl bg-[#0D1B2A]/90 border border-[#D8AD55]/20 p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#D8AD55]/15 pb-3">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-[#D8AD55]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#F2D69A]">Front Page Live Preview</span>
+              </div>
+              <span className="text-[11px] text-[#8793A5] font-mono">Real-time synchronized output</span>
+            </div>
+
+            {/* Desktop Preview Strip */}
+            <div className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 space-y-2">
+              <div className="text-[10px] text-[#8793A5] uppercase font-bold tracking-wider">Website Ticker Preview (Continuous Running Marquee):</div>
+              <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#0E1B2C] via-[#0A1524] to-[#0E1B2C] border border-[#D8AD55]/30 py-3 px-4 flex items-center gap-4">
+                <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-black uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+                  {adminAnnouncement.badge || 'LIVE'}
+                </span>
+                <div className="truncate text-sm font-semibold text-white">
+                  {adminAnnouncement.message || '🏏 DDPL 2.0 Live Announcement will appear here...'}
+                </div>
+                {adminAnnouncement.link && (
+                  <span className="shrink-0 ml-auto px-3 py-1 rounded-lg bg-[#D8AD55]/20 border border-[#D8AD55]/40 text-[#F2D69A] text-xs font-bold">
+                    {adminAnnouncement.linkText || 'Learn More'} →
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Configuration Form */}
+          <form onSubmit={handleSaveAnnouncement} className="rounded-3xl bg-[#0D1B2A]/90 border border-[#D8AD55]/20 p-6 sm:p-8 shadow-xl space-y-6">
+            <div className="flex items-center justify-between border-b border-[#D8AD55]/15 pb-4">
+              <div className="flex items-center gap-2">
+                <Settings className="w-5 h-5 text-[#D8AD55]" />
+                <h3 className="font-display font-bold text-lg text-white">Broadcast Settings</h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-bold text-gray-300 cursor-pointer flex items-center gap-2">
+                  <span>Display on Website:</span>
+                  <input
+                    type="checkbox"
+                    checked={adminAnnouncement.isActive}
+                    onChange={(e) => setAdminAnnouncement({ ...adminAnnouncement, isActive: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#D8AD55] focus:ring-[#D8AD55] bg-[#08111F] border-[#D8AD55]/40 cursor-pointer"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Quick 1-Click Presets */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[#F2D69A] uppercase tracking-wider">
+                ⚡ Quick Presets (1-Click Fill)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAdminAnnouncement({
+                    ...adminAnnouncement,
+                    badge: 'LIVE',
+                    type: 'live',
+                    badgeType: 'live',
+                    message: '🏏 Most awaited league for this year DDPL 2.0 is going to start soon... Keep playing hard! Register your squad now.',
+                    link: '/registration',
+                    linkText: 'Register Now',
+                    isActive: true,
+                  })}
+                  className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
+                >
+                  <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
+                    <span>🏏 DDPL 2.0 Starting Soon</span>
+                    <span className="text-[10px] text-[#D8AD55]">Preset 1</span>
+                  </div>
+                  <p className="text-[11px] text-[#8793A5] truncate">Most awaited league for this year DDPL 2.0 is going to start soon...</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAdminAnnouncement({
+                    ...adminAnnouncement,
+                    badge: 'AUCTION ALERT',
+                    type: 'breaking',
+                    badgeType: 'breaking',
+                    message: '🔨 Attention all Franchise Owners! The DDPL 2.0 Mega Player Auction begins shortly. Finalize your purse strategy!',
+                    link: '/auction',
+                    linkText: 'Enter Auction Room',
+                    isActive: true,
+                  })}
+                  className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
+                >
+                  <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
+                    <span>🔨 Player Auction Command</span>
+                    <span className="text-[10px] text-[#D8AD55]">Preset 2</span>
+                  </div>
+                  <p className="text-[11px] text-[#8793A5] truncate">Attention all Franchise Owners! Mega Player Auction begins shortly...</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAdminAnnouncement({
+                    ...adminAnnouncement,
+                    badge: 'GRAND FINALS',
+                    type: 'championship',
+                    badgeType: 'championship',
+                    message: '🏆 DDPL 2.0 GRAND FINALE: The ultimate championship match is underway! Follow the ball-by-ball live score and wagon wheel.',
+                    link: '/schedule',
+                    linkText: 'Live Scorecard',
+                    isActive: true,
+                  })}
+                  className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
+                >
+                  <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
+                    <span>🏆 Championship Finals</span>
+                    <span className="text-[10px] text-[#D8AD55]">Preset 3</span>
+                  </div>
+                  <p className="text-[11px] text-[#8793A5] truncate">DDPL 2.0 Grand Finale match is underway! Follow live score...</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAdminAnnouncement({
+                    ...adminAnnouncement,
+                    badge: 'WEATHER NOTICE',
+                    type: 'alert',
+                    badgeType: 'alert',
+                    message: '⚡ Match 4 Update: Slight drizzle delay. Pitch covers are in place and ground staff expect full overs upon resumption.',
+                    link: '',
+                    linkText: '',
+                    isActive: true,
+                  })}
+                  className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
+                >
+                  <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
+                    <span>⚡ Match Weather / Delay Notice</span>
+                    <span className="text-[10px] text-[#D8AD55]">Preset 4</span>
+                  </div>
+                  <p className="text-[11px] text-[#8793A5] truncate">Match update: Slight delay due to drizzle. Resuming shortly...</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Badge Type Selector */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-gray-300">
+                Pill Badge Style &amp; Theme
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { type: 'live', label: '🔴 Live Broadcast', text: 'LIVE' },
+                  { type: 'breaking', label: '⚡ Breaking News', text: 'BREAKING' },
+                  { type: 'championship', label: '🏆 League Bulletin', text: 'CHAMPIONSHIP' },
+                  { type: 'alert', label: '📢 Tournament Alert', text: 'NOTICE' },
+                ].map((b) => (
+                  <button
+                    key={b.type}
+                    type="button"
+                    onClick={() => setAdminAnnouncement({
+                      ...adminAnnouncement,
+                      type: b.type as any,
+                      badgeType: b.type as any,
+                      badge: b.text,
+                    })}
+                    className={`p-3 rounded-xl border text-xs font-bold text-center transition-all cursor-pointer ${
+                      (adminAnnouncement.type || adminAnnouncement.badgeType) === b.type
+                        ? 'border-[#D8AD55] bg-[#D8AD55]/20 text-[#F2D69A] shadow-md'
+                        : 'border-[#D8AD55]/20 bg-[#08111F] text-[#8793A5] hover:text-white'
+                    }`}
+                  >
+                    <div>{b.label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Badge Text */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">
+                  Custom Badge Text
+                </label>
+                <input
+                  type="text"
+                  value={adminAnnouncement.badge || ''}
+                  onChange={(e) => setAdminAnnouncement({ ...adminAnnouncement, badge: e.target.value })}
+                  placeholder="e.g. DDPL 2.0 LIVE, BREAKING, SPECIAL NOTICE"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1">
+                  Status State
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setAdminAnnouncement({ ...adminAnnouncement, isActive: !adminAnnouncement.isActive })}
+                  className={`w-full py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    adminAnnouncement.isActive
+                      ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                      : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${adminAnnouncement.isActive ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                  <span>{adminAnnouncement.isActive ? 'Active (Displaying on Website & App)' : 'Paused (Hidden from Public)'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Announcement Message Textarea */}
+            <div className="space-y-1">
+              <div className="flex justify-between items-center">
+                <label className="block text-xs font-bold text-gray-300">
+                  Announcement Message <span className="text-rose-400">*</span>
+                </label>
+                <span className="text-[11px] text-[#8793A5] font-mono">
+                  {(adminAnnouncement.message || '').length}/500 chars
+                </span>
+              </div>
+              <textarea
+                required
+                rows={3}
+                maxLength={500}
+                value={adminAnnouncement.message || ''}
+                onChange={(e) => setAdminAnnouncement({ ...adminAnnouncement, message: e.target.value })}
+                placeholder="e.g. 🏏 Most awaited league for this year DDPL 2.0 is going to start soon... Keep playing hard!"
+                className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-sm font-medium focus:outline-none focus:border-[#D8AD55] leading-relaxed"
+              />
+              <p className="text-[11px] text-[#8793A5]">
+                💡 Tip: Feel free to include cricket emojis (🏏, 🏆, 🔥, ⚡, 🔨). This message will smoothly scroll across the homepage between the Hero section and statistics cards.
+              </p>
+            </div>
+
+            {/* Optional Call to Action */}
+            <div className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/20 space-y-3">
+              <div className="text-xs font-bold text-[#F2D69A]">Optional Action Button Link:</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] text-[#8793A5] font-semibold mb-1">
+                    Button Label (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={adminAnnouncement.linkText || ''}
+                    onChange={(e) => setAdminAnnouncement({ ...adminAnnouncement, linkText: e.target.value })}
+                    placeholder="e.g. Register Squad, Live Auction, View Fixtures"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-white text-xs font-medium focus:outline-none focus:border-[#D8AD55]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[#8793A5] font-semibold mb-1">
+                    Button Destination URL (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={adminAnnouncement.link || ''}
+                    onChange={(e) => setAdminAnnouncement({ ...adminAnnouncement, link: e.target.value })}
+                    placeholder="e.g. /registration, /auction, /schedule"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-white text-xs font-medium focus:outline-none focus:border-[#D8AD55]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Submit / Save Button */}
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={savingAnnouncement}
+                className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] hover:brightness-110 text-[#08111F] font-display font-extrabold text-sm tracking-wide shadow-xl flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+              >
+                {savingAnnouncement ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-[#08111F]" />
+                    <span>Publishing Announcement…</span>
+                  </>
+                ) : (
+                  <>
+                    <Megaphone className="w-4 h-4 text-[#08111F]" />
+                    <span>Publish Announcement to Front Page</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

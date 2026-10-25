@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { fetchWithCache } from '@/lib/clientCache';
 import { useAuth } from '@/contexts/AuthContext';
+import { LiveAnnouncementTicker } from '@/components/home/LiveAnnouncementTicker';
+import type { LiveAnnouncementData } from '@/app/api/announcement/route';
 
 interface TournamentCardItem {
   id?: string;
@@ -118,6 +120,15 @@ export default function HomePage() {
   const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('stopped');
   const [liveMatch, setLiveMatch] = useState<any | null>(null);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
+  const [announcement, setAnnouncement] = useState<LiveAnnouncementData | null>({
+    id: 'ann-init',
+    message: '🏏 Most awaited league for this year DDPL 2.0 is going to start soon... Keep playing hard! Player registration details updating soon.',
+    type: 'championship',
+    isActive: true,
+    linkText: 'Explore Tournaments',
+    linkUrl: '/tournaments',
+    updatedAt: new Date().toISOString(),
+  });
 
   const handleDeleteTournament = async (slug: string, name: string) => {
     if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This will delete all its matches, auction data, and registrations.`)) {
@@ -217,19 +228,36 @@ export default function HomePage() {
     }
   };
 
+  const refreshAnnouncement = async () => {
+    try {
+      const res = await fetch('/api/announcement');
+      if (res.ok) {
+        const d = await res.json();
+        if (d.announcement) setAnnouncement(d.announcement);
+      }
+    } catch (e) {
+      console.warn('Failed to refresh announcement:', e);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
     async function loadLiveData() {
       try {
-        const [regData, aData, rulesData, matchesData] = await Promise.all([
+        const [regData, aData, rulesData, matchesData, annData] = await Promise.all([
           fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 3000 }),
           fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 3000 }),
           fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 5000 }),
           fetchWithCache<any>('/api/matches?tournament=ddpl', { ttlMs: 3000 }),
+          fetchWithCache<any>('/api/announcement', { ttlMs: 3000 }),
         ]);
 
         if (!isMounted) return;
+
+        if (annData?.announcement) {
+          setAnnouncement(annData.announcement);
+        }
 
         // Dynamic teams calculation across all tournaments
         const ddplTeams = aData?.data?.teams || [];
@@ -586,6 +614,13 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* LIVE ANNOUNCEMENT BROADCAST TICKER (Pixel-perfect inside marked space) */}
+      <LiveAnnouncementTicker
+        announcement={announcement}
+        isSuperAdmin={isSuperAdmin}
+        onRefresh={refreshAnnouncement}
+      />
 
       {/* 2. DYNAMIC LIVE STATS BANNER (Panel 1 Bottom) */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
