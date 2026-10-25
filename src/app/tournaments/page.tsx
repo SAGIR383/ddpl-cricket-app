@@ -49,6 +49,29 @@ export default function TournamentsPage() {
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrgFilter, setSelectedOrgFilter] = useState('all');
+  const [wipeModalOpen, setWipeModalOpen] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
+
+  const handleWipeAllTournaments = async () => {
+    setIsWiping(true);
+    try {
+      const res = await fetch('/api/tournaments/register?wipeAll=true', {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTournaments([]);
+        setWipeModalOpen(false);
+        alert('All test tournaments and data wiped cleanly. You can now host your fresh tournament!');
+      } else {
+        alert(data.error || 'Failed to wipe tournaments');
+      }
+    } catch (err: any) {
+      alert(`Error wiping tournaments: ${err.message}`);
+    } finally {
+      setIsWiping(false);
+    }
+  };
 
   const handleDeleteTournament = async (slug: string, name: string) => {
     if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This will delete all its matches, auction data, and registrations.`)) {
@@ -252,8 +275,19 @@ export default function TournamentsPage() {
           </p>
         </div>
 
-        {/* Global CTA - Any user can host their tournament */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Global CTAs */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {tournaments.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setWipeModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Wipe test tournaments to start clean"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Clean Slate / Wipe Test Data</span>
+            </button>
+          )}
           <Link
             href="/tournaments/create"
             className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-xl shadow-[#D8AD55]/20 transition-all cursor-pointer"
@@ -379,18 +413,16 @@ export default function TournamentsPage() {
                     <span className="text-xs text-[#8793A5] font-bold">
                       Season {t.activeSeason}
                     </span>
-                    {isSuperAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTournament(t.id, t.name)}
-                        disabled={deletingSlug === t.id}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
-                        title={`Permanently delete ${t.name}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Delete</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTournament(t.id, t.name)}
+                      disabled={deletingSlug === t.id}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+                      title={`Permanently delete ${t.name}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                      <span>{deletingSlug === t.id ? 'Deleting...' : 'Delete'}</span>
+                    </button>
                   </div>
                 </div>
                 
@@ -454,25 +486,81 @@ export default function TournamentsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-2">
                   <Link
                     href={`/tournaments/${t.id}`}
-                    className="btn-press shimmer-btn flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 transition-all"
+                    className="btn-press shimmer-btn flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 transition-all text-center"
                   >
-                    <span>Explore Tournament</span>
+                    <span>Explore</span>
                     <ChevronRight className="w-4 h-4" />
                   </Link>
+
+                  <Link
+                    href={`/tournaments/${t.id}/register`}
+                    className="btn-press flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors"
+                    title="Player Registration Portal"
+                  >
+                    <Users className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Register</span>
+                  </Link>
+
                   <Link
                     href={`/auction?tournament=${t.id}`}
-                    className="btn-press px-4 py-3.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-sm font-semibold transition-colors flex items-center justify-center"
+                    className="btn-press px-4 py-3 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-sm font-semibold transition-colors flex items-center justify-center"
                     title="Live Auction Room"
                   >
-                    <Trophy className="w-5 h-5 text-[#D8AD55]" />
+                    <Trophy className="w-4 h-4 text-[#D8AD55]" />
                   </Link>
                 </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Wipe Confirmation Modal */}
+      {wipeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-3xl bg-[#0D1B2A] border-2 border-rose-500/40 p-6 sm:p-7 shadow-2xl space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-white">Clean Slate / Wipe All Data</h3>
+                <p className="text-xs text-[#8793A5]">Reset application for fresh tournament testing</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-[#08111F] border border-rose-500/20 p-4 text-xs text-rose-200/90 leading-relaxed space-y-2">
+              <p>
+                ⚠️ <strong>Warning:</strong> This will permanently delete <strong>all existing tournaments</strong> ({tournaments.map((t) => t.name).join(', ') || 'all'}), along with their auction pools, franchises, match schedules, and player registrations.
+              </p>
+              <p>
+                Use this to clean dummy test data so you can test hosting your own corporate tournament from a 100% clean slate.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setWipeModalOpen(false)}
+                disabled={isWiping}
+                className="px-4 py-2.5 rounded-xl border border-[#D8AD55]/20 bg-[#08111F] text-[#8793A5] hover:text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleWipeAllTournaments}
+                disabled={isWiping}
+                className="btn-press flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-rose-900/30 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isWiping ? 'Wiping All Data...' : 'Yes, Wipe Everything Clean'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

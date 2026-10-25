@@ -170,8 +170,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, tournament = 'ddpl' } = body;
-    const tSlug = tournament.toLowerCase();
+    const { action } = body;
+    const tSlug = (body.slug || body.tournament || 'ddpl').toLowerCase();
 
     // 1. UPDATE TOURNAMENT STATUS (Super Admin)
     if (action === 'update_status') {
@@ -202,13 +202,16 @@ export async function POST(req: Request) {
     }
 
     // 2. PLAYER REGISTRATION (Player)
-    if (action === 'register') {
-      const { registration } = body;
-      if (!registration || !registration.name || !registration.email) {
+    if (action === 'register' || action === 'register_player') {
+      const registration = body.registration || body.player;
+      if (!registration || !registration.name) {
         return NextResponse.json(
-          { success: false, error: 'Player name and email are required' },
+          { success: false, error: 'Player name is required' },
           { status: 400 }
         );
+      }
+      if (!registration.email) {
+        registration.email = `${registration.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@player.local`;
       }
 
       // Check current registration status
@@ -218,7 +221,7 @@ export async function POST(req: Request) {
         DEFAULT_CONFIGS
       );
       const currentConfig = configs[tSlug] || DEFAULT_CONFIGS[tSlug];
-      if (currentConfig && currentConfig.status !== 'open') {
+      if (currentConfig && (currentConfig.status === 'closed' || currentConfig.status === 'completed')) {
         return NextResponse.json(
           {
             success: false,
@@ -971,9 +974,135 @@ export async function POST(req: Request) {
       });
     }
 
+    // 7. WIPE ALL TOURNAMENTS & CLEAN SLATE
+    if (action === 'wipe_all_tournaments') {
+      await setStoreData('tournament_configs', {}, 'tournament_configs.json');
+
+      try {
+        const orgs = await getStoreData<Record<string, any>>('corporate_organizations', 'organizations.json', {});
+        Object.keys(orgs).forEach((oSlug) => {
+          orgs[oSlug].tournaments = [];
+        });
+        await setStoreData('corporate_organizations', orgs, 'organizations.json');
+      } catch (e) {
+        console.warn('Orgs cleanup skipped:', e);
+      }
+
+      try {
+        await setStoreData('auction_data_ddpl', { tournaments: {} }, 'auction_data.json');
+      } catch (e) {
+        console.warn('Auction wipe skipped:', e);
+      }
+
+      invalidateStoreCache();
+
+      return NextResponse.json({
+        success: true,
+        message: 'All test tournaments and data have been wiped clean. Ready for clean testing!',
+        allConfigs: {},
+        tournamentsList: [],
+      });
+    }
+
     return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
   } catch (err: any) {
     console.error('[API tournament/register] Error:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+// DELETE /api/tournaments/register?slug=ddpl OR ?wipeAll=true
+export async function DELETE(req: Request) {
+  try {
+    const url = new URL(req.url);
+    let slug = url.searchParams.get('slug')?.toLowerCase();
+    const wipeAll = url.searchParams.get('wipeAll') === 'true';
+
+    if (!slug && !wipeAll) {
+      try {
+        const body = await req.json();
+        slug = body.slug?.toLowerCase();
+      } catch {}
+    }
+
+    if (wipeAll) {
+      await setStoreData('tournament_configs', {}, 'tournament_configs.json');
+
+      try {
+        const orgs = await getStoreData<Record<string, any>>('corporate_organizations', 'organizations.json', {});
+        Object.keys(orgs).forEach((oSlug) => {
+          orgs[oSlug].tournaments = [];
+        });
+        await setStoreData('corporate_organizations', orgs, 'organizations.json');
+      } catch (e) {}
+
+      try {
+        await setStoreData('auction_data_ddpl', { tournaments: {} }, 'auction_data.json');
+      } catch (e) {}
+
+      invalidateStoreCache();
+
+      return NextResponse.json({
+        success: true,
+        message: 'All test tournaments have been wiped clean.',
+        tournamentsList: [],
+      });
+    }
+
+    if (!slug) {
+      return NextResponse.json({ success: false, error: 'Tournament slug is required' }, { status: 400 });
+    }
+
+    const configs = await getStoreData<Record<string, TournamentConfig>>(
+      'tournament_configs',
+      'tournament_configs.json',
+      {}
+    );
+
+    const deletedTournamentName = configs[slug]?.name || slug;
+    delete configs[slug];
+    await setStoreData('tournament_configs', configs, 'tournament_configs.json');
+
+    try {
+      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      if (allAuction?.tournaments?.[slug]) {
+        delete allAuction.tournaments[slug];
+        await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+      }
+    } catch (e) {}
+
+    try {
+      await setStoreData(`tournament_schedule_${slug}`, { tournament: slug, matches: [] }, `schedule_${slug}.json`);
+    } catch (e) {}
+
+    try {
+      await setStoreData(`tournament_registrations_${slug}`, [], `registrations_${slug}.json`);
+    } catch (e) {}
+
+    try {
+      const orgs = await getStoreData<Record<string, any>>('corporate_organizations', 'organizations.json', {});
+      let modified = false;
+      Object.keys(orgs).forEach((oSlug) => {
+        if (orgs[oSlug].tournaments?.includes(slug)) {
+          orgs[oSlug].tournaments = orgs[oSlug].tournaments.filter((t: string) => t !== slug);
+          modified = true;
+        }
+      });
+      if (modified) {
+        await setStoreData('corporate_organizations', orgs, 'organizations.json');
+      }
+    } catch (e) {}
+
+    invalidateStoreCache();
+
+    return NextResponse.json({
+      success: true,
+      message: `Tournament "${deletedTournamentName}" deleted successfully.`,
+      deletedSlug: slug,
+      tournamentsList: Object.values(configs),
+    });
+  } catch (err: any) {
+    console.error('[API DELETE tournament/register] Error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
