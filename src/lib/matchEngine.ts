@@ -9,6 +9,8 @@ import {
   WicketType,
   DeliveryWicketDetails,
   SquadPlayer,
+  WagonWheelZone,
+  DlsRevisionData,
 } from '@/types/match.types';
 
 export function calculateOversString(legalBalls: number): string {
@@ -261,6 +263,7 @@ export interface RecordBallParams {
   newBatterAvatar?: string;
   nextBowlerName?: string;
   customCommentary?: string;
+  shotZone?: WagonWheelZone;
 }
 
 /**
@@ -330,6 +333,7 @@ export function recordDelivery(innings: InningsData, params: RecordBallParams): 
     commentary,
     symbol,
     timestamp: new Date().toISOString(),
+    shotZone: params.shotZone,
   };
 
   updated.deliveries.push(deliveryEvent);
@@ -589,7 +593,7 @@ export function evaluateMatchResult(state: MatchLiveState): {
 
   const inn2 = state.innings2;
   const target = state.targetRuns;
-  const maxBalls = state.rules.matchOvers * 6;
+  const maxBalls = (state.targetOvers || state.rules.matchOvers) * 6;
 
   // 1. Chasing team reached the target
   if (inn2.totalRuns >= target) {
@@ -618,4 +622,47 @@ export function evaluateMatchResult(state: MatchLiveState): {
   }
 
   return { isCompleted: false, resultText: null };
+}
+
+/**
+ * Corporate DLS (Duckworth-Lewis-Stern) and Overs Reduction Engine
+ * Computes revised target score and required run rate when match overs are interrupted.
+ */
+export function calculateDlsTarget(
+  innings1Runs: number,
+  originalOvers: number,
+  revisedOvers: number,
+  innings2WicketsLost = 0
+): {
+  revisedTarget: number;
+  requiredRunRate: number;
+  reductionPercentage: number;
+} {
+  if (revisedOvers >= originalOvers) {
+    const target = innings1Runs + 1;
+    const rrr = originalOvers > 0 ? parseFloat((target / originalOvers).toFixed(2)) : 0;
+    return { revisedTarget: target, requiredRunRate: rrr, reductionPercentage: 0 };
+  }
+
+  // Resource remaining R(o, w) based on standard ICC exponential model
+  const getResource = (overs: number, wickets: number): number => {
+    const wicketFactor = Math.max(0.1, 1 - Math.pow(wickets / 10, 1.25) * 0.85);
+    const resource = (1 - Math.exp(-0.065 * overs)) * 100 * wicketFactor;
+    return Math.max(0.1, resource);
+  };
+
+  const r1 = getResource(originalOvers, 0);
+  const r2 = getResource(revisedOvers, innings2WicketsLost);
+
+  // DLS Revised Target: S * (R2 / R1) + 1
+  const ratio = r2 / r1;
+  const revisedTarget = Math.max(1, Math.round(innings1Runs * ratio) + 1);
+  const requiredRunRate = revisedOvers > 0 ? parseFloat((revisedTarget / revisedOvers).toFixed(2)) : 0;
+  const reductionPercentage = parseFloat(((1 - ratio) * 100).toFixed(1));
+
+  return {
+    revisedTarget,
+    requiredRunRate,
+    reductionPercentage,
+  };
 }

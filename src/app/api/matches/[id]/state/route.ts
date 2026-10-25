@@ -12,6 +12,7 @@ import {
   transitionToInnings2,
   evaluateMatchResult,
   RecordBallParams,
+  calculateDlsTarget,
 } from '@/lib/matchEngine';
 import { MatchFixture, TournamentScheduleState } from '@/app/api/matches/route';
 
@@ -342,6 +343,51 @@ export async function POST(
     else if (action === 'reset_match') {
       state = await bootstrapMatchState(matchId);
       invalidateStoreCache(`match_state_${matchId}`);
+    }
+
+    // 7. RAIN DISRUPTION & CORPORATE DLS TARGET REVISION
+    else if (action === 'revise_target_dls') {
+      const { revisedOvers, reason, revisedTarget: customTarget, method } = body;
+      const originalOvers = state.rules.matchOvers;
+      const inn1Runs = state.innings1.totalRuns;
+      const inn2Wickets = state.innings2?.wickets || 0;
+
+      let computedTarget = customTarget;
+      if (!computedTarget) {
+        const dls = calculateDlsTarget(inn1Runs, originalOvers, revisedOvers, inn2Wickets);
+        computedTarget = dls.revisedTarget;
+      }
+
+      state.targetOvers = revisedOvers;
+      state.targetRuns = computedTarget;
+      state.dlsRevision = {
+        originalOvers,
+        revisedOvers,
+        originalTarget: inn1Runs + 1,
+        revisedTarget: computedTarget,
+        method: method || 'standard_dls',
+        reason: reason || 'Rain interruption / reduced match duration',
+        appliedAt: new Date().toISOString(),
+      };
+
+      if (state.innings2) {
+        state.innings2.oversLimit = revisedOvers;
+        // Re-evaluate match result with revised target
+        const outcome = evaluateMatchResult(state);
+        if (outcome.isCompleted) {
+          state.status = 'completed';
+          state.result = outcome.resultText;
+        }
+      }
+
+      state.matchNotes.unshift({
+        id: `note-dls-${Date.now()}`,
+        text: `🌧️ Rain / Overs Disruption: Target revised to ${computedTarget} runs in ${revisedOvers} overs (${reason || 'Standard DLS calculation'}).`,
+        timestamp: new Date().toISOString(),
+        type: 'milestone',
+      });
+
+      state.lastUpdated = new Date().toISOString();
     }
 
     // Save persisted state

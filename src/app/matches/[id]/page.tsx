@@ -16,6 +16,7 @@ import {
   Users,
   ChevronRight,
   TrendingUp,
+  Tv,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +35,7 @@ import { ScorecardTab } from '@/components/match/ScorecardTab';
 import { InfoTab } from '@/components/match/InfoTab';
 import { SquadsTab } from '@/components/match/SquadsTab';
 import { ScorerConsole } from '@/components/match/ScorerConsole';
+import { WagonWheel } from '@/components/match/WagonWheel';
 
 export default function MatchDetailPage() {
   const params = useParams();
@@ -249,6 +251,41 @@ export default function MatchDetailPage() {
     }
   };
 
+  const handleApplyDlsAction = async (dlsParams: {
+    revisedOvers: number;
+    revisedTarget: number;
+    reason: string;
+    method: 'standard_dls' | 'custom_overs';
+  }) => {
+    if (!isScorer) return;
+    setSyncStatus('syncing');
+
+    try {
+      const res = await fetch(`/api/matches/${matchId}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'revise_target_dls',
+          ...dlsParams,
+          userEmail: user?.email,
+          userRole: role,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.state) {
+          setMatchState(data.state);
+          broadcastUpdatedState(data.state);
+        }
+      }
+    } catch (e) {
+      console.error('Error applying DLS revision:', e);
+    } finally {
+      setSyncStatus('connected');
+    }
+  };
+
   if (loading || !matchState) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 flex flex-col items-center justify-center space-y-4">
@@ -306,12 +343,39 @@ export default function MatchDetailPage() {
         <OversTab state={matchState} />
       )}
 
-      {/* D. INFO TAB */}
+      {/* D. WAGON WHEEL & PITCH MAP TAB */}
+      {activeTab === 'wagon' && (
+        <div className="rounded-3xl p-6 sm:p-8 bg-[#0D1B2A]/90 border border-[#D8AD55]/20 shadow-2xl space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/5">
+            <div>
+              <h3 className="font-display font-black text-xl text-white">
+                Shot Direction & Wagon Wheel
+              </h3>
+              <p className="text-xs text-[#8793A5]">
+                Trajectory mapping, boundary sectors & shot frequency for {currentInnings.battingTeam}
+              </p>
+            </div>
+
+            <Link
+              href={`/matches/${matchId}/overlay`}
+              target="_blank"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition-all"
+            >
+              <Tv className="w-3.5 h-3.5 text-purple-400" />
+              <span>Launch Live OBS Overlay</span>
+            </Link>
+          </div>
+
+          <WagonWheel deliveries={currentInnings.deliveries} />
+        </div>
+      )}
+
+      {/* E. INFO TAB */}
       {activeTab === 'info' && (
         <InfoTab state={matchState} />
       )}
 
-      {/* E. SQUADS TAB */}
+      {/* F. SQUADS TAB */}
       {activeTab === 'squads' && (
         <SquadsTab state={matchState} />
       )}
@@ -324,6 +388,7 @@ export default function MatchDetailPage() {
           onUndoBall={handleUndoBall}
           onSwitchInnings={handleSwitchInnings}
           onUpdateToss={handleUpdateToss}
+          onApplyDls={handleApplyDlsAction}
         />
       ) : (
         <div className="rounded-3xl p-6 sm:p-8 bg-[#0D1B2A]/80 backdrop-blur-md border border-[#D8AD55]/20 text-center space-y-3">

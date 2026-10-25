@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Radio, RefreshCw, Share2, Download, Trophy, MapPin, Calendar, Clock, Flame } from 'lucide-react';
+import { ChevronLeft, Radio, RefreshCw, Share2, Download, Trophy, MapPin, Calendar, Clock, Flame, Tv } from 'lucide-react';
 import { MatchLiveState } from '@/types/match.types';
 import { calculateOversString } from '@/lib/matchEngine';
 
@@ -140,6 +140,16 @@ export function MatchHero({
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#D8AD55] ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
+
+          <Link
+            href={`/matches/${state.matchId}/overlay`}
+            target="_blank"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition-all shadow-md shadow-purple-500/20 cursor-pointer"
+            title="Open Transparent Live Stream Overlay for OBS / vMix"
+          >
+            <Tv className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden sm:inline">OBS Overlay</span>
+          </Link>
 
           <button
             onClick={handleShare}

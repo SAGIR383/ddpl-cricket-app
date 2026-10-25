@@ -12,9 +12,12 @@ import {
   UserPlus,
   RefreshCw,
   Trophy,
+  CloudRain,
+  Compass,
 } from 'lucide-react';
-import { MatchLiveState, InningsData, WicketType, ExtraType } from '@/types/match.types';
+import { MatchLiveState, InningsData, WicketType, ExtraType, WagonWheelZone } from '@/types/match.types';
 import { RecordBallParams, calculateOversString } from '@/lib/matchEngine';
+import { DlsCalculatorModal } from './DlsCalculatorModal';
 
 interface ScorerConsoleProps {
   state: MatchLiveState;
@@ -22,6 +25,12 @@ interface ScorerConsoleProps {
   onUndoBall: () => Promise<void>;
   onSwitchInnings: () => Promise<void>;
   onUpdateToss: (winner: string, decision: 'bat' | 'bowl') => Promise<void>;
+  onApplyDls?: (params: {
+    revisedOvers: number;
+    revisedTarget: number;
+    reason: string;
+    method: 'standard_dls' | 'custom_overs';
+  }) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -31,9 +40,13 @@ export function ScorerConsole({
   onUndoBall,
   onSwitchInnings,
   onUpdateToss,
+  onApplyDls,
   isSubmitting = false,
 }: ScorerConsoleProps) {
   // Modal states
+  const [dlsModalOpen, setDlsModalOpen] = useState(false);
+  const [trackWagonWheel, setTrackWagonWheel] = useState(true);
+  const [selectedShotZone, setSelectedShotZone] = useState<WagonWheelZone | null>(null);
   const [wicketModalOpen, setWicketModalOpen] = useState(false);
   const [wicketType, setWicketType] = useState<WicketType>('caught');
   const [outBatter, setOutBatter] = useState<'striker' | 'nonStriker'>('striker');
@@ -89,7 +102,9 @@ export function ScorerConsole({
       runsBat: runs,
       extraType,
       runsExtras: runsExtras || (extraType === 'wide' || extraType === 'noBall' ? 1 : 0),
+      shotZone: selectedShotZone || undefined,
     });
+    setSelectedShotZone(null);
   };
 
   const handleWicketSubmit = async () => {
@@ -189,6 +204,17 @@ export function ScorerConsole({
             <span className="sm:hidden">Bowler</span>
           </button>
 
+          {/* Corporate DLS / Rain Target Revision */}
+          <button
+            onClick={() => setDlsModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/40 text-cyan-300 text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Rain Disruption & DLS Target Revision"
+          >
+            <CloudRain className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Rain / DLS</span>
+            <span className="sm:hidden">DLS</span>
+          </button>
+
           {/* Undo Ball Button */}
           <button
             onClick={onUndoBall}
@@ -224,6 +250,75 @@ export function ScorerConsole({
           </button>
         </div>
       )}
+
+      {/* 2.5 WAGON WHEEL SECTOR QUICK-TAGGER */}
+      <div className="p-3 rounded-2xl bg-[#08111F] border border-white/5 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTrackWagonWheel(!trackWagonWheel)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                trackWagonWheel
+                  ? 'bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40'
+                  : 'bg-white/5 text-gray-400 border border-transparent'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Wagon Wheel: {trackWagonWheel ? 'ON' : 'OFF'}</span>
+            </button>
+            {selectedShotZone && trackWagonWheel && (
+              <span className="text-xs text-cyan-300 bg-cyan-950/60 border border-cyan-500/40 px-2 py-0.5 rounded-md font-bold">
+                Zone: {selectedShotZone.replace('_', ' ').toUpperCase()}
+              </span>
+            )}
+          </div>
+
+          {selectedShotZone && trackWagonWheel && (
+            <button
+              type="button"
+              onClick={() => setSelectedShotZone(null)}
+              className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer"
+            >
+              Clear Zone
+            </button>
+          )}
+        </div>
+
+        {trackWagonWheel && (
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 pt-1">
+            {[
+              { id: 'third_man', label: 'Third Man', side: 'off' },
+              { id: 'cover_point', label: 'Cover Point', side: 'off' },
+              { id: 'extra_cover', label: 'Extra Cover', side: 'off' },
+              { id: 'long_off', label: 'Long Off', side: 'off' },
+              { id: 'long_on', label: 'Long On', side: 'leg' },
+              { id: 'mid_wicket', label: 'Mid Wkt', side: 'leg' },
+              { id: 'square_leg', label: 'Sq Leg', side: 'leg' },
+              { id: 'fine_leg', label: 'Fine Leg', side: 'leg' },
+            ].map((z) => {
+              const isSelected = selectedShotZone === z.id;
+              return (
+                <button
+                  key={z.id}
+                  type="button"
+                  onClick={() => setSelectedShotZone(isSelected ? null : (z.id as WagonWheelZone))}
+                  className={`py-1.5 px-1 rounded-lg text-[10px] font-bold uppercase tracking-tight text-center transition-all truncate border cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#D8AD55] text-[#08111F] border-[#D8AD55] shadow font-black'
+                      : z.side === 'off'
+                      ? 'bg-cyan-950/20 hover:bg-cyan-950/40 border-cyan-500/20 text-cyan-300'
+                      : 'bg-emerald-950/20 hover:bg-emerald-950/40 border-emerald-500/20 text-emerald-300'
+                  }`}
+                  title={`${z.label} (${z.side.toUpperCase()}-side)`}
+                >
+                  {z.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* 3. PRIMARY RUNS KEYPAD ROW */}
       <div className="space-y-2">
@@ -586,6 +681,17 @@ export function ScorerConsole({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Corporate DLS / Rain Target Revision Modal */}
+      {onApplyDls && (
+        <DlsCalculatorModal
+          state={state}
+          isOpen={dlsModalOpen}
+          onClose={() => setDlsModalOpen(false)}
+          onApplyDls={onApplyDls}
+          isSubmitting={isSubmitting}
+        />
       )}
     </div>
   );

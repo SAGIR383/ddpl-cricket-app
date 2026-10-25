@@ -1,5 +1,25 @@
 export type ExtraType = 'none' | 'wide' | 'noBall' | 'bye' | 'legBye' | 'penalty';
 
+export type WagonWheelZone =
+  | 'fine_leg'
+  | 'square_leg'
+  | 'mid_wicket'
+  | 'long_on'
+  | 'long_off'
+  | 'extra_cover'
+  | 'cover_point'
+  | 'third_man';
+
+export interface DlsRevisionData {
+  originalOvers: number;
+  revisedOvers: number;
+  originalTarget?: number | null;
+  revisedTarget: number;
+  method: 'standard_dls' | 'par_run_rate' | 'custom_overs';
+  reason?: string;
+  appliedAt: string;
+}
+
 export type WicketType =
   | 'bowled'
   | 'caught'
@@ -41,6 +61,7 @@ export interface DeliveryEvent {
   commentary: string;
   symbol: string; // '0', '1', '2', '3', '4', '6', 'Wd', 'Nb', 'W', 'B1', 'Lb1'
   timestamp: string;
+  shotZone?: WagonWheelZone;
 }
 
 export interface BatterRecord {
@@ -147,6 +168,7 @@ export interface MatchLiveState {
   innings2: InningsData | null;
   targetRuns?: number | null;
   targetOvers?: number;
+  dlsRevision?: DlsRevisionData | null;
   result?: string | null;
   manOfTheMatch?: string | null;
   officials: {

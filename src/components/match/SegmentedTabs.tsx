@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Info, Radio, FileText, ListOrdered, Users } from 'lucide-react';
+import { Info, Radio, FileText, ListOrdered, Users, Compass } from 'lucide-react';
 
-export type MatchCentreTab = 'info' | 'live' | 'scorecard' | 'overs' | 'squads';
+export type MatchCentreTab = 'info' | 'live' | 'scorecard' | 'overs' | 'squads' | 'wagon';
 
 interface SegmentedTabsProps {
   activeTab: MatchCentreTab;
@@ -37,6 +37,11 @@ export function SegmentedTabs({
       id: 'overs',
       label: 'Overs',
       icon: <ListOrdered className="w-3.5 h-3.5" />,
+    },
+    {
+      id: 'wagon',
+      label: 'Wagon Wheel',
+      icon: <Compass className="w-3.5 h-3.5" />,
     },
     {
       id: 'squads',
