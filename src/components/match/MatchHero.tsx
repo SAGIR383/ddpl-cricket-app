@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Radio, RefreshCw, Share2, Download, Trophy, MapPin, Calendar, Clock, Flame, Tv } from 'lucide-react';
+import { ChevronLeft, Radio, RefreshCw, Share2, Download, Trophy, MapPin, Calendar, Clock, Flame, Tv, FileText } from 'lucide-react';
 import { MatchLiveState } from '@/types/match.types';
 import { calculateOversString } from '@/lib/matchEngine';
+import { MatchBulletinModal } from './MatchBulletinModal';
 
 interface MatchHeroProps {
   state: MatchLiveState;
@@ -21,6 +22,7 @@ export function MatchHero({
   onRefresh,
   isRefreshing = false,
 }: MatchHeroProps) {
+  const [bulletinModalOpen, setBulletinModalOpen] = useState(false);
   const currentInnings = state.currentInnings === 1 ? state.innings1 : (state.innings2 || state.innings1);
   const isSecondInnings = state.currentInnings === 2 && !!state.innings2;
 
@@ -150,6 +152,15 @@ export function MatchHero({
             <Tv className="w-3.5 h-3.5 text-purple-400" />
             <span className="hidden sm:inline">OBS Overlay</span>
           </Link>
+
+          <button
+            onClick={() => setBulletinModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all shadow-md shadow-[#D8AD55]/10 cursor-pointer"
+            title="Generate & Copy Corporate Match Report"
+          >
+            <FileText className="w-3.5 h-3.5 text-[#D8AD55]" />
+            <span className="hidden sm:inline">Press Report</span>
+          </button>
 
           <button
             onClick={handleShare}
@@ -333,6 +344,13 @@ export function MatchHero({
           </div>
         </div>
       </div>
+
+      {/* Corporate Match Press Bulletin Modal */}
+      <MatchBulletinModal
+        state={state}
+        isOpen={bulletinModalOpen}
+        onClose={() => setBulletinModalOpen(false)}
+      />
     </div>
   );
 }

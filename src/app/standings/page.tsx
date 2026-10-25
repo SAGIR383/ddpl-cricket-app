@@ -1,28 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Trophy, BarChart3, ChevronRight, HelpCircle, Users, Gavel, Calendar, Sparkles } from 'lucide-react';
+import {
+  Trophy,
+  BarChart3,
+  ChevronRight,
+  HelpCircle,
+  Users,
+  Gavel,
+  Calendar,
+  Sparkles,
+  Swords,
+  TrendingUp,
+  ShieldCheck,
+  Award,
+} from 'lucide-react';
 import { fetchWithCache } from '@/lib/clientCache';
-
-interface StandingTeam {
-  rank: number;
-  name: string;
-  short: string;
-  owner?: string;
-  played: number;
-  won: number;
-  lost: number;
-  tied: number;
-  noResult: number;
-  points: number;
-  runsFor: number;
-  oversFor: number;
-  runsAgainst: number;
-  oversAgainst: number;
-  nrr: number;
-  squadCount?: number;
-}
+import { TeamStandingRow, calculateHeadToHead, HeadToHeadStats } from '@/lib/tournamentAnalytics';
 
 export default function StandingsPage() {
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
@@ -31,18 +26,24 @@ export default function StandingsPage() {
     { slug: 'ddpl', name: 'DDPL', season: '2026' },
     { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
   ]);
-  const [standings, setStandings] = useState<StandingTeam[]>([]);
+  const [standings, setStandings] = useState<TeamStandingRow[]>([]);
+  const [completedMatches, setCompletedMatches] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
-  // Sync standings from active Auction State using client cache
+  // Head to Head Selector State
+  const [h2hTeamA, setH2hTeamA] = useState<string>('');
+  const [h2hTeamB, setH2hTeamB] = useState<string>('');
+
+  // Sync standings from active Analytics API
   useEffect(() => {
     let isMounted = true;
 
     async function loadTournamentStandings() {
       if (standings.length === 0) setLoading(true);
       try {
-        const [regData, data] = await Promise.all([
+        const [regData, analyticsData, auctionData] = await Promise.all([
           fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/analytics/tournament?tournament=${selectedTournament}`, { ttlMs: 5000 }),
           fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
         ]);
 
@@ -52,34 +53,24 @@ export default function StandingsPage() {
           setTournamentsList(regData.tournamentsList);
         }
 
-        if (data?.success && data.data && data.data.teams && data.data.teams.length > 0) {
-          const auctionTeams = data.data.teams;
-          const soldTransactions = data.data.soldTransactions || [];
+        const soldTx = auctionData?.data?.soldTransactions || [];
 
-          // Map teams directly from auction state with fresh 0 stats prior to match results
-          const mappedStandings: StandingTeam[] = auctionTeams.map((t: any, idx: number) => {
-            const teamSquad = soldTransactions.filter((tx: any) => tx.team === t.name);
+        if (analyticsData?.success && analyticsData.standings && analyticsData.standings.length > 0) {
+          const mapped = analyticsData.standings.map((st: TeamStandingRow) => {
+            const teamSquad = soldTx.filter((tx: any) => tx.team === st.name);
             return {
-              rank: idx + 1,
-              name: t.name,
-              short: t.short,
-              owner: t.owner || 'Franchise Owner',
-              played: 0,
-              won: 0,
-              lost: 0,
-              tied: 0,
-              noResult: 0,
-              points: 0,
-              runsFor: 0,
-              oversFor: 0,
-              runsAgainst: 0,
-              oversAgainst: 0,
-              nrr: 0.0,
-              squadCount: teamSquad.length || t.playersBought || 0,
+              ...st,
+              squadCount: teamSquad.length || st.squadCount || 0,
             };
           });
 
-          setStandings(mappedStandings);
+          setStandings(mapped);
+          setCompletedMatches(analyticsData.completedMatches || 0);
+
+          if (mapped.length >= 2) {
+            setH2hTeamA(mapped[0].name);
+            setH2hTeamB(mapped[1].name);
+          }
         } else {
           setStandings([]);
         }
@@ -93,21 +84,40 @@ export default function StandingsPage() {
     loadTournamentStandings();
   }, [selectedTournament, selectedSeason]);
 
+  // Head-to-Head calculations
+  const h2hStats: HeadToHeadStats = useMemo(() => {
+    if (!h2hTeamA || !h2hTeamB) {
+      return {
+        teamA: 'Team A',
+        teamB: 'Team B',
+        totalPlayed: 0,
+        teamAWins: 0,
+        teamBWins: 0,
+        ties: 0,
+        teamAHighestScore: 110,
+        teamBHighestScore: 105,
+        predictedWinProbA: 50,
+        predictedWinProbB: 50,
+        keyMatchups: ['Both franchises neck and neck on net run rate.'],
+      };
+    }
+    return calculateHeadToHead(h2hTeamA, h2hTeamB);
+  }, [h2hTeamA, h2hTeamB]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
-      
       {/* Editorial Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
         <div>
           <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-widest flex items-center gap-1.5">
             <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
-            <span>Championship Table</span>
+            <span>Championship Table &amp; Analytics</span>
           </div>
           <h1 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight mt-1">
-            Points Table &amp; Standings
+            Points Table &amp; Net Run Rate
           </h1>
           <p className="text-sm text-[#8793A5] mt-1.5 max-w-2xl">
-            Official tournament rankings synchronized with live auction squads and official Net Run Rate (NRR) rules.
+            Live tournament standings calculated dynamically with official ICC NRR rules, playoff qualification indicators, and form guide.
           </p>
         </div>
 
@@ -143,13 +153,22 @@ export default function StandingsPage() {
               {tournamentsList.find((t) => t.slug === selectedTournament)?.name || selectedTournament.toUpperCase()} — {selectedSeason} Standings
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 text-xs font-bold border border-blue-500/30">
-              Synced Live
+              {completedMatches > 0 ? `${completedMatches} Matches Completed` : 'Live Synced'}
             </span>
           </div>
-          <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 badge-live-radar" />
-            Top 4 Advance to Playoffs
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 badge-live-radar" />
+              Top 4 Advance to Playoffs
+            </span>
+            <Link
+              href="/leaderboard"
+              className="px-3 py-1 rounded-xl bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all flex items-center gap-1"
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>MVP &amp; Caps</span>
+            </Link>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -167,6 +186,7 @@ export default function StandingsPage() {
                   <th className="px-4 py-4 text-center">NR</th>
                   <th className="px-5 py-4 text-center font-black text-white">PTS</th>
                   <th className="px-5 py-4 text-right">NRR</th>
+                  <th className="px-5 py-4 text-center">Form</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -183,7 +203,10 @@ export default function StandingsPage() {
                         <div className="flex items-center justify-center gap-1.5">
                           <span>{team.rank}</span>
                           {isPlayoffZone && (
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Playoff Qualification Zone" />
+                            <span
+                              className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"
+                              title="Playoff Qualification Zone"
+                            />
                           )}
                         </div>
                       </td>
@@ -203,7 +226,7 @@ export default function StandingsPage() {
                       </td>
                       <td className="px-4 py-4 text-center">
                         <span className="px-2.5 py-1 rounded-md bg-[#08111F] text-xs font-bold text-[#F2D69A] border border-[#D8AD55]/30">
-                          {team.squadCount} Players
+                          {team.squadCount || 0} Players
                         </span>
                       </td>
                       <td className="px-4 py-4 text-center font-semibold text-gray-300">{team.played}</td>
@@ -215,7 +238,29 @@ export default function StandingsPage() {
                         {team.points}
                       </td>
                       <td className="px-5 py-4 text-right font-display font-bold text-base text-[#F2D69A]">
-                        {team.nrr > 0 ? `+${team.nrr.toFixed(3)}` : team.nrr.toFixed(3)}
+                        {team.nrrStr || (team.nrr >= 0 ? `+${team.nrr.toFixed(3)}` : team.nrr.toFixed(3))}
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        {team.form && team.form.length > 0 ? (
+                          <div className="flex items-center justify-center gap-1">
+                            {team.form.map((res, i) => (
+                              <span
+                                key={i}
+                                className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shadow-sm ${
+                                  res === 'W'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50'
+                                    : res === 'L'
+                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-400/50'
+                                    : 'bg-amber-500/20 text-amber-300 border border-amber-400/50'
+                                }`}
+                              >
+                                {res}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-500 italic">-</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -240,6 +285,106 @@ export default function StandingsPage() {
           )}
         </div>
       </div>
+
+      {/* HEAD-TO-HEAD & AI MATCHUP PREDICTOR */}
+      {standings.length >= 2 && (
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-cyan-500/30 space-y-6 shadow-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                <Swords className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-display font-black text-xl text-white">
+                  Head-to-Head &amp; AI Matchup Predictor
+                </h3>
+                <p className="text-xs text-[#8793A5]">
+                  Compare historical rivalry, win probabilities, and tactical strengths between any two franchises
+                </p>
+              </div>
+            </div>
+
+            {/* Franchise Selectors */}
+            <div className="flex items-center gap-2">
+              <select
+                value={h2hTeamA}
+                onChange={(e) => setH2hTeamA(e.target.value)}
+                className="px-3 py-1.5 rounded-xl bg-[#08111F] border border-cyan-500/40 text-cyan-300 text-xs font-bold"
+              >
+                {standings.map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs font-bold text-gray-500">vs</span>
+              <select
+                value={h2hTeamB}
+                onChange={(e) => setH2hTeamB(e.target.value)}
+                className="px-3 py-1.5 rounded-xl bg-[#08111F] border border-cyan-500/40 text-cyan-300 text-xs font-bold"
+              >
+                {standings
+                  .filter((t) => t.name !== h2hTeamA)
+                  .map((t) => (
+                    <option key={t.name} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Probability Gauge Bar */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+              <span className="text-cyan-400">
+                {h2hTeamA}: {h2hStats.predictedWinProbA}% Win Probability
+              </span>
+              <span className="text-emerald-400">
+                {h2hTeamB}: {h2hStats.predictedWinProbB}% Win Probability
+              </span>
+            </div>
+            <div className="w-full h-3 rounded-full bg-white/5 overflow-hidden flex">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-700"
+                style={{ width: `${h2hStats.predictedWinProbA}%` }}
+              />
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700"
+                style={{ width: `${h2hStats.predictedWinProbB}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Stats Comparison Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 text-center space-y-1">
+              <span className="text-gray-400 uppercase font-semibold">Total Meetings</span>
+              <div className="font-display font-black text-2xl text-white">
+                {h2hStats.totalPlayed}
+              </div>
+              <div className="text-[11px] text-[#8793A5]">
+                {h2hStats.teamAWins} wins - {h2hStats.teamBWins} wins
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 text-center space-y-1">
+              <span className="text-gray-400 uppercase font-semibold">Highest Head-to-Head Total</span>
+              <div className="font-display font-black text-2xl text-[#F2D69A]">
+                {h2hStats.teamAHighestScore} vs {h2hStats.teamBHighestScore}
+              </div>
+              <div className="text-[11px] text-[#8793A5]">Match high points</div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 text-center space-y-1">
+              <span className="text-gray-400 uppercase font-semibold">Key Rivalry Factor</span>
+              <div className="font-display font-bold text-xs text-white line-clamp-2 mt-1">
+                {h2hStats.keyMatchups[1] || 'Boundary conversion in death overs'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tournament Playoff & Knockout Stage Pathway */}
       <div className="bg-[#0D1B2A]/90 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-[#D8AD55]/20 space-y-5">
@@ -291,7 +436,7 @@ export default function StandingsPage() {
         <HelpCircle className="w-4 h-4 shrink-0 text-[#D8AD55] mt-0.5" />
         <div>
           <strong className="text-gray-200">How Standings &amp; Points Table Operate:</strong>{' '}
-          Franchises and squads are synchronized directly with the live Auction section. Matches scheduled in the tournament will increment Played (P), Won (W), Lost (L), and Points (2 for Win, 1 for Tie/No Result), with tie-breakers decided by Net Run Rate (NRR).
+          Franchises and squads are synchronized directly with verified live matches and auction rosters. Net Run Rate (NRR) is calculated as (Total Runs Scored / Total Overs Faced) minus (Total Runs Conceded / Total Overs Bowled). Top 4 franchises secure direct playoff qualification.
         </div>
       </div>
     </div>
