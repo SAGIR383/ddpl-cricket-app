@@ -4,14 +4,20 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle } from 'lucide-react';
+import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle, Globe, Palette } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useCorporateTheme } from '@/contexts/ThemeContext';
+import { ThemeCustomizerModal } from './ThemeCustomizerModal';
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const { user, isSuperAdmin, isOrganizer } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
+  const { currentTheme, customLogo } = useCorporateTheme();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,13 +33,13 @@ export function Navbar() {
   }, []);
 
   const navLinks = [
-    { href: '/', label: 'Home', icon: Sparkles, exact: true },
-    { href: '/tournaments', label: 'Tournaments', icon: Trophy },
-    { href: '/matches', label: 'Matches', icon: Calendar },
-    { href: '/auction', label: 'Auction', icon: Gavel },
-    { href: '/standings', label: 'Standings', icon: BarChart3 },
-    { href: '/leaderboard', label: 'Leaderboard', icon: Flame },
-    { href: '/archive', label: 'Archive', icon: Archive },
+    { href: '/', label: t.navHome, icon: Sparkles, exact: true },
+    { href: '/tournaments', label: t.navTournaments, icon: Trophy },
+    { href: '/matches', label: t.navMatches, icon: Calendar },
+    { href: '/auction', label: t.navAuction, icon: Gavel },
+    { href: '/standings', label: t.navStandings, icon: BarChart3 },
+    { href: '/leaderboard', label: t.navLeaderboard, icon: Flame },
+    { href: '/archive', label: t.navArchive, icon: Archive },
     ...(isOrganizer ? [{ href: '/admin', label: isSuperAdmin ? 'Super Admin' : 'Admin', icon: Shield, badge: isSuperAdmin ? 'Master' : 'Organizer' }] : []),
   ];
 
@@ -107,15 +113,49 @@ export function Navbar() {
           </nav>
 
           {/* Desktop User Controls */}
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2.5">
+            {/* Language Selector */}
+            <div className="flex items-center rounded-full bg-[#0D1B2A] border border-white/10 p-0.5 text-[11px] font-bold">
+              {[
+                { code: 'en', label: 'EN' },
+                { code: 'hi', label: 'HI' },
+                { code: 'ar', label: 'AR' },
+                { code: 'es', label: 'ES' },
+              ].map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => setLanguage(lang.code as any)}
+                  className={`px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                    language === lang.code
+                      ? 'bg-[#D8AD55] text-[#08111F] font-black shadow-sm'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title={`Switch language to ${lang.label}`}
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Corporate Theme Palette Button */}
+            <button
+              type="button"
+              onClick={() => setIsThemeModalOpen(true)}
+              className="p-1.5 rounded-full bg-[#0D1B2A] hover:bg-[#111D2D] border border-white/10 text-gray-300 hover:text-white transition-all cursor-pointer"
+              title="Corporate Brand & Color Palette"
+            >
+              <Palette className="w-4 h-4 text-[#D8AD55]" />
+            </button>
+
             {/* Host Tournament CTA */}
             <Link
               href="/tournaments/create"
-              className="btn-press shimmer-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-md shadow-[#D8AD55]/15 hover:brightness-110"
+              className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-md shadow-[#D8AD55]/15 hover:brightness-110"
               title="Host Your Corporate Cricket League"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Host League</span>
+              <span>{t.navHostLeague}</span>
             </Link>
 
             {/* Super Admin / Organizer Badge */}
@@ -224,6 +264,43 @@ export function Navbar() {
           </div>
 
           <div className="pt-2 border-t border-[#D8AD55]/15 space-y-2">
+            {/* Mobile Language and Palette Controls */}
+            <div className="flex items-center justify-between px-2 py-1">
+              <div className="flex items-center rounded-xl bg-[#08111F] border border-white/10 p-0.5 text-xs font-bold">
+                {[
+                  { code: 'en', label: 'EN' },
+                  { code: 'hi', label: 'HI' },
+                  { code: 'ar', label: 'AR' },
+                  { code: 'es', label: 'ES' },
+                ].map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => setLanguage(lang.code as any)}
+                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                      language === lang.code
+                        ? 'bg-[#D8AD55] text-[#08111F] font-black'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setIsThemeModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold"
+              >
+                <Palette className="w-3.5 h-3.5 text-[#D8AD55]" />
+                <span>Colors</span>
+              </button>
+            </div>
+
             <Link
               href="/tournaments/create"
               onClick={() => setMobileMenuOpen(false)}
@@ -246,6 +323,12 @@ export function Navbar() {
           </div>
         </div>
       )}
+
+      {/* Corporate Brand & Theme Customizer Modal */}
+      <ThemeCustomizerModal
+        isOpen={isThemeModalOpen}
+        onClose={() => setIsThemeModalOpen(false)}
+      />
     </header>
   );
 }

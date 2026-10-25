@@ -5,6 +5,8 @@ import { Footer } from '@/components/layout/Footer';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { NavigationProgress } from '@/components/common/NavigationProgress';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { LanguageProvider } from '@/contexts/LanguageContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
@@ -42,27 +44,31 @@ export default function RootLayout({
       </head>
       <body className="bg-[#040814] text-gray-100 flex flex-col min-h-screen antialiased selection:bg-cricket-teal selection:text-cricket-dark">
         <AuthProvider>
-          <ServiceWorkerRegister />
-          {/* Top route change progress bar */}
-          <NavigationProgress />
+          <LanguageProvider>
+            <ThemeProvider>
+              <ServiceWorkerRegister />
+              {/* Top route change progress bar */}
+              <NavigationProgress />
 
-          {/* Full-bleed fixed stadium visual reaching all edges of any display */}
-          <div className="stadium-bg-fixed" />
-          <div className="stadium-overlay-fixed" />
+              {/* Full-bleed fixed stadium visual reaching all edges of any display */}
+              <div className="stadium-bg-fixed" />
+              <div className="stadium-overlay-fixed" />
 
-          {/* Top Floating Header Navbar */}
-          <Navbar />
+              {/* Top Floating Header Navbar */}
+              <Navbar />
 
-          {/* Main Content Area with fluid entry animation */}
-          <main className="flex-1 relative z-10 pb-24 lg:pb-12 page-enter">
-            {children}
-          </main>
+              {/* Main Content Area with fluid entry animation */}
+              <main className="flex-1 relative z-10 pb-24 lg:pb-12 page-enter">
+                {children}
+              </main>
 
-          {/* Footer */}
-          <Footer />
+              {/* Footer */}
+              <Footer />
 
-          {/* Modern Floating App Dock for Mobile */}
-          <MobileNav />
+              {/* Modern Floating App Dock for Mobile */}
+              <MobileNav />
+            </ThemeProvider>
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>

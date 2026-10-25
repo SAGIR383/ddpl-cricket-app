@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, Activity, ChevronRight, Trophy, Clock, Gavel, MapPin, Sparkles } from 'lucide-react';
+import { Calendar, Activity, ChevronRight, Trophy, Clock, Gavel, MapPin, Sparkles, Download, FileSpreadsheet } from 'lucide-react';
 import { fetchWithCache } from '@/lib/clientCache';
+import { downloadIcsCalendar, downloadMatchesCsv } from '@/lib/calendarExport';
 
 interface MatchDisplay {
   id: string;
@@ -180,21 +181,56 @@ export default function MatchesPage() {
           </p>
         </div>
 
-        {/* Tournament Selector Pill Bar */}
-        <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold shadow-md">
-          {tournamentsList.map((t) => (
-            <button
-              key={t.slug}
-              onClick={() => setSelectedTournament(t.slug)}
-              className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
-                selectedTournament === t.slug
-                  ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
-                  : 'text-[#8793A5] hover:text-white'
-              }`}
-            >
-              {t.name} Fixtures
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Tournament Selector Pill Bar */}
+          <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold shadow-md">
+            {tournamentsList.map((t) => (
+              <button
+                key={t.slug}
+                onClick={() => setSelectedTournament(t.slug)}
+                className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+                  selectedTournament === t.slug
+                    ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
+                    : 'text-[#8793A5] hover:text-white'
+                }`}
+              >
+                {t.name} Fixtures
+              </button>
+            ))}
+          </div>
+
+          {/* Export Actions */}
+          {matches.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const tourneyName = tournamentsList.find((t) => t.slug === selectedTournament)?.name || selectedTournament;
+                  downloadIcsCalendar(tourneyName, matches as any);
+                }}
+                className="btn-press flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0D1B2A] hover:bg-[#111D2D] border border-cyan-500/40 text-cyan-300 text-xs font-bold transition-all shadow cursor-pointer"
+                title="Add all matches to Google/Apple/Outlook Calendar (.ics)"
+              >
+                <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Add to Calendar (.ics)</span>
+                <span className="sm:hidden">.ics</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const tourneyName = tournamentsList.find((t) => t.slug === selectedTournament)?.name || selectedTournament;
+                  downloadMatchesCsv(tourneyName, matches as any);
+                }}
+                className="btn-press flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0D1B2A] hover:bg-[#111D2D] border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all shadow cursor-pointer"
+                title="Export Tournament Fixture Schedule as CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sm:hidden">CSV</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
