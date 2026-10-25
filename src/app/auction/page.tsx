@@ -26,7 +26,11 @@ import {
   Play,
   Pause,
   Square,
-  Eye
+  Eye,
+  Tv,
+  Volume2,
+  VolumeX,
+  Flame,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import confetti from 'canvas-confetti';
@@ -36,6 +40,7 @@ import type { ParsedFranchise, ParsedPlayer } from '@/lib/auctionImport';
 import type { MascotEventData } from '@/components/auction/AuctionMascotOverlay';
 import { fetchWithCache } from '@/lib/clientCache';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { auctionAudio } from '@/lib/auctionAudio';
 
 const AuctionMascotOverlay = dynamic(() => import('@/components/auction/AuctionMascotOverlay'), {
   ssr: false,
@@ -117,6 +122,25 @@ export default function AuctionPage() {
   const [teamBiddingAccess, setTeamBiddingAccess] = useState<Record<string, boolean>>({});
   const [isAutoTransitioning, setIsAutoTransitioning] = useState<boolean>(false);
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
+
+  // Audio, Projector & RTM State
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
+  const [isAcceleratedRound, setIsAcceleratedRound] = useState<boolean>(false);
+  const [isRtmModalOpen, setIsRtmModalOpen] = useState<boolean>(false);
+  const [rtmSelectedTeam, setRtmSelectedTeam] = useState<string>('');
+
+  const currentTourneyMeta = tournamentsList.find((t) => t.slug === activeTournament);
+  const currencySymbol = currentTourneyMeta?.currencySymbol || (activeTournament === 'game-of-run' ? 'د.إ' : '₹');
+
+  useEffect(() => {
+    setIsAudioMuted(auctionAudio.isMuted());
+  }, []);
+
+  const handleToggleSound = () => {
+    const next = auctionAudio.toggleMute();
+    setIsAudioMuted(next);
+    showToast(next ? '🔇 Auction Sound Effects Muted' : '🔊 Auction Sound Effects Enabled');
+  };
 
   // Franchise Owner Detection
   const userTeam = teams.find((t) => {
@@ -299,6 +323,9 @@ export default function AuctionPage() {
           handleAutoTimeout();
           return 0;
         }
+        if (prev <= 6 && prev > 1) {
+          auctionAudio.playCountdownBeep(prev === 2);
+        }
         return prev - 1;
       });
     }, 1000);
@@ -401,7 +428,7 @@ export default function AuctionPage() {
     }
 
     if (currentLot.leadingTeam === team.name) {
-      alert(`You already hold the highest bid of ₹${currentLot.currentBid.toLocaleString('en-IN')}! Wait for another franchise to bid.`);
+      alert(`You already hold the highest bid of ${currencySymbol}${currentLot.currentBid.toLocaleString()}! Wait for another franchise to bid.`);
       return;
     }
 
@@ -426,7 +453,7 @@ export default function AuctionPage() {
     }
 
     if (team.allocated - team.spent < nextBid) {
-      alert(`Cannot bid: ${team.name} has insufficient remaining budget (₹${(team.allocated - team.spent).toLocaleString('en-IN')} left)!`);
+      alert(`Cannot bid: ${team.name} has insufficient remaining budget (${currencySymbol}${(team.allocated - team.spent).toLocaleString()} left)!`);
       return;
     }
 
@@ -434,6 +461,9 @@ export default function AuctionPage() {
       alert(`Cannot bid: ${team.name} has reached maximum squad capacity (${team.maxSquad})!`);
       return;
     }
+
+    // Play synthesized bell chime
+    auctionAudio.playBidChime();
 
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
@@ -470,7 +500,7 @@ export default function AuctionPage() {
       }),
     }).catch((err) => console.warn('Failed to sync bid to server:', err));
 
-    showToast(`🔨 ${team.short} placed bid: ₹${nextBid.toLocaleString('en-IN')} ${incrementLogged > 0 ? `(+₹${incrementLogged})` : '(Opening Base)'}`);
+    showToast(`🔨 ${team.short} placed bid: ${currencySymbol}${nextBid.toLocaleString()} ${incrementLogged > 0 ? `(+${currencySymbol}${incrementLogged})` : '(Opening Base)'}`);
   }
 
   // Handle Undo Last Bid
@@ -581,9 +611,12 @@ export default function AuctionPage() {
     };
     setActiveMascotEvent(soldEvent);
 
+    // Play resonant gavel hammer sound effect
+    auctionAudio.playGavelStrike();
+
     const msg = isAuto
-      ? `⏰ 30s Up! AUTO-SOLD: ${soldPlayer} won by ${winningTeamName} for ₹${finalPrice.toLocaleString('en-IN')}! Boarding next player in 4s...`
-      : `🔨 HAMMER SOLD! ${soldPlayer} won by ${winningTeamName} for ₹${finalPrice.toLocaleString('en-IN')}! Boarding next player in 4s...`;
+      ? `⏰ 30s Up! AUTO-SOLD: ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 4s...`
+      : `🔨 HAMMER SOLD! ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 4s...`;
     setTransitionMessage(msg);
 
     broadcastAuctionState({
@@ -606,6 +639,9 @@ export default function AuctionPage() {
   function executeUnsold(unsoldPlayer: string, isAuto = false) {
     if (isAutoTransitioning) return;
     setIsAutoTransitioning(true);
+
+    // Play unsold double buzzer sound effect
+    auctionAudio.playUnsoldBuzzer();
 
     const newUnsold = [...unsoldPlayers, unsoldPlayer];
     setUnsoldPlayers(newUnsold);
@@ -638,6 +674,79 @@ export default function AuctionPage() {
     }, 4000);
   }
 
+  // Right to Match (RTM) Card Invocation
+  function handleInvokeRTM(rtmTeamName: string) {
+    if (!currentLot || !currentLot.leadingTeam) return;
+    const rtmTeam = teams.find((t) => t.name === rtmTeamName);
+    if (!rtmTeam) return;
+
+    if (currentLot.leadingTeam === rtmTeam.name) {
+      alert(`${rtmTeam.name} already holds the winning bid!`);
+      return;
+    }
+
+    const currentPrice = currentLot.currentBid;
+    const remaining = rtmTeam.allocated - rtmTeam.spent;
+    if (remaining < currentPrice) {
+      alert(`Insufficient purse: ${rtmTeam.name} has ${currencySymbol}${remaining.toLocaleString()} left, but matching bid requires ${currencySymbol}${currentPrice.toLocaleString()}.`);
+      return;
+    }
+
+    if (confirm(`Invoke Right to Match (RTM)?\n\n${rtmTeam.name} will match the highest bid of ${currencySymbol}${currentPrice.toLocaleString()} and claim ${currentLot.name}!`)) {
+      auctionAudio.playRtmFanfare();
+      confetti({ particleCount: 150, spread: 90, colors: ['#D8AD55', '#10B981', '#3B82F6'] });
+      executeSold(rtmTeam.name, currentPrice, currentLot.name, currentLot.role, false);
+      showToast(`⚡ RIGHT TO MATCH INVOKED! ${rtmTeam.name} matched ${currencySymbol}${currentPrice.toLocaleString()} to retain ${currentLot.name}!`);
+      setIsRtmModalOpen(false);
+    }
+  }
+
+  // Enhanced Accelerated Unsold Round
+  function handleStartAcceleratedRound(discount50Percent: boolean = false) {
+    if (unsoldPlayers.length === 0) {
+      alert('No unsold players available for accelerated round.');
+      return;
+    }
+
+    const reAuctionPool: ParsedPlayer[] = unsoldPlayers.map((name, idx) => {
+      const existing = playerPool.find((p) => p.name === name);
+      const rawBase = existing?.basePrice || rules.defaultPlayerBasePrice || 500;
+      const basePrice = discount50Percent ? Math.max(100, Math.floor(rawBase / 2)) : rawBase;
+      return {
+        id: `p-accel-${idx + 1}`,
+        name,
+        role: existing?.role || 'All Rounder',
+        basePrice,
+      };
+    });
+
+    const firstLot: PlayerLot = {
+      id: reAuctionPool[0].id,
+      name: reAuctionPool[0].name,
+      role: reAuctionPool[0].role,
+      basePrice: reAuctionPool[0].basePrice,
+      currentBid: reAuctionPool[0].basePrice,
+      leadingTeam: null,
+      history: [],
+    };
+
+    setIsAcceleratedRound(true);
+    setPlayerPool(reAuctionPool);
+    setUnsoldPlayers([]);
+    setCurrentLot(firstLot);
+    setCountdown(15); // Fast 15s timer for accelerated round
+
+    broadcastAuctionState({
+      playerPool: reAuctionPool,
+      unsoldPlayers: [],
+      currentLot: firstLot,
+      countdown: 15,
+      isAcceleratedRound: true,
+    });
+
+    showToast(`⚡ Accelerated Round Started with ${reAuctionPool.length} players (15s fast timer)!`);
+  }
+
   // Manual Super Admin Hammer: Sold
   function handleSold() {
     if (!currentLot || !currentLot.leadingTeam) {
@@ -655,37 +764,7 @@ export default function AuctionPage() {
 
   // Handle Phase 2: Accelerated Unsold Round
   function handleStartPhase2() {
-    if (unsoldPlayers.length === 0) return;
-
-    const reAuctionPool: ParsedPlayer[] = unsoldPlayers.map((name, idx) => {
-      const existing = playerPool.find((p) => p.name === name);
-      return {
-        id: `p-phase2-${idx + 1}`,
-        name,
-        role: existing?.role || 'All Rounder',
-        basePrice: existing?.basePrice || rules.defaultPlayerBasePrice || 500,
-      };
-    });
-
-    const firstLot: PlayerLot = {
-      id: reAuctionPool[0].id,
-      name: reAuctionPool[0].name,
-      role: reAuctionPool[0].role,
-      basePrice: reAuctionPool[0].basePrice,
-      currentBid: reAuctionPool[0].basePrice,
-      leadingTeam: null,
-      history: [],
-    };
-
-    setPlayerPool(reAuctionPool);
-    setUnsoldPlayers([]);
-    setCurrentLot(firstLot);
-
-    broadcastAuctionState({
-      playerPool: reAuctionPool,
-      unsoldPlayers: [],
-      currentLot: firstLot,
-    });
+    handleStartAcceleratedRound(false);
   }
 
   // Handle Sync Registered Players from Tournament Registration
@@ -1020,7 +1099,7 @@ export default function AuctionPage() {
               <div className="text-right">
                 <span className="text-[10px] text-[#8793A5] font-bold uppercase tracking-wider">Your Available Purse</span>
                 <div className="font-display font-black text-2xl text-[#F2D69A]">
-                  ₹{(userTeam.allocated - userTeam.spent).toLocaleString('en-IN')}
+                  {currencySymbol}{(userTeam.allocated - userTeam.spent).toLocaleString('en-IN')}
                 </div>
               </div>
             </div>
@@ -1057,10 +1136,10 @@ export default function AuctionPage() {
               </div>
               <div>
                 <div className="text-xs font-bold text-white">
-                  Active Auction Rule Set: Base Purse <span className="text-[#F2D69A] font-extrabold">₹{rules.basePurse.toLocaleString('en-IN')} pts</span> • {rules.matchOvers || 10} Overs Innings • Squad Cap {rules.maxSquadSize || 11} Players
+                  Active Auction Rule Set: Base Purse <span className="text-[#F2D69A] font-extrabold">{currencySymbol}{rules.basePurse.toLocaleString('en-IN')} pts</span> • {rules.matchOvers || 10} Overs Innings • Squad Cap {rules.maxSquadSize || 11} Players
                 </div>
                 <div className="text-[11px] text-[#8793A5] mt-0.5">
-                  Franchise owner retention: <span className="text-[#F2D69A] font-bold">₹{rules.ownerBlockedPrice} pts</span> • Remaining Starting Purse: <span className="text-white font-bold">₹{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')} pts</span> • Base Player Price: <span className="text-white font-bold">₹{rules.defaultPlayerBasePrice} pts</span>
+                  Franchise owner retention: <span className="text-[#F2D69A] font-bold">{currencySymbol}{rules.ownerBlockedPrice} pts</span> • Remaining Starting Purse: <span className="text-white font-bold">{currencySymbol}{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')} pts</span> • Base Player Price: <span className="text-white font-bold">{currencySymbol}{rules.defaultPlayerBasePrice} pts</span>
                 </div>
               </div>
             </div>
@@ -1170,12 +1249,12 @@ export default function AuctionPage() {
                         Current Highest Bid
                       </div>
                       <div className="font-display font-black text-5xl sm:text-6xl text-[#D8AD55] drop-shadow-[0_0_25px_rgba(216,173,85,0.35)] mt-1">
-                        ₹{currentLot.currentBid.toLocaleString('en-IN')}
+                        {currencySymbol}{currentLot.currentBid.toLocaleString('en-IN')}
                       </div>
                       <div className="text-sm font-semibold text-gray-200 mt-1">
                         Leading Bidder:{' '}
                         <span className="text-[#F2D69A] font-black">
-                          {currentLot.leadingTeam || `Opening Base Bid (₹${currentLot.basePrice})`}
+                          {currentLot.leadingTeam || `Opening Base Bid (${currencySymbol}${currentLot.basePrice})`}
                         </span>
                       </div>
                     </div>
@@ -1200,8 +1279,8 @@ export default function AuctionPage() {
                               </span>
                               <p className="text-[11px] text-[#8793A5] mt-0.5">
                                 {isOpeningRound
-                                  ? `Open bid at Base Price (₹${currentLot.basePrice}) or jump directly with +₹50, +₹100, +₹200:`
-                                  : `Choose increment to top the current highest bid (₹${currentLot.currentBid.toLocaleString('en-IN')}):`}
+                                  ? `Open bid at Base Price (${currencySymbol}${currentLot.basePrice}) or jump directly with +${currencySymbol}50, +${currencySymbol}100, +${currencySymbol}200:`
+                                  : `Choose increment to top the current highest bid (${currencySymbol}${currentLot.currentBid.toLocaleString('en-IN')}):`}
                               </p>
                             </div>
 
@@ -1216,7 +1295,7 @@ export default function AuctionPage() {
                                       : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20'
                                   }`}
                                 >
-                                  Base (₹{currentLot.basePrice})
+                                  Base ({currencySymbol}{currentLot.basePrice})
                                 </button>
                               )}
                               {[50, 100, 200, 500].map((step) => (
@@ -1233,7 +1312,7 @@ export default function AuctionPage() {
                                       : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20'
                                   }`}
                                 >
-                                  +₹{step}
+                                  +{currencySymbol}{step}
                                 </button>
                               ))}
                             </div>
@@ -1246,24 +1325,24 @@ export default function AuctionPage() {
                               {isOpeningRound ? (
                                 isOpeningAtBase ? (
                                   <span className="font-mono text-[#F2D69A] font-bold">
-                                    Base Price ₹{currentLot.basePrice} (Opening Bid)
+                                    Base Price {currencySymbol}{currentLot.basePrice} (Opening Bid)
                                   </span>
                                 ) : (
                                   <span className="flex items-center gap-1.5 font-mono">
-                                    <span>Base ₹{currentLot.basePrice}</span>
+                                    <span>Base {currencySymbol}{currentLot.basePrice}</span>
                                     <span className="text-[#D8AD55] font-bold">+</span>
-                                    <span className="text-[#D8AD55] font-bold">₹{selectedIncrement} Jump</span>
+                                    <span className="text-[#D8AD55] font-bold">{currencySymbol}{selectedIncrement} Jump</span>
                                     <span>=</span>
-                                    <strong className="text-[#F2D69A] font-bold text-sm">₹{targetBidAmount.toLocaleString('en-IN')}</strong>
+                                    <strong className="text-[#F2D69A] font-bold text-sm">{currencySymbol}{targetBidAmount.toLocaleString('en-IN')}</strong>
                                   </span>
                                 )
                               ) : (
                                 <span className="flex items-center gap-1.5 font-mono">
-                                  <span>Current ₹{currentLot.currentBid.toLocaleString('en-IN')}</span>
+                                  <span>Current {currencySymbol}{currentLot.currentBid.toLocaleString('en-IN')}</span>
                                   <span className="text-[#D8AD55] font-bold">+</span>
-                                  <span className="text-[#D8AD55] font-bold">₹{selectedIncrement}</span>
+                                  <span className="text-[#D8AD55] font-bold">{currencySymbol}{selectedIncrement}</span>
                                   <span>=</span>
-                                  <strong className="text-[#F2D69A] font-bold text-sm">₹{targetBidAmount.toLocaleString('en-IN')}</strong>
+                                  <strong className="text-[#F2D69A] font-bold text-sm">{currencySymbol}{targetBidAmount.toLocaleString('en-IN')}</strong>
                                 </span>
                               )}
                             </div>
@@ -1301,7 +1380,7 @@ export default function AuctionPage() {
                             </div>
                             <div className="text-right">
                               <span className="text-xs font-mono font-bold text-[#D8AD55] block">
-                                Purse: ₹{userRemaining.toLocaleString('en-IN')}
+                                Purse: {currencySymbol}{userRemaining.toLocaleString('en-IN')}
                               </span>
                               <span className="text-[10px] text-[#8793A5]">
                                 Squad: {userTeam.playersBought}/{userTeam.maxSquad}
@@ -1312,7 +1391,7 @@ export default function AuctionPage() {
                           {isAlreadyLeading ? (
                             <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 font-display font-bold text-center text-sm flex items-center justify-center gap-2 shadow-inner">
                               <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                              <span>👑 You hold the WINNING BID of ₹{currentLot.currentBid.toLocaleString('en-IN')}!</span>
+                              <span>👑 You hold the WINNING BID of {currencySymbol}{currentLot.currentBid.toLocaleString('en-IN')}!</span>
                             </div>
                           ) : (
                             <button
@@ -1324,11 +1403,11 @@ export default function AuctionPage() {
                               <div className="flex items-center gap-2">
                                 <Gavel className="w-6 h-6" />
                                 <span>
-                                  PLACE BID: ₹{targetBidAmount.toLocaleString('en-IN')} FOR {userTeam.short}
+                                  PLACE BID: {currencySymbol}{targetBidAmount.toLocaleString('en-IN')} FOR {userTeam.short}
                                 </span>
                               </div>
                               <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-black/20 text-[#08111F]">
-                                {isOpeningRound ? (isOpeningAtBase ? 'Base Price' : `+₹${selectedIncrement} Jump`) : `+₹${selectedIncrement}`}
+                                {isOpeningRound ? (isOpeningAtBase ? 'Base Price' : `+${currencySymbol}${selectedIncrement} Jump`) : `+${currencySymbol}${selectedIncrement}`}
                               </span>
                             </button>
                           )}
@@ -1385,7 +1464,7 @@ export default function AuctionPage() {
 
                               <div className="mt-2 flex items-center justify-between text-xs">
                                 <span className="text-[#8793A5]">
-                                  Purse: ₹{remaining.toLocaleString('en-IN')}
+                                  Purse: {currencySymbol}{remaining.toLocaleString('en-IN')}
                                 </span>
                                 <span className="font-bold text-[#F2D69A]">
                                   Squad: {t.playersBought}/{t.maxSquad}
@@ -1398,9 +1477,9 @@ export default function AuctionPage() {
                                 </span>
                                 <span className="font-display font-extrabold text-sm text-[#D8AD55]">
                                   {isLeading
-                                    ? `₹${currentLot.currentBid.toLocaleString('en-IN')}`
+                                    ? `${currencySymbol}${currentLot.currentBid.toLocaleString('en-IN')}`
                                     : canBid
-                                    ? `₹${targetBidAmount.toLocaleString('en-IN')} (+₹${isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement})`
+                                    ? `${currencySymbol}${targetBidAmount.toLocaleString('en-IN')} (+${currencySymbol}${isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement})`
                                     : isSquadFull ? 'Squad Full' : remaining < targetBidAmount ? 'Low Purse' : 'Spectator'}
                                 </span>
                               </div>
@@ -1419,7 +1498,7 @@ export default function AuctionPage() {
                         </span>
                         {currentLot.history.length > 0 && (
                           <span className="text-[11px] text-[#F2D69A] font-mono font-bold">
-                            Latest: ₹{currentLot.currentBid.toLocaleString('en-IN')} by {currentLot.leadingTeam}
+                            Latest: {currencySymbol}{currentLot.currentBid.toLocaleString('en-IN')} by {currentLot.leadingTeam}
                           </span>
                         )}
                       </div>
@@ -1457,7 +1536,7 @@ export default function AuctionPage() {
                                   <span className="text-[10px] text-gray-500 font-mono">{h.timestamp}</span>
                                 )}
                                 <span className="font-mono font-extrabold text-sm text-cricket-gold">
-                                  ₹{h.bid.toLocaleString('en-IN')}
+                                  {currencySymbol}{h.bid.toLocaleString('en-IN')}
                                 </span>
                               </div>
                             </div>
@@ -1482,7 +1561,23 @@ export default function AuctionPage() {
                           <span>Undo Last Bid</span>
                         </button>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                          {/* Right to Match (RTM) Trigger Button */}
+                          {currentLot.leadingTeam && teams.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRtmSelectedTeam('');
+                                setIsRtmModalOpen(true);
+                              }}
+                              className="btn-press px-4 py-2.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-bold text-xs border border-purple-500/40 transition-all cursor-pointer flex items-center gap-1.5"
+                              title="Right to Match (RTM) Option"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                              <span>Invoke RTM</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={handleUnsold}
                             className="btn-press px-5 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 font-bold text-xs border border-rose-500/40 transition-all cursor-pointer"
@@ -1516,25 +1611,35 @@ export default function AuctionPage() {
                       </div>
                       <div className="space-y-1">
                         <span className="px-3 py-1 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] text-xs font-bold uppercase tracking-wider border border-[#D8AD55]/30">
-                          Phase 1 Completed
+                          {isAcceleratedRound ? 'Accelerated Pool' : 'Main Pool Completed'}
                         </span>
                         <h3 className="font-display font-black text-2xl sm:text-4xl text-white pt-2">
                           {unsoldPlayers.length} Unsold Players in Pool
                         </h3>
                         <p className="text-sm text-[#8793A5] max-w-md mx-auto">
-                          Phase 1 is complete! You can now start <strong>Phase 2: Accelerated Unsold Round</strong> to allow franchise owners with remaining purse to bid on the unsold pool.
+                          Launch an <strong>Accelerated Round</strong> with fast 15-second timers and optional 50% base price discount so franchises can complete their squads!
                         </p>
                       </div>
 
                       <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
                         {isAccessAllowed && (
-                          <button
-                            onClick={handleStartPhase2}
-                            className="btn-press shimmer-btn px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-                          >
-                            <Zap className="w-4 h-4" />
-                            <span>Launch Phase 2: Unsold Players Round ({unsoldPlayers.length})</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleStartAcceleratedRound(false)}
+                              className="btn-press shimmer-btn px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                            >
+                              <Zap className="w-4 h-4" />
+                              <span>⚡ Start Accelerated Round (Regular Base Price)</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleStartAcceleratedRound(true)}
+                              className="btn-press px-5 py-3.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-display font-black text-xs uppercase tracking-wider border border-purple-500/40 shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                            >
+                              <Flame className="w-4 h-4 text-purple-400" />
+                              <span>⚡ Accelerated Round (50% Base Price Discount)</span>
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={handleSyncRegisteredPlayers}
@@ -1596,7 +1701,7 @@ export default function AuctionPage() {
                           <div className="text-xs text-[#D8AD55] font-semibold">{tx.team}</div>
                         </div>
                         <div className="font-display font-black text-lg text-[#F2D69A]">
-                          ₹{tx.price.toLocaleString('en-IN')}
+                          {currencySymbol}{tx.price.toLocaleString('en-IN')}
                         </div>
                       </div>
                     ))
@@ -1614,7 +1719,7 @@ export default function AuctionPage() {
                     <span>Team Purse Tracker</span>
                   </h3>
                   <span className="text-xs font-bold text-[#F2D69A] font-mono">
-                    ₹{rules.basePurse.toLocaleString('en-IN')} Budget
+                    {currencySymbol}{rules.basePurse.toLocaleString('en-IN')} Budget
                   </span>
                 </div>
 
@@ -1637,7 +1742,7 @@ export default function AuctionPage() {
                               <span className="font-bold text-white text-sm">{t.name}</span>
                               {t.owner && (
                                 <div className="text-[11px] text-[#D8AD55] font-semibold mt-0.5">
-                                  Owner: {t.owner} (Blocked ₹{rules.ownerBlockedPrice})
+                                  Owner: {t.owner} (Blocked {currencySymbol}{rules.ownerBlockedPrice})
                                 </div>
                               )}
                             </div>
@@ -1656,10 +1761,10 @@ export default function AuctionPage() {
 
                           <div className="flex items-center justify-between text-xs pt-1">
                             <span className="text-[#8793A5]">
-                              Spent: ₹{t.spent.toLocaleString('en-IN')}
+                              Spent: {currencySymbol}{t.spent.toLocaleString('en-IN')}
                             </span>
                             <span className="font-extrabold text-[#F2D69A]">
-                              Remaining: ₹{remaining.toLocaleString('en-IN')}
+                              Remaining: {currencySymbol}{remaining.toLocaleString('en-IN')}
                             </span>
                           </div>
                         </div>
@@ -1736,10 +1841,10 @@ export default function AuctionPage() {
                 <span>Automatic Budget &amp; Owner Retention Rules:</span>
               </div>
               <ul className="list-disc list-inside space-y-1 text-[#8793A5]">
-                <li>Total Base Points per Franchise: <strong className="text-white">₹{rules.basePurse.toLocaleString('en-IN')}</strong></li>
-                <li>Franchise Owner Blocked Base Price: <strong className="text-[#F2D69A]">₹{rules.ownerBlockedPrice}</strong> (Retained in team squad)</li>
-                <li>Effective Remaining Starting Purse: <strong className="text-[#D8AD55]">₹{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')}</strong></li>
-                <li>Player Base Price: <strong className="text-white">₹{rules.defaultPlayerBasePrice}</strong> (Added into live auction queue)</li>
+                <li>Total Base Points per Franchise: <strong className="text-white">{currencySymbol}{rules.basePurse.toLocaleString('en-IN')}</strong></li>
+                <li>Franchise Owner Blocked Base Price: <strong className="text-[#F2D69A]">{currencySymbol}{rules.ownerBlockedPrice}</strong> (Retained in team squad)</li>
+                <li>Effective Remaining Starting Purse: <strong className="text-[#D8AD55]">{currencySymbol}{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')}</strong></li>
+                <li>Player Base Price: <strong className="text-white">{currencySymbol}{rules.defaultPlayerBasePrice}</strong> (Added into live auction queue)</li>
               </ul>
             </div>
 
@@ -1801,7 +1906,7 @@ export default function AuctionPage() {
                     <ul className="space-y-1 text-gray-300 pt-1">
                       {parsedPreview.playerPool.slice(0, 4).map((p: any) => (
                         <li key={p.id} className="truncate">
-                          👤 {p.name} <span className="text-[#8793A5]">({p.role} - ₹{p.basePrice})</span>
+                          👤 {p.name} <span className="text-[#8793A5]">({p.role} - {currencySymbol}{p.basePrice})</span>
                         </li>
                       ))}
                       {parsedPreview.playerPool.length > 4 && (
@@ -1837,6 +1942,115 @@ export default function AuctionPage() {
                 }`}
               >
                 {isImporting ? 'Importing Roster...' : 'Load & Reflect in Auction Room'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* ========================================================================= */}
+      {/* RIGHT TO MATCH (RTM) SELECTION MODAL */}
+      {/* ========================================================================= */}
+      {isRtmModalOpen && currentLot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="max-w-lg w-full p-6 sm:p-8 rounded-3xl bg-[#0D1B2A] border-2 border-purple-500/50 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-purple-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-lg text-white">Invoke Right to Match (RTM)</h3>
+                  <p className="text-xs text-purple-300">Match highest winning bid to retain player</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRtmModalOpen(false)}
+                className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#08111F] border border-purple-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs uppercase font-bold tracking-wider text-purple-400">Target Player</div>
+                  <div className="font-display font-black text-lg text-white">{currentLot.name}</div>
+                  <div className="text-xs text-gray-400">{currentLot.role}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs uppercase font-bold tracking-wider text-gray-400">Highest Bid</div>
+                  <div className="font-display font-black text-xl text-[#10B981]">
+                    {currencySymbol}{currentLot.currentBid.toLocaleString('en-IN')}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Leader: <span className="text-white font-semibold">{currentLot.leadingTeam}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-300">
+                Select Franchise Exercising RTM
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                {teams
+                  .filter((t) => t.name !== currentLot.leadingTeam)
+                  .map((t) => {
+                    const remaining = t.allocated - t.spent;
+                    const canAfford = remaining >= currentLot.currentBid;
+                    const isSelected = rtmSelectedTeam === t.name;
+
+                    return (
+                      <button
+                        key={t.name}
+                        type="button"
+                        disabled={!canAfford}
+                        onClick={() => setRtmSelectedTeam(t.name)}
+                        className={`p-3 rounded-2xl text-left border transition-all ${
+                          isSelected
+                            ? 'bg-purple-600/30 border-purple-400 ring-2 ring-purple-400/50'
+                            : canAfford
+                            ? 'bg-[#08111F] border-white/10 hover:border-purple-400/50'
+                            : 'bg-white/5 border-transparent opacity-40 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className="font-bold text-white text-xs truncate">{t.name}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">
+                          Purse: <span className={canAfford ? 'text-green-400 font-semibold' : 'text-red-400'}>{currencySymbol}{remaining.toLocaleString('en-IN')}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsRtmModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl text-gray-400 hover:text-white text-xs font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!rtmSelectedTeam}
+                onClick={() => {
+                  if (rtmSelectedTeam) {
+                    handleInvokeRTM(rtmSelectedTeam);
+                  }
+                }}
+                className={`btn-press px-6 py-2.5 rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-xl transition-all ${
+                  rtmSelectedTeam
+                    ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:brightness-110 active:scale-95 shadow-purple-500/30'
+                    : 'bg-white/10 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                Match & Claim Player
               </button>
             </div>
           </div>
