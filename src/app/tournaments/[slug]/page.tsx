@@ -29,7 +29,8 @@ export default function TournamentDetailPage() {
   const params = useParams();
   const slug = (params.slug as string) || 'ddpl';
   const isDDPL = slug === 'ddpl';
-  const { user, profile } = useAuth();
+  const { user, profile, isSuperAdmin, isOrganizer } = useAuth();
+  const hasAdminRights = isSuperAdmin || isOrganizer;
   const supabase = createClient();
 
   const [selectedSeason, setSelectedSeason] = useState('2026');
@@ -423,8 +424,10 @@ export default function TournamentDetailPage() {
               </span>
             </div>
             <h3 className="font-display font-extrabold text-2xl text-white mt-1">
-              {currentStatus === 'open'
-                ? `Join the Official Player Auction Pool for ${tournament.name}`
+              {isUserRegistered
+                ? `You are Enrolled in ${tournament.name}`
+                : hasAdminRights
+                ? `Player Registrations Active for ${tournament.name}`
                 : currentStatus === 'auction'
                 ? `Live Player Auction in Progress for ${tournament.name}`
                 : currentStatus === 'ongoing'
@@ -433,46 +436,40 @@ export default function TournamentDetailPage() {
                 ? `Tournament Completed: ${tournament.name}`
                 : currentStatus === 'closed'
                 ? `Registrations Closed: ${tournament.name}`
-                : `Upcoming Tournament: ${tournament.name}`}
+                : `Official Tournament Hub: ${tournament.name}`}
             </h3>
             <p className="text-xs text-[#8793A5] mt-0.5 max-w-xl">
-              {currentStatus === 'open'
-                ? 'Register your profile and cricket specialism. Upon confirmation, you will automatically enter the live auction pool for franchises to bid on.'
+              {isUserRegistered
+                ? 'Your player profile is verified and active in the auction player pool. Track team franchises, live bidding, and fixtures below.'
+                : hasAdminRights
+                ? 'You are managing this league as Super Admin. Share your private onboarding link below with organization members to enroll them.'
                 : currentStatus === 'auction'
                 ? 'The franchise player bidding room is now live. Follow real-time bids and team purse updates in the Live Player Auction Room.'
                 : currentStatus === 'ongoing'
                 ? 'Matches and fixtures are currently underway. Track live scorecards, standings, and player performances.'
                 : currentStatus === 'closed'
-                ? 'Player registrations for this tournament edition are now closed. Rosters are being finalized for the upcoming auction.'
+                ? 'Player registrations for this tournament edition are now closed. Rosters are finalized for tournament matches.'
                 : currentStatus === 'completed'
                 ? 'This tournament season has concluded. Standings, awards, and historical statistics are finalized.'
-                : 'Player registration will open soon once announced by the Super Admin.'}
+                : `Hosted by ${tournamentConfig.organizationName || 'Tournament Organization'}. Player participation is invitation-only. Explore squads, schedule, standings, and live updates below.`}
             </p>
           </div>
         </div>
 
         <div className="shrink-0 flex items-center gap-3">
-          {currentStatus === 'open' ? (
-            isUserRegistered ? (
-              <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold text-sm shadow">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                <span>You are in the Auction Pool!</span>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  if (!user) {
-                    window.location.href = `/join/${slug}`;
-                  } else {
-                    setIsRegModalOpen(true);
-                  }
-                }}
-                className="btn-press shimmer-btn px-7 py-4 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 transition-all flex items-center gap-2"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>{user ? 'Register for Tournament' : 'Create Account & Join'}</span>
-              </button>
-            )
+          {isUserRegistered ? (
+            <div className="flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold text-sm shadow">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              <span>Enrolled in Auction Pool</span>
+            </div>
+          ) : hasAdminRights ? (
+            <Link
+              href={`/join/${slug}`}
+              className="btn-press shimmer-btn px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Preview Registration Page</span>
+            </Link>
           ) : currentStatus === 'auction' ? (
             <Link
               href={`/auction?tournament=${slug}`}
@@ -481,10 +478,6 @@ export default function TournamentDetailPage() {
               <Gavel className="w-4 h-4" />
               <span>Enter Live Auction</span>
             </Link>
-          ) : currentStatus === 'completed' ? (
-            <span className="px-5 py-3 rounded-xl bg-[#08111F] border border-gray-500/30 text-gray-300 font-bold text-xs">
-              Tournament Completed
-            </span>
           ) : currentStatus === 'ongoing' ? (
             <Link
               href="/matches"
@@ -493,47 +486,48 @@ export default function TournamentDetailPage() {
               <Activity className="w-4 h-4" />
               <span>View Live Matches</span>
             </Link>
-          ) : currentStatus === 'closed' ? (
-            <span className="px-5 py-3 rounded-xl bg-[#08111F] border border-rose-500/30 text-rose-300 font-bold text-xs">
-              Registrations Closed
-            </span>
           ) : (
-            <span className="px-5 py-3 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-[#F2D69A] font-bold text-xs">
-              Registration Opening Soon
-            </span>
+            <div className="px-5 py-3 rounded-xl bg-[#08111F]/80 border border-[#D8AD55]/30 text-xs text-[#F2D69A] font-bold flex items-center gap-2 shadow-sm">
+              <Shield className="w-4 h-4 text-[#D8AD55]" />
+              <span>Spectator &amp; Fan Hub</span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Super Admin Share Invite Box */}
-      <div className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
-        <div className="flex items-center gap-2.5">
-          <Sparkles className="w-4 h-4 text-[#D8AD55] shrink-0" />
-          <div className="text-xs">
-            <strong className="text-white block">Official Player Onboarding Invite Link</strong>
-            <span className="text-[#8793A5]">Share this link with your organization — players can create an account and enroll in this tournament</span>
+      {/* Super Admin Share Invite Box (Visible exclusively to Super Admin / Organizer) */}
+      {hasAdminRights && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-[#08111F] via-[#0E1F35] to-[#142946] border border-[#D8AD55]/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#D8AD55]/20 border border-[#D8AD55]/40 flex items-center justify-center text-[#D8AD55] shrink-0">
+              <Sparkles className="w-4 h-4 text-[#D8AD55]" />
+            </div>
+            <div className="text-xs">
+              <strong className="text-white block">Super Admin Player Invite Link</strong>
+              <span className="text-[#8793A5]">Share this private link with your organization — players create their account and auto-enroll in the auction pool</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              type="text"
+              readOnly
+              value={typeof window !== 'undefined' ? `${window.location.origin}/join/${slug}` : `/join/${slug}`}
+              className="px-3 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-xs text-[#F2D69A] font-mono truncate w-full sm:w-64 select-all"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const url = `${window.location.origin}/join/${slug}`;
+                navigator.clipboard.writeText(url);
+                alert('Copied player invite link:\n' + url);
+              }}
+              className="btn-press px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold shrink-0 cursor-pointer hover:brightness-110 shadow-md"
+            >
+              Copy Link
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <input
-            type="text"
-            readOnly
-            value={typeof window !== 'undefined' ? `${window.location.origin}/join/${slug}` : `/join/${slug}`}
-            className="px-3 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-xs text-[#F2D69A] font-mono truncate w-full sm:w-64 select-all"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              const url = `${window.location.origin}/join/${slug}`;
-              navigator.clipboard.writeText(url);
-              alert('Copied player invite link:\n' + url);
-            }}
-            className="btn-press px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold shrink-0 cursor-pointer"
-          >
-            Copy Link
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* 3. ACTION QUICK-NAV BAR */}
       <div className="flex flex-wrap items-center gap-3">

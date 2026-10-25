@@ -506,30 +506,22 @@ export default function TournamentsPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-2">
+                <div className="flex items-center gap-2.5 pt-2">
                   <Link
                     href={`/tournaments/${t.id}`}
                     className="btn-press shimmer-btn flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 transition-all text-center"
                   >
-                    <span>Explore</span>
+                    <span>Explore Tournament Hub</span>
                     <ChevronRight className="w-4 h-4" />
                   </Link>
 
                   <Link
-                    href={`/tournaments/${t.id}/register`}
-                    className="btn-press flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors"
-                    title="Player Registration Portal"
-                  >
-                    <Users className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Register</span>
-                  </Link>
-
-                  <Link
                     href={`/auction?tournament=${t.id}`}
-                    className="btn-press px-4 py-3 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-sm font-semibold transition-colors flex items-center justify-center"
+                    className="btn-press px-4 py-3 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                     title="Live Auction Room"
                   >
                     <Trophy className="w-4 h-4 text-[#D8AD55]" />
+                    <span className="hidden sm:inline">Auction</span>
                   </Link>
                 </div>
               </div>
