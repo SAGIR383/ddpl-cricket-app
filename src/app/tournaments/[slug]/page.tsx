@@ -314,13 +314,11 @@ export default function TournamentDetailPage() {
             </div>
             
             <div className="flex items-center gap-4">
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-2xl shrink-0 bg-[#08111F]">
-                <Image
-                  src={tournamentConfig.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg')}
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-2xl shrink-0 bg-[#08111F] flex items-center justify-center">
+                <img
+                  src={tournamentConfig.logo || '/images/default-tournament.svg'}
                   alt={`${tournament.name} Logo`}
-                  fill
-                  className="object-cover object-center"
-                  priority
+                  className="w-full h-full object-cover object-center"
                 />
               </div>
               <div>

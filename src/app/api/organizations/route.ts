@@ -32,7 +32,7 @@ const DEFAULT_ORGANIZATIONS: Record<string, CorporateOrganization> = {
     city: 'New Delhi',
     currency: 'INR',
     currencySymbol: '₹',
-    logo: '/images/ddpl-logo.jpg',
+    logo: '/images/default-tournament.svg',
     bannerGradient: 'from-[#08111F] via-[#0E1F35] to-[#142946]',
     themeColor: 'gold',
     adminEmails: ['admin@cricplus.com'],

@@ -164,7 +164,7 @@ export default function HomePage() {
           overs: data.tournament.overs || 10,
           teamsCount: 0,
           pursePerTeam: data.tournament.pursePerTeam || 10000,
-          logo: data.tournament.logo || '/images/ddpl-logo.jpg',
+          logo: data.tournament.logo || '/images/default-tournament.svg',
         };
         setTournaments((prev) => [...prev, created]);
         setStats((prev) => ({
@@ -307,9 +307,9 @@ export default function HomePage() {
             tagline: t.tagline || cfg.tagline || (slug === 'ddpl' ? 'High-intensity 10-over matches, powerplay restrictions, and intra-department corporate pride.' : 'The flagship corporate championship. Features 12-over matches, group stage showdowns, and playoffs.'),
             status,
             overs,
-            teamsCount: teamsCount > 0 ? teamsCount : (slug === 'ddpl' ? 6 : 6),
+            teamsCount: teamsCount > 0 ? teamsCount : 0,
             pursePerTeam: cfg.pursePerTeam || t.pursePerTeam || 10000,
-            logo: t.logo || cfg.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg'),
+            logo: t.logo || cfg.logo || '/images/default-tournament.svg',
             bannerColor: t.bannerColor || cfg.bannerColor,
           };
         });
@@ -785,12 +785,11 @@ export default function HomePage() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-xl shadow-[#D8AD55]/10 shrink-0 bg-[#08111F]">
-                        <Image
-                          src={tourney.logo}
+                      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-xl shadow-[#D8AD55]/10 shrink-0 bg-[#08111F] flex items-center justify-center">
+                        <img
+                          src={tourney.logo || '/images/default-tournament.svg'}
                           alt={`${tourney.name} Logo`}
-                          fill
-                          className="object-cover object-center group-hover:scale-105 transition-transform"
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform"
                         />
                       </div>
                       <div>

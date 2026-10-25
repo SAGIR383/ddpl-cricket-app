@@ -53,64 +53,7 @@ export interface TournamentConfig {
   adminPin?: string;
 }
 
-const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
-  ddpl: {
-    slug: 'ddpl',
-    name: 'DDPL',
-    shortName: 'DDPL',
-    fullName: 'Desk to Dugout Premier League (DDPL)',
-    tagline: 'High-octane inter-departmental corporate cricket tournament',
-    season: '2026',
-    totalSeasons: 2,
-    overs: 10,
-    format: 'ddpl',
-    bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
-    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse',
-    logo: '/images/ddpl-logo.jpg',
-    status: 'open',
-    pursePerTeam: 10000,
-    ownerBasePrice: 500,
-    maxSquad: 11,
-    minSquad: 7,
-    startDate: null,
-    endDate: null,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    organizationSlug: 'ddpl-foundation',
-    organizationName: 'DDPL Sports Foundation',
-    country: 'India',
-    currency: 'INR',
-    currencySymbol: '₹',
-    isPublic: true,
-  },
-  'game-of-run': {
-    slug: 'game-of-run',
-    name: 'Game of RUN',
-    shortName: 'GOR',
-    fullName: 'Game of RUN Championship',
-    tagline: 'The official annual corporate cricket championship',
-    season: '2026',
-    totalSeasons: 2,
-    overs: 12,
-    format: 'game-of-run',
-    bannerColor: 'from-amber-950 via-orange-950 to-cricket-dark',
-    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    logo: '/images/game-of-run-logo.jpg',
-    status: 'upcoming',
-    pursePerTeam: 10000,
-    ownerBasePrice: 500,
-    maxSquad: 11,
-    minSquad: 7,
-    startDate: null,
-    endDate: null,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    organizationSlug: 'gor-sports',
-    organizationName: 'Game of RUN Corporate',
-    country: 'United Arab Emirates',
-    currency: 'AED',
-    currencySymbol: 'د.إ',
-    isPublic: true,
-  },
-};
+const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {};
 
 // GET /api/tournaments/register?tournament=ddpl
 export async function GET(req: Request) {
@@ -135,7 +78,7 @@ export async function GET(req: Request) {
     format: 'ddpl',
     bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
-    logo: '/images/ddpl-logo.jpg',
+    logo: '/images/default-tournament.svg',
     status: 'upcoming',
     pursePerTeam: 10000,
     ownerBasePrice: 500,
@@ -773,13 +716,35 @@ export async function POST(req: Request) {
       const resolvedFormat = format === 'game-of-run' ? 'game-of-run' : 'ddpl';
       const resolvedOvers = Number(overs) || (resolvedFormat === 'game-of-run' ? 12 : 10);
       const resolvedBanner = bannerColor || (resolvedFormat === 'game-of-run' ? 'from-amber-950 via-orange-950 to-cricket-dark' : 'from-blue-900 via-indigo-950 to-cricket-dark');
-      const resolvedLogo = logo || (resolvedFormat === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg');
+      const resolvedLogo = logo || '/images/default-tournament.svg';
 
       const resolvedOrgName = (organizationName || `${name.trim()} League Org`).trim();
       const finalOrgSlug = (rawOrgSlug || resolvedOrgName)
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '') || 'global-leagues';
+
+      let resolvedAdminPassword = adminPassword?.trim() || undefined;
+      let resolvedAdminPin = adminPin?.trim() || undefined;
+
+      if (creatorEmail) {
+        try {
+          const adminAccounts = await getStoreData<Record<string, any>>(
+            'super_admin_accounts',
+            'super_admin_accounts.json',
+            {}
+          );
+          const existingAcc = adminAccounts[creatorEmail.toLowerCase()];
+          if (existingAcc) {
+            if (!resolvedAdminPassword && existingAcc.password) {
+              resolvedAdminPassword = existingAcc.password;
+            }
+            if (!resolvedAdminPin && existingAcc.pin) {
+              resolvedAdminPin = existingAcc.pin;
+            }
+          }
+        } catch {}
+      }
 
       const newTournamentConfig: TournamentConfig = {
         slug: generatedSlug,
@@ -813,8 +778,8 @@ export async function POST(req: Request) {
         ballsPerOver: Number(ballsPerOver) || 6,
         pitchType: pitchType || undefined,
         formatTitle: formatTitle || undefined,
-        adminPassword: adminPassword?.trim() || undefined,
-        adminPin: adminPin?.trim() || undefined,
+        adminPassword: resolvedAdminPassword,
+        adminPin: resolvedAdminPin,
       };
 
       configs[generatedSlug] = newTournamentConfig;
@@ -870,11 +835,13 @@ export async function POST(req: Request) {
             'super_admin_accounts.json',
             {}
           );
+          const prevAccount = adminAccounts[creatorEmail.toLowerCase()] || {};
           adminAccounts[creatorEmail.toLowerCase()] = {
+            ...prevAccount,
             email: creatorEmail.toLowerCase(),
-            password: adminPassword || '',
-            pin: adminPin || '',
-            name: `${name.trim()} Super Admin`,
+            password: adminPassword || prevAccount.password || '',
+            pin: adminPin || prevAccount.pin || '',
+            name: prevAccount.name || `${name.trim()} Super Admin`,
             role: 'super_admin',
             tournamentSlug: generatedSlug,
             tournamentName: name.trim(),

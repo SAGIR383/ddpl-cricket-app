@@ -186,45 +186,8 @@ export default function TournamentsPage() {
         if (!isMounted) return;
 
         let configsList: any[] = [];
-        if (regData?.tournamentsList !== undefined) {
+        if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
           configsList = regData.tournamentsList;
-        } else {
-          configsList = [
-            {
-              slug: 'ddpl',
-              name: 'DDPL',
-              fullName: 'Desk to Dugout Premier League (DDPL)',
-              tagline: 'High-octane inter-departmental corporate cricket tournament',
-              season: '2026',
-              totalSeasons: 2,
-              overs: 10,
-              bannerColor: 'from-[#08111F] via-[#0D1B2A] to-[#111D2D]',
-              logo: '/images/ddpl-logo.jpg',
-              status: 'open',
-              organizationSlug: 'ddpl-foundation',
-              organizationName: 'DDPL Sports Foundation',
-              country: 'India',
-              currency: 'INR',
-              currencySymbol: '₹',
-            },
-            {
-              slug: 'game-of-run',
-              name: 'Game of RUN',
-              fullName: 'Game of RUN Championship',
-              tagline: 'The official annual corporate cricket championship',
-              season: '2026',
-              totalSeasons: 2,
-              overs: 12,
-              bannerColor: 'from-[#08111F] via-[#111D2D] to-[#0D1B2A]',
-              logo: '/images/game-of-run-logo.jpg',
-              status: 'upcoming',
-              organizationSlug: 'gor-sports',
-              organizationName: 'Game of RUN Corporate',
-              country: 'United Arab Emirates',
-              currency: 'AED',
-              currencySymbol: 'د.إ',
-            },
-          ];
         }
 
         const allAuctionTourneys = aData?.allTournaments || {};
@@ -235,12 +198,12 @@ export default function TournamentsPage() {
           const tourneyAuctionData = allAuctionTourneys[slug] || (slug === 'ddpl' ? aData?.data : null);
           const teamsCount = tourneyAuctionData?.teams?.length || 0;
           const tourneyRules = allRulesTourneys[slug];
-          const overs = tourneyRules?.matchOvers || cfg.overs || (slug === 'game-of-run' ? 12 : 10);
+          const overs = tourneyRules?.matchOvers || cfg.overs || 10;
           const startDate = cfg.startDate || null;
           const endDate = cfg.endDate || null;
 
           const badge = getStatusBadge(cfg.status || 'upcoming');
-          const logo = cfg.logo || (slug === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg');
+          const logo = cfg.logo || '/images/default-tournament.svg';
           const bannerColor = cfg.bannerColor || 'from-[#08111F] via-[#0D1B2A] to-[#111D2D]';
 
           return {
