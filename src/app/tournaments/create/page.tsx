@@ -22,6 +22,12 @@ import {
   Flame,
   Layers,
   Sliders,
+  Upload,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Key,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -133,6 +139,7 @@ export default function CreateTournamentPage() {
   const [orgTagline, setOrgTagline] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<CountryCurrencyOption>(GLOBAL_COUNTRIES[0]);
   const [selectedTheme, setSelectedTheme] = useState(THEME_OPTIONS[0]);
+  const [customLogo, setCustomLogo] = useState('');
 
   const [tournamentName, setTournamentName] = useState('');
   const [shortName, setShortName] = useState('');
@@ -155,8 +162,32 @@ export default function CreateTournamentPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Super Admin Credentials
   const [organizerName, setOrganizerName] = useState('');
   const [organizerEmail, setOrganizerEmail] = useState(user?.email || '');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminPin, setAdminPin] = useState(() => Math.floor(100000 + Math.random() * 900000).toString());
+  const [showPassword, setShowPassword] = useState(false);
+  const [copiedPin, setCopiedPin] = useState(false);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Logo file size must be under 3MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result as string;
+      if (result) {
+        setCustomLogo(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Submission & Success
   const [submitting, setSubmitting] = useState(false);
@@ -185,6 +216,10 @@ export default function CreateTournamentPage() {
     }
     if (!organizerEmail.trim()) {
       alert('Organizer email is required for administration access');
+      return;
+    }
+    if (!adminPassword.trim() || adminPassword.trim().length < 6) {
+      alert('Please create a Super Admin password (minimum 6 characters) to manage and govern your tournament.');
       return;
     }
 
@@ -224,6 +259,9 @@ export default function CreateTournamentPage() {
         currency: selectedCountry.currency,
         currencySymbol: selectedCountry.symbol,
         creatorEmail: organizerEmail.trim(),
+        adminPassword: adminPassword.trim(),
+        adminPin: adminPin.trim(),
+        logo: customLogo || '/images/ddpl-logo.jpg',
         isPublic: true,
       };
 
@@ -347,6 +385,49 @@ export default function CreateTournamentPage() {
                   onChange={(e) => setOrgTagline(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
                 />
+              </div>
+
+              {/* Tournament Custom Logo Upload */}
+              <div className="space-y-2 sm:col-span-2">
+                <label className="block text-xs font-bold text-gray-200">
+                  Tournament / Organization Logo
+                </label>
+                <div className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 flex flex-col sm:flex-row items-center gap-4">
+                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shrink-0 bg-[#0D1B2A] flex items-center justify-center shadow-lg">
+                    {customLogo ? (
+                      <img src={customLogo} alt="Tournament Logo Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <Trophy className="w-9 h-9 text-[#D8AD55]/60" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-2 text-center sm:text-left">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <label className="btn-press inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-extrabold uppercase tracking-wider cursor-pointer shadow-md hover:brightness-110 transition-all">
+                        <Upload className="w-3.5 h-3.5 text-[#08111F]" />
+                        <span>Upload Custom Logo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLogoUpload}
+                        />
+                      </label>
+                      {customLogo && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomLogo('')}
+                          className="px-3 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:text-white text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Remove Logo
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#8793A5] leading-relaxed">
+                      Upload your company / club emblem (PNG, JPG, SVG or WEBP up to 3MB). Displayed across the live auction projector, scoreboards, and match overlays.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -871,32 +952,106 @@ export default function CreateTournamentPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-200">
-                  Organizer Full Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. John Doe / Sports Secretary"
-                  value={organizerName}
-                  onChange={(e) => setOrganizerName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
-                />
+            {/* Super Admin Credentials Box */}
+            <div className="p-6 rounded-3xl bg-[#08111F] border-2 border-[#D8AD55]/40 shadow-xl space-y-5">
+              <div className="flex items-center gap-3 border-b border-[#D8AD55]/20 pb-3">
+                <div className="w-10 h-10 rounded-xl bg-[#D8AD55]/20 border border-[#D8AD55]/40 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-[#D8AD55]" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-white">
+                    Tournament Super Admin Credentials
+                  </h3>
+                  <p className="text-xs text-[#8793A5]">
+                    Set your exclusive credentials to govern your tournament, approve players, and conduct the auction.
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-200">
-                  Organizer Email (Grants Admin Rights) <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. organizer@company.com"
-                  value={organizerEmail}
-                  onChange={(e) => setOrganizerEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-200">
+                    Host / Organizer Full Name <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Sagir Hossain / Sports Head"
+                    value={organizerName}
+                    onChange={(e) => setOrganizerName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-200">
+                    Super Admin Email (Login ID) <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. admin@company.com"
+                    value={organizerEmail}
+                    onChange={(e) => setOrganizerEmail(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-200">
+                    Super Admin Password (Min 6 chars) <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      placeholder="Enter secure admin password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      className="w-full pl-4 pr-10 py-3 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-[#8793A5] hover:text-[#D8AD55] cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-200">
+                    Tournament Admin PIN (Recovery Code)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      readOnly
+                      value={adminPin}
+                      className="w-full pl-4 pr-16 py-3 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#F2D69A] font-mono text-xs font-bold tracking-widest focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+                        setAdminPin(newPin);
+                      }}
+                      className="absolute right-3 top-3 text-[#8793A5] hover:text-white text-[11px] font-bold cursor-pointer"
+                      title="Generate new PIN"
+                    >
+                      Regen
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200/90 leading-relaxed flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>Role Protection:</strong> You will be the sole Super Admin of this tournament. All players, employees, or club members who register via your link will be assigned the <strong>Spectator / Player</strong> role by default.
+                </span>
               </div>
             </div>
 
@@ -1000,22 +1155,66 @@ export default function CreateTournamentPage() {
               </p>
             </div>
 
+            {/* Super Admin Credentials Box in Success Modal */}
+            <div className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/40 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#F2D69A] flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#D8AD55]" />
+                  <span>Your Tournament Super Admin Credentials</span>
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
+                  Active &amp; Authenticated
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/15">
+                  <span className="text-[10px] text-[#8793A5] block">Admin Email:</span>
+                  <strong className="text-white font-mono text-[11px] truncate block">{organizerEmail}</strong>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/15">
+                  <span className="text-[10px] text-[#8793A5] block">Admin Password:</span>
+                  <strong className="text-white font-mono text-[11px] block">{adminPassword}</strong>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/15">
+                  <span className="text-[10px] text-[#8793A5] block">Recovery PIN:</span>
+                  <strong className="text-[#F2D69A] font-mono text-[11px] block">{adminPin}</strong>
+                </div>
+              </div>
+              <p className="text-[10px] text-[#8793A5]">
+                Save these credentials. You can use them to log into the Super Admin panel anytime at <code className="text-[#F2D69A]">/admin/login</code>.
+              </p>
+            </div>
+
             {/* Launchpad Quick Action Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <Link
+                href={`/admin?tournament=${createdResult.slug}`}
+                className="p-3.5 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-purple-500/40 hover:border-purple-400 transition-all flex items-center justify-between text-white group sm:col-span-2 shadow-lg"
+              >
+                <div>
+                  <div className="font-bold text-purple-300 text-sm flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-purple-400" />
+                    <span>Open Super Admin Console</span>
+                  </div>
+                  <div className="text-[11px] text-[#8793A5]">Manage Teams, Assign Owners, Approvals &amp; Run Live Auction</div>
+                </div>
+                <ExternalLink className="w-4 h-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+
+              <Link
                 href={`/tournaments/${createdResult.slug}`}
-                className="p-3.5 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 hover:border-[#D8AD55] transition-all flex items-center justify-between text-white group"
+                className="p-3 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 hover:border-[#D8AD55] transition-all flex items-center justify-between text-white group"
               >
                 <div>
                   <div className="font-bold text-[#F2D69A]">Public Tournament Hub</div>
-                  <div className="text-[11px] text-[#8793A5]">Roster &amp; Team Details</div>
+                  <div className="text-[11px] text-[#8793A5]">Roster &amp; Overview</div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-[#D8AD55] group-hover:translate-x-0.5 transition-transform" />
               </Link>
 
               <Link
                 href={`/auction?tournament=${createdResult.slug}`}
-                className="p-3.5 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-blue-500/30 hover:border-blue-400 transition-all flex items-center justify-between text-white group"
+                className="p-3 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-blue-500/30 hover:border-blue-400 transition-all flex items-center justify-between text-white group"
               >
                 <div>
                   <div className="font-bold text-blue-300">Live Auction Room</div>
@@ -1023,36 +1222,25 @@ export default function CreateTournamentPage() {
                 </div>
                 <Gavel className="w-4 h-4 text-blue-400 group-hover:translate-x-0.5 transition-transform" />
               </Link>
-
-              <Link
-                href={`/admin?tournament=${createdResult.slug}`}
-                className="p-3.5 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-purple-500/30 hover:border-purple-400 transition-all flex items-center justify-between text-white group sm:col-span-2"
-              >
-                <div>
-                  <div className="font-bold text-purple-300">Admin Control Center</div>
-                  <div className="text-[11px] text-[#8793A5]">Manage Teams, Rules, Schedule &amp; Approvals</div>
-                </div>
-                <Shield className="w-4 h-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
             </div>
 
             {/* Public Player Registration Share Bar */}
             <div className="p-3.5 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 space-y-2">
               <div className="text-[11px] font-bold text-gray-300 flex items-center justify-between">
-                <span>Public Player Registration Link:</span>
+                <span>Direct Player Registration Link:</span>
                 <span className="text-[10px] text-emerald-400">Share with Teams / Employees</span>
               </div>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   readOnly
-                  value={typeof window !== 'undefined' ? `${window.location.origin}/tournaments/${createdResult.slug}` : `/tournaments/${createdResult.slug}`}
+                  value={typeof window !== 'undefined' ? `${window.location.origin}/tournaments/${createdResult.slug}/register` : `/tournaments/${createdResult.slug}/register`}
                   className="flex-1 py-1.5 px-3 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-gray-300 font-mono text-[11px] truncate select-all"
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    const url = `${window.location.origin}/tournaments/${createdResult.slug}`;
+                    const url = `${window.location.origin}/tournaments/${createdResult.slug}/register`;
                     navigator.clipboard.writeText(url);
                     setCopiedLink(true);
                     setTimeout(() => setCopiedLink(false), 2000);
@@ -1065,13 +1253,19 @@ export default function CreateTournamentPage() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            <div className="flex items-center justify-between pt-2">
+              <Link
+                href={`/tournaments/${createdResult.slug}`}
+                className="text-xs text-[#8793A5] hover:text-white font-bold"
+              >
+                View Public Hub
+              </Link>
               <button
                 type="button"
-                onClick={() => router.push(`/tournaments/${createdResult.slug}`)}
-                className="btn-press px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-bold text-xs uppercase tracking-wider shadow-lg"
+                onClick={() => router.push(`/admin?tournament=${createdResult.slug}`)}
+                className="btn-press px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-bold text-xs uppercase tracking-wider shadow-lg cursor-pointer"
               >
-                Go to Tournament Dashboard →
+                Go to Super Admin Console →
               </button>
             </div>
           </div>

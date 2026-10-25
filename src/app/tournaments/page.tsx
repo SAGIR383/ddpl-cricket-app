@@ -16,6 +16,7 @@ import {
   Building2,
   Search,
   ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchWithCache } from '@/lib/clientCache';
@@ -43,7 +44,8 @@ interface TournamentMeta {
 }
 
 export default function TournamentsPage() {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, isOrganizer, refreshProfile } = useAuth();
+  const hasAdminRights = isSuperAdmin || isOrganizer;
   const [tournaments, setTournaments] = useState<TournamentMeta[]>([]);
   const [loading, setLoading] = useState(false);
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
@@ -52,7 +54,42 @@ export default function TournamentsPage() {
   const [wipeModalOpen, setWipeModalOpen] = useState(false);
   const [isWiping, setIsWiping] = useState(false);
 
-  const handleWipeAllTournaments = async () => {
+  // Super Admin Verification State
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [adminAuthInput, setAdminAuthInput] = useState({ username: '', password: '' });
+  const [authError, setAuthError] = useState('');
+  const [pendingAction, setPendingAction] = useState<{ type: 'delete' | 'wipe'; slug?: string; name?: string } | null>(null);
+
+  const handleAdminVerifyAndExecute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      const authRes = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(adminAuthInput),
+      });
+      const authData = await authRes.json();
+      if (!authRes.ok || !authData.success) {
+        setAuthError(authData.error || 'Invalid Super Admin credentials.');
+        return;
+      }
+
+      await refreshProfile();
+      setAuthModalOpen(false);
+
+      if (pendingAction?.type === 'delete' && pendingAction.slug) {
+        await executeDelete(pendingAction.slug, pendingAction.name || pendingAction.slug);
+      } else if (pendingAction?.type === 'wipe') {
+        await executeWipe();
+      }
+      setPendingAction(null);
+    } catch (err: any) {
+      setAuthError(err.message || 'Verification failed');
+    }
+  };
+
+  const executeWipe = async () => {
     setIsWiping(true);
     try {
       const res = await fetch('/api/tournaments/register?wipeAll=true', {
@@ -62,7 +99,7 @@ export default function TournamentsPage() {
       if (data.success) {
         setTournaments([]);
         setWipeModalOpen(false);
-        alert('All test tournaments and data wiped cleanly. You can now host your fresh tournament!');
+        alert('All test tournaments and data wiped cleanly by Super Admin.');
       } else {
         alert(data.error || 'Failed to wipe tournaments');
       }
@@ -73,10 +110,7 @@ export default function TournamentsPage() {
     }
   };
 
-  const handleDeleteTournament = async (slug: string, name: string) => {
-    if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This will delete all its matches, auction data, and registrations.`)) {
-      return;
-    }
+  const executeDelete = async (slug: string, name: string) => {
     setDeletingSlug(slug);
     try {
       const res = await fetch('/api/tournaments/register', {
@@ -98,6 +132,28 @@ export default function TournamentsPage() {
     } finally {
       setDeletingSlug(null);
     }
+  };
+
+  const handleDeleteTournament = async (slug: string, name: string) => {
+    if (!hasAdminRights) {
+      setPendingAction({ type: 'delete', slug, name });
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This action can only be performed by Super Admin.`)) {
+      return;
+    }
+    await executeDelete(slug, name);
+  };
+
+  const handleWipeAllTournaments = async () => {
+    if (!hasAdminRights) {
+      setPendingAction({ type: 'wipe' });
+      setWipeModalOpen(false);
+      setAuthModalOpen(true);
+      return;
+    }
+    await executeWipe();
   };
 
   const getStatusBadge = (status: string) => {
@@ -561,6 +617,79 @@ export default function TournamentsPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Super Admin Authorization Modal */}
+      {authModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <form
+            onSubmit={handleAdminVerifyAndExecute}
+            className="w-full max-w-md rounded-3xl bg-[#0D1B2A] border-2 border-[#D8AD55]/40 p-6 sm:p-7 shadow-2xl space-y-5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#D8AD55]/20 border border-[#D8AD55]/40 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-6 h-6 text-[#D8AD55]" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-white">Super Admin Authorization</h3>
+                <p className="text-xs text-[#8793A5]">Tournament deletion is restricted to Super Admins</p>
+              </div>
+            </div>
+
+            {authError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300">
+                {authError}
+              </div>
+            )}
+
+            <div className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-gray-300 font-bold block">Super Admin Email / Username</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="admin@company.com or superadmin@cricplus.com"
+                  value={adminAuthInput.username}
+                  onChange={(e) => setAdminAuthInput({ ...adminAuthInput, username: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-gray-300 font-bold block">Super Admin Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Enter admin password"
+                  value={adminAuthInput.password}
+                  onChange={(e) => setAdminAuthInput({ ...adminAuthInput, password: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthModalOpen(false);
+                  setPendingAction(null);
+                  setAuthError('');
+                }}
+                className="px-4 py-2.5 rounded-xl border border-[#D8AD55]/20 bg-[#08111F] text-[#8793A5] hover:text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-press flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] hover:brightness-110 text-[#08111F] text-xs font-black uppercase tracking-wider transition-all shadow-lg cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#08111F]" />
+                <span>Verify &amp; Authorize</span>
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

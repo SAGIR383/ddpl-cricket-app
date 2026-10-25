@@ -49,6 +49,8 @@ export interface TournamentConfig {
   ballsPerOver?: number;
   pitchType?: string;
   formatTitle?: string;
+  adminPassword?: string;
+  adminPin?: string;
 }
 
 const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
@@ -742,6 +744,8 @@ export async function POST(req: Request) {
         currency = 'INR',
         currencySymbol = '₹',
         creatorEmail = '',
+        adminPassword = '',
+        adminPin = '',
         isPublic = true,
       } = body;
 
@@ -808,6 +812,8 @@ export async function POST(req: Request) {
         ballsPerOver: Number(ballsPerOver) || 6,
         pitchType: pitchType || undefined,
         formatTitle: formatTitle || undefined,
+        adminPassword: adminPassword?.trim() || undefined,
+        adminPin: adminPin?.trim() || undefined,
       };
 
       configs[generatedSlug] = newTournamentConfig;

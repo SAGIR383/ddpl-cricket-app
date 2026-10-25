@@ -3133,15 +3133,15 @@ export default function AdminDashboardPage() {
                   </select>
                   <button
                     type="submit"
-                    disabled={!isSuperAdmin}
+                    disabled={!(isSuperAdmin || isOrganizer)}
                     className={`px-4 py-2 rounded-xl text-cricket-dark font-extrabold text-xs shadow shrink-0 ${
-                      isSuperAdmin
+                      isSuperAdmin || isOrganizer
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-400 hover:brightness-110 cursor-pointer'
                         : 'bg-gray-600 opacity-50 cursor-not-allowed text-gray-300'
                     }`}
-                    title={!isSuperAdmin ? 'Only Master Super Admin can grant roles' : 'Assign role'}
+                    title={!(isSuperAdmin || isOrganizer) ? 'Only Super Admin or Organizer can grant roles' : 'Assign role'}
                   >
-                    {isSuperAdmin ? 'Assign' : 'Admin Only'}
+                    {isSuperAdmin || isOrganizer ? 'Assign' : 'Admin Only'}
                   </button>
                 </div>
               </div>
@@ -3202,17 +3202,17 @@ export default function AdminDashboardPage() {
                         <td className="px-5 py-3.5">
                           <select
                             value={u.role}
-                            disabled={!isSuperAdmin}
+                            disabled={!(isSuperAdmin || isOrganizer)}
                             onChange={(e) => handleUpdateUserRole(u.email, e.target.value as any)}
                             className={`px-3 py-1.5 rounded-lg bg-cricket-dark border border-cricket-border text-white text-xs font-bold ${
-                              isSuperAdmin ? 'cursor-pointer hover:border-cricket-teal' : 'opacity-60 cursor-not-allowed'
+                              isSuperAdmin || isOrganizer ? 'cursor-pointer hover:border-cricket-teal' : 'opacity-60 cursor-not-allowed'
                             }`}
-                            title={!isSuperAdmin ? 'Only Master Super Admin can change user roles' : 'Change role'}
+                            title={!(isSuperAdmin || isOrganizer) ? 'Only Super Admin can change user roles' : 'Change role'}
                           >
                             <option value="organizer">Promote to Organizer</option>
                             <option value="scorer">Assign as Scorer</option>
-                            <option value="user">Demote to Spectator</option>
-                            <option value="super_admin">Set Super Admin</option>
+                            <option value="user">Demote to Spectator / Player</option>
+                            {isSuperAdmin && <option value="super_admin">Set Super Admin</option>}
                           </select>
                         </td>
                         <td className="px-5 py-3.5 text-right">

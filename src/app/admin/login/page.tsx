@@ -34,11 +34,15 @@ export default function SuperAdminLoginPage() {
         throw new Error(data.error || 'Authentication failed. Please verify credentials.');
       }
 
-      setSuccessMsg('Master Super Admin verified! Launching Command Center…');
+      setSuccessMsg(`Authenticated as ${data.user?.name || 'Super Admin'}! Launching Command Center…`);
       await refreshProfile();
 
       setTimeout(() => {
-        router.push('/admin');
+        if (data.tournamentSlug) {
+          router.push(`/admin?tournament=${data.tournamentSlug}`);
+        } else {
+          router.push('/admin');
+        }
         router.refresh();
       }, 700);
     } catch (err: any) {
@@ -63,13 +67,13 @@ export default function SuperAdminLoginPage() {
           </div>
           <div className="space-y-1">
             <span className="px-3.5 py-1 rounded-full bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#F2D69A] font-mono text-[10px] font-extrabold tracking-widest uppercase">
-              Master System Control
+              Super Admin &amp; League Governance
             </span>
             <h1 className="font-display font-black text-3xl sm:text-4xl text-white tracking-tight pt-1">
               Super Admin Portal
             </h1>
             <p className="text-xs text-[#8793A5] leading-relaxed max-w-xs mx-auto">
-              Exclusive governance gateway to assign user roles, manage tournament committees, and administer live fixtures.
+              Master administration gateway for Master Super Admins and Organization Tournament Super Admins.
             </p>
           </div>
         </div>
