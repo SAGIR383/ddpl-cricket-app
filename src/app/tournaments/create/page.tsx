@@ -143,7 +143,7 @@ export default function CreateTournamentPage() {
 
   const [tournamentName, setTournamentName] = useState('');
   const [shortName, setShortName] = useState('');
-  const [season, setSeason] = useState('2026');
+  const [season, setSeason] = useState('2027');
   const [selectedFormat, setSelectedFormat] = useState(FORMAT_OPTIONS[0]);
 
   // Custom Match Format & Overs State

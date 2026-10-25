@@ -296,7 +296,7 @@ export default function TournamentsPage() {
 
         {/* Global CTAs */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {tournaments.length > 0 && (
+          {hasAdminRights && tournaments.length > 0 && (
             <button
               type="button"
               onClick={() => setWipeModalOpen(true)}
@@ -432,26 +432,27 @@ export default function TournamentsPage() {
                     <span className="text-xs text-[#8793A5] font-bold">
                       Season {t.activeSeason}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteTournament(t.id, t.name)}
-                      disabled={deletingSlug === t.id}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
-                      title={`Permanently delete ${t.name}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                      <span>{deletingSlug === t.id ? 'Deleting...' : 'Delete'}</span>
-                    </button>
+                    {hasAdminRights && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTournament(t.id, t.name)}
+                        disabled={deletingSlug === t.id}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+                        title={`Permanently delete ${t.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>{deletingSlug === t.id ? 'Deleting...' : 'Delete'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-4">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-xl shadow-[#D8AD55]/10 shrink-0 bg-[#08111F]">
-                    <Image
-                      src={t.logo}
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-xl shadow-[#D8AD55]/10 shrink-0 bg-[#08111F] flex items-center justify-center">
+                    <img
+                      src={t.logo || '/images/default-tournament.svg'}
                       alt={`${t.name} Logo`}
-                      fill
-                      className="object-cover object-center"
+                      className="w-full h-full object-cover object-center"
                     />
                   </div>
                   <div className="space-y-1">

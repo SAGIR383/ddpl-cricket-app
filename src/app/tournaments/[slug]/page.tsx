@@ -20,6 +20,7 @@ import {
   Sparkles,
   ArrowRight,
   ExternalLink,
+  Activity,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -83,7 +84,12 @@ export default function TournamentDetailPage() {
 
         if (regRes.ok) {
           const regData = await regRes.json();
-          if (regData.config) setTournamentConfig(regData.config);
+          if (regData.config) {
+            setTournamentConfig(regData.config);
+            if (regData.config.season) {
+              setSelectedSeason(regData.config.season);
+            }
+          }
           if (regData.registrations) setRegistrations(regData.registrations);
         }
 
@@ -228,9 +234,8 @@ export default function TournamentDetailPage() {
 
   const matchOvers = rules.matchOvers || tournamentConfig.overs || (isDDPL ? 10 : 12);
 
-  // Derive live status faithfully from tournamentConfig & season
-  const isArchiveSeason = selectedSeason !== (tournamentConfig.season || '2026');
-  const currentStatus: string = isArchiveSeason ? 'archive' : (tournamentConfig.status || 'upcoming');
+  // Derive live status faithfully from tournamentConfig set by Super Admin
+  const currentStatus: string = tournamentConfig.status || 'open';
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -244,7 +249,7 @@ export default function TournamentDetailPage() {
       case 'upcoming':
         return {
           label: 'Upcoming Tournament',
-          text: 'Registration Opening Soon',
+          text: 'Upcoming Tournament',
           badgeClass: 'bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40',
           rulesBadgeClass: 'bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/40 shadow-sm',
         };
@@ -269,18 +274,17 @@ export default function TournamentDetailPage() {
           badgeClass: 'bg-rose-500/20 text-rose-300 border border-rose-400/40',
           rulesBadgeClass: 'bg-rose-500/15 text-rose-300 border border-rose-400/30',
         };
-      case 'archive':
       case 'completed':
         return {
-          label: 'Archive Season',
-          text: 'Archive / Completed',
+          label: 'Tournament Completed',
+          text: 'Tournament Completed',
           badgeClass: 'bg-gray-500/20 text-gray-300 border border-gray-400/30',
           rulesBadgeClass: 'bg-gray-500/15 text-gray-300 border border-gray-400/30',
         };
       default:
         return {
           label: 'Upcoming Tournament',
-          text: 'Registration Opening Soon',
+          text: 'Upcoming Tournament',
           badgeClass: 'bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40',
           rulesBadgeClass: 'bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/40',
         };
@@ -297,7 +301,7 @@ export default function TournamentDetailPage() {
         ? `Desk to Dugout Premier League for corporate cricket enthusiasts, featuring ${matchOvers}-over innings, live player auctions, and ${teams.length} premier franchises.`
         : `The official annual corporate cricket championship, featuring ${matchOvers}-over innings, full team purse allocations, and corporate department rivalry.`
     ),
-    seasons: tournamentConfig.season ? [tournamentConfig.season, '2025'] : ['2026', '2025'],
+    seasons: [tournamentConfig.season || selectedSeason || '2027'],
     overs: matchOvers,
   };
 
@@ -361,26 +365,32 @@ export default function TournamentDetailPage() {
             </p>
           </div>
 
-          {/* Season Selector */}
-          <div className="flex flex-col sm:items-end gap-2 shrink-0">
+          {/* Season / Edition Badge */}
+          <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
             <span className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
               Tournament Edition
             </span>
-            <div className="flex rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 p-1 shadow-md">
-              {tournament.seasons.map((year) => (
-                <button
-                  key={year}
-                  onClick={() => setSelectedSeason(year)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    selectedSeason === year
-                      ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
-                      : 'text-[#8793A5] hover:text-white'
-                  }`}
-                >
-                  Season {year}
-                </button>
-              ))}
-            </div>
+            {tournament.seasons.length > 1 ? (
+              <div className="flex rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 p-1 shadow-md">
+                {tournament.seasons.map((year) => (
+                  <button
+                    key={year}
+                    onClick={() => setSelectedSeason(year)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      selectedSeason === year
+                        ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
+                        : 'text-[#8793A5] hover:text-white'
+                    }`}
+                  >
+                    Season {year}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-2 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white font-bold text-xs shadow-md">
+                Season {tournamentConfig.season || selectedSeason || '2027'}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -389,15 +399,19 @@ export default function TournamentDetailPage() {
       <div className={`p-6 sm:p-8 rounded-3xl border shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-md ${
         currentStatus === 'open'
           ? 'bg-[#0D1B2A]/90 border-emerald-500/40 shadow-emerald-500/5'
+          : currentStatus === 'auction'
+          ? 'bg-[#0D1B2A]/90 border-blue-500/40 shadow-blue-500/5'
           : 'bg-[#0D1B2A]/90 border-[#D8AD55]/30 shadow-black/80'
       }`}>
         <div className="flex items-center gap-4">
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border ${
             currentStatus === 'open'
               ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
+              : currentStatus === 'auction'
+              ? 'bg-blue-500/15 text-blue-400 border-blue-400/40'
               : 'bg-[#D8AD55]/15 text-[#D8AD55] border-[#D8AD55]/30'
           }`}>
-            <UserPlus className="w-7 h-7" />
+            {currentStatus === 'auction' ? <Gavel className="w-7 h-7" /> : <UserPlus className="w-7 h-7" />}
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -413,15 +427,25 @@ export default function TournamentDetailPage() {
                 ? `Join the Official Player Auction Pool for ${tournament.name}`
                 : currentStatus === 'auction'
                 ? `Live Player Auction in Progress for ${tournament.name}`
-                : `${statusInfo.text}: ${tournament.name}`}
+                : currentStatus === 'ongoing'
+                ? `Tournament in Progress: ${tournament.name}`
+                : currentStatus === 'completed'
+                ? `Tournament Completed: ${tournament.name}`
+                : currentStatus === 'closed'
+                ? `Registrations Closed: ${tournament.name}`
+                : `Upcoming Tournament: ${tournament.name}`}
             </h3>
             <p className="text-xs text-[#8793A5] mt-0.5 max-w-xl">
               {currentStatus === 'open'
                 ? 'Register your profile and cricket specialism. Upon confirmation, you will automatically enter the live auction pool for franchises to bid on.'
                 : currentStatus === 'auction'
                 ? 'The franchise player bidding room is now live. Follow real-time bids and team purse updates in the Live Player Auction Room.'
+                : currentStatus === 'ongoing'
+                ? 'Matches and fixtures are currently underway. Track live scorecards, standings, and player performances.'
                 : currentStatus === 'closed'
                 ? 'Player registrations for this tournament edition are now closed. Rosters are being finalized for the upcoming auction.'
+                : currentStatus === 'completed'
+                ? 'This tournament season has concluded. Standings, awards, and historical statistics are finalized.'
                 : 'Player registration will open soon once announced by the Super Admin.'}
             </p>
           </div>
@@ -456,6 +480,18 @@ export default function TournamentDetailPage() {
             >
               <Gavel className="w-4 h-4" />
               <span>Enter Live Auction</span>
+            </Link>
+          ) : currentStatus === 'completed' ? (
+            <span className="px-5 py-3 rounded-xl bg-[#08111F] border border-gray-500/30 text-gray-300 font-bold text-xs">
+              Tournament Completed
+            </span>
+          ) : currentStatus === 'ongoing' ? (
+            <Link
+              href="/matches"
+              className="btn-press shimmer-btn px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg flex items-center gap-2"
+            >
+              <Activity className="w-4 h-4" />
+              <span>View Live Matches</span>
             </Link>
           ) : currentStatus === 'closed' ? (
             <span className="px-5 py-3 rounded-xl bg-[#08111F] border border-rose-500/30 text-rose-300 font-bold text-xs">
@@ -536,10 +572,10 @@ export default function TournamentDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-display font-bold text-xl text-white">
             <Settings className="w-5 h-5 text-[#D8AD55]" />
-            <span>Tournament Rules &amp; Purse Settings ({selectedSeason})</span>
+            <span>Tournament Rules &amp; Purse Settings ({tournamentConfig.season || selectedSeason})</span>
           </div>
           <span className={`px-3 py-1 rounded-full text-xs font-bold self-start sm:self-auto ${statusInfo.rulesBadgeClass}`}>
-            {statusInfo.text}
+            {statusInfo.label}
           </span>
         </div>
 

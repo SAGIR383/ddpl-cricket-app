@@ -1373,14 +1373,13 @@ export default function AdminDashboardPage() {
               </button>
             )}
           </div>
-          <select
-            value={selectedSeason}
-            onChange={(e) => setSelectedSeason(e.target.value)}
-            className="px-4 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
-          >
-            <option value="2026">Season 2026 (Active)</option>
-            <option value="2025">Season 2025 (Archive)</option>
-          </select>
+          {/* Dynamic Season Badge */}
+          <div className="px-3.5 py-2 rounded-xl bg-cricket-dark border border-cricket-border text-xs font-bold text-gray-200 flex items-center gap-1.5">
+            <span className="text-[#8793A5]">Season:</span>
+            <span className="text-[#F2D69A] font-extrabold">
+              {tournamentsList.find((t) => t.slug === selectedTournament)?.season || selectedSeason || '2027'}
+            </span>
+          </div>
 
           {/* Tournament Registration Gatekeeper (Super Admin) */}
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cricket-dark border border-cricket-border text-xs">
