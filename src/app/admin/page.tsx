@@ -243,8 +243,12 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     setSavingAnnouncement(true);
     try {
+      const currentTourney = tournamentsList.find((t: any) => t.slug === selectedTournament);
       const payload = {
         ...adminAnnouncement,
+        tournamentSlug: selectedTournament,
+        tournamentName: currentTourney?.name || selectedTournament.toUpperCase(),
+        organizationName: currentTourney?.organizationName || currentTourney?.companyName || '',
         linkUrl: adminAnnouncement.linkUrl || adminAnnouncement.link,
       };
       const res = await fetch('/api/announcement', {
@@ -259,7 +263,7 @@ export default function AdminDashboardPage() {
           link: data.announcement.linkUrl || data.announcement.link || '',
           linkUrl: data.announcement.linkUrl || data.announcement.link || '',
         });
-        showNotification('🎉 Live announcement updated and running on the front page!');
+        showNotification('🎉 Live announcement updated and running across the global news ticker!');
       } else {
         alert(data.error || 'Failed to update announcement');
       }

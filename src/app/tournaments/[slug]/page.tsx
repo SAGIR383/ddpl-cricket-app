@@ -440,7 +440,7 @@ export default function TournamentDetailPage() {
               <button
                 onClick={() => {
                   if (!user) {
-                    window.location.href = `/auth/login?next=/tournaments/${slug}`;
+                    window.location.href = `/join/${slug}`;
                   } else {
                     setIsRegModalOpen(true);
                   }
@@ -448,7 +448,7 @@ export default function TournamentDetailPage() {
                 className="btn-press shimmer-btn px-7 py-4 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 transition-all flex items-center gap-2"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>{user ? 'Register for Tournament' : 'Sign In to Register'}</span>
+                <span>{user ? 'Register for Tournament' : 'Create Account & Join'}</span>
               </button>
             )
           ) : currentStatus === 'auction' ? (
@@ -468,6 +468,36 @@ export default function TournamentDetailPage() {
               Registration Opening Soon
             </span>
           )}
+        </div>
+      </div>
+
+      {/* Super Admin Share Invite Box */}
+      <div className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-2.5">
+          <Sparkles className="w-4 h-4 text-[#D8AD55] shrink-0" />
+          <div className="text-xs">
+            <strong className="text-white block">Official Player Onboarding Invite Link</strong>
+            <span className="text-[#8793A5]">Share this link with your organization — players can create an account and enroll in this tournament</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <input
+            type="text"
+            readOnly
+            value={typeof window !== 'undefined' ? `${window.location.origin}/join/${slug}` : `/join/${slug}`}
+            className="px-3 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-xs text-[#F2D69A] font-mono truncate w-full sm:w-64 select-all"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const url = `${window.location.origin}/join/${slug}`;
+              navigator.clipboard.writeText(url);
+              alert('Copied player invite link:\n' + url);
+            }}
+            className="btn-press px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold shrink-0 cursor-pointer"
+          >
+            Copy Link
+          </button>
         </div>
       </div>
 

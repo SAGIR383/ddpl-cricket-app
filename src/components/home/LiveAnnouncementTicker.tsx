@@ -4,27 +4,26 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Radio,
-  Flame,
-  Sparkles,
-  AlertCircle,
   ExternalLink,
   Edit3,
   X,
-  Check,
   Megaphone,
   Eye,
   EyeOff,
+  Trophy,
 } from 'lucide-react';
 import { LiveAnnouncementData } from '@/app/api/announcement/route';
 
 interface LiveAnnouncementTickerProps {
-  announcement: LiveAnnouncementData | null;
+  announcement?: LiveAnnouncementData | null;
+  announcements?: LiveAnnouncementData[] | null;
   isSuperAdmin?: boolean;
   onRefresh?: () => void;
 }
 
 export function LiveAnnouncementTicker({
   announcement,
+  announcements,
   isSuperAdmin = false,
   onRefresh,
 }: LiveAnnouncementTickerProps) {
@@ -32,19 +31,38 @@ export function LiveAnnouncementTicker({
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Combine single and multi announcements
+  const listFromProps: LiveAnnouncementData[] =
+    announcements && announcements.length > 0
+      ? announcements
+      : announcement
+      ? [announcement]
+      : [];
+
+  const activeAnnouncements = listFromProps.filter(
+    (a) => a.isActive !== false && a.message?.trim().length > 0
+  );
+
+  const primaryItem = activeAnnouncements[0] || announcement || {
+    message: '',
+    isActive: true,
+    type: 'championship' as const,
+  };
+
   // Edit form state
-  const [formMessage, setFormMessage] = useState(announcement?.message || '');
+  const [formMessage, setFormMessage] = useState(primaryItem.message || '');
   const [formType, setFormType] = useState<LiveAnnouncementData['type']>(
-    announcement?.type || 'championship'
+    primaryItem.type || 'championship'
   );
   const [formIsActive, setFormIsActive] = useState<boolean>(
-    announcement?.isActive !== undefined ? announcement.isActive : true
+    primaryItem.isActive !== undefined ? primaryItem.isActive : true
   );
-  const [formLinkText, setFormLinkText] = useState(announcement?.linkText || '');
-  const [formLinkUrl, setFormLinkUrl] = useState(announcement?.linkUrl || '');
+  const [formLinkText, setFormLinkText] = useState(primaryItem.linkText || '');
+  const [formLinkUrl, setFormLinkUrl] = useState(primaryItem.linkUrl || '');
+  const [formLeague, setFormLeague] = useState(primaryItem.tournamentName || '');
 
   // If no announcement or deactivated and not admin, hide
-  if (!announcement || (!announcement.isActive && !isSuperAdmin)) {
+  if (activeAnnouncements.length === 0 && !isSuperAdmin) {
     return null;
   }
 
@@ -79,14 +97,15 @@ export function LiveAnnouncementTicker({
     },
   };
 
-  const currentBadge = badgeStyles[announcement.type || 'championship'];
+  const currentBadge = badgeStyles[primaryItem.type || 'championship'] || badgeStyles.championship;
 
   const handleOpenEdit = () => {
-    setFormMessage(announcement.message);
-    setFormType(announcement.type || 'championship');
-    setFormIsActive(announcement.isActive);
-    setFormLinkText(announcement.linkText || '');
-    setFormLinkUrl(announcement.linkUrl || '');
+    setFormMessage(primaryItem.message);
+    setFormType(primaryItem.type || 'championship');
+    setFormIsActive(primaryItem.isActive);
+    setFormLinkText(primaryItem.linkText || '');
+    setFormLinkUrl(primaryItem.linkUrl || '');
+    setFormLeague(primaryItem.tournamentName || '');
     setIsEditModalOpen(true);
   };
 
@@ -105,6 +124,7 @@ export function LiveAnnouncementTicker({
           isActive: formIsActive,
           linkText: formLinkText.trim(),
           linkUrl: formLinkUrl.trim(),
+          tournamentName: formLeague.trim(),
         }),
       });
 
@@ -133,7 +153,7 @@ export function LiveAnnouncementTicker({
     {
       label: 'Auction Arena Live',
       type: 'live' as const,
-      message: '🔥 Live Franchise Player Auction is now active! 6 Teams competing in the live bidding arena.',
+      message: '🔥 Live Franchise Player Auction is now active! Teams competing in the live bidding arena.',
       linkText: 'Enter Auction Arena',
       linkUrl: '/auction',
     },
@@ -146,19 +166,26 @@ export function LiveAnnouncementTicker({
     },
   ];
 
+  // Repeat the active announcements twice to form a seamless infinite marquee
+  const marqueeItems = activeAnnouncements.length > 0 
+    ? [...activeAnnouncements, ...activeAnnouncements] 
+    : [primaryItem, primaryItem];
+
   return (
     <>
-      {/* 1. MAIN BROADCAST STRIP (Directly in marked space between Hero & Metrics) */}
+      {/* 1. MAIN BROADCAST STRIP */}
       <div className="relative w-full z-20 transition-all duration-300">
         <div
           className={`relative overflow-hidden rounded-2xl bg-[#08111F]/90 backdrop-blur-xl border ${
-            announcement.isActive ? 'border-[#D8AD55]/40 shadow-[0_8px_30px_rgba(0,0,0,0.7)]' : 'border-gray-700/40 opacity-75'
+            activeAnnouncements.length > 0
+              ? 'border-[#D8AD55]/40 shadow-[0_8px_30px_rgba(0,0,0,0.7)]'
+              : 'border-gray-700/40 opacity-75'
           } p-1 sm:p-1.5 flex items-center justify-between gap-2`}
         >
           {/* Subtle Ambient Backlight */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#D8AD55]/5 via-amber-500/5 to-transparent pointer-events-none" />
 
-          {/* Left Live Badge (Mobile & Desktop) */}
+          {/* Left Live Badge */}
           <div className="flex items-center gap-2 pl-2 sm:pl-3 shrink-0 relative z-10">
             <div
               className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full border text-[10px] sm:text-xs font-black uppercase tracking-wider ${currentBadge.badgeBg} shadow-sm ${currentBadge.glow}`}
@@ -171,11 +198,13 @@ export function LiveAnnouncementTicker({
                   className={`relative inline-flex rounded-full h-2 w-2 ${currentBadge.dotColor}`}
                 />
               </span>
-              <span className="hidden xs:inline">{currentBadge.pillText}</span>
+              <span className="hidden xs:inline">
+                {activeAnnouncements.length > 1 ? `${activeAnnouncements.length} LEAGUES LIVE` : currentBadge.pillText}
+              </span>
               <span className="xs:hidden">LIVE</span>
             </div>
 
-            {!announcement.isActive && (
+            {activeAnnouncements.length === 0 && (
               <span className="text-[10px] font-bold text-gray-400 bg-gray-800 px-2 py-0.5 rounded-md border border-gray-700">
                 Paused
               </span>
@@ -191,35 +220,51 @@ export function LiveAnnouncementTicker({
             <div className="absolute left-0 inset-y-0 w-4 bg-gradient-to-r from-[#08111F] to-transparent z-10 pointer-events-none" />
             <div className="absolute right-0 inset-y-0 w-4 bg-gradient-to-l from-[#08111F] to-transparent z-10 pointer-events-none" />
 
-            {/* Continuous Marquee Text Loop */}
+            {/* Continuous Marquee Text Loop across all leagues */}
             <div className="animate-ticker flex items-center gap-8 text-xs sm:text-sm font-semibold text-gray-200">
-              <span className="flex items-center gap-2 shrink-0">
-                <Megaphone className={`w-3.5 h-3.5 ${currentBadge.accentColor} shrink-0`} />
-                <span>{announcement.message}</span>
-              </span>
-              <span className="text-[#D8AD55] font-black shrink-0">★★★</span>
-              <span className="flex items-center gap-2 shrink-0">
-                <Megaphone className={`w-3.5 h-3.5 ${currentBadge.accentColor} shrink-0`} />
-                <span>{announcement.message}</span>
-              </span>
-              <span className="text-[#D8AD55] font-black shrink-0">★★★</span>
+              {marqueeItems.map((item, idx) => {
+                const itemBadge = badgeStyles[item.type || 'championship'] || badgeStyles.championship;
+                return (
+                  <React.Fragment key={`${item.id || item.tournamentSlug || 'item'}-${idx}`}>
+                    <span className="flex items-center gap-2 shrink-0">
+                      {item.tournamentName ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#D8AD55]/15 border border-[#D8AD55]/40 text-[#F2D69A] font-black text-[10px] tracking-wide uppercase">
+                          <Trophy className="w-2.5 h-2.5 text-[#D8AD55]" />
+                          <span>{item.tournamentName}</span>
+                        </span>
+                      ) : (
+                        <Megaphone className={`w-3.5 h-3.5 ${itemBadge.accentColor} shrink-0`} />
+                      )}
+                      <span className="text-gray-100">{item.message}</span>
+                      {item.linkUrl && (
+                        <Link
+                          href={item.linkUrl}
+                          className="hidden sm:inline-flex items-center gap-1 text-[#D8AD55] font-bold underline hover:text-white transition-colors text-xs ml-1"
+                        >
+                          <span>{item.linkText || 'View'}</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </Link>
+                      )}
+                    </span>
+                    <span className="text-[#D8AD55] font-black shrink-0">✦✦✦</span>
+                  </React.Fragment>
+                );
+              })}
             </div>
           </div>
 
           {/* Right Action & Super Admin Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2 pr-1 sm:pr-2 shrink-0 relative z-10">
-            {/* Clickable Action Link (if provided) */}
-            {announcement.linkUrl && (
+            {primaryItem.linkUrl && (
               <Link
-                href={announcement.linkUrl}
+                href={primaryItem.linkUrl}
                 className="hidden md:inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-bold text-xs shadow-sm hover:brightness-110 transition-all cursor-pointer"
               >
-                <span>{announcement.linkText || 'Learn More'}</span>
+                <span>{primaryItem.linkText || 'Learn More'}</span>
                 <ExternalLink className="w-3 h-3" />
               </Link>
             )}
 
-            {/* Super Admin Manage Button */}
             {isSuperAdmin && (
               <button
                 type="button"
@@ -228,7 +273,7 @@ export function LiveAnnouncementTicker({
                 title="Super Admin: Edit Live Announcement"
               >
                 <Edit3 className="w-3.5 h-3.5 text-[#D8AD55]" />
-                <span className="hidden sm:inline">Edit</span>
+                <span className="hidden sm:inline">Post Notice</span>
               </button>
             )}
           </div>
@@ -238,7 +283,7 @@ export function LiveAnnouncementTicker({
       {/* 2. MOBILE TAP-TO-EXPAND BULLETIN MODAL */}
       {isMobileDetailOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md sm:hidden">
-          <div className="w-full max-w-sm rounded-3xl bg-[#0D1B2A] border border-[#D8AD55]/40 p-6 space-y-4 shadow-2xl">
+          <div className="w-full max-w-sm rounded-3xl bg-[#0D1B2A] border border-[#D8AD55]/40 p-5 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-black uppercase ${currentBadge.badgeBg}`}
@@ -251,7 +296,7 @@ export function LiveAnnouncementTicker({
                     className={`relative inline-flex rounded-full h-2 w-2 ${currentBadge.dotColor}`}
                   />
                 </span>
-                <span>{currentBadge.pillText}</span>
+                <span>Live League Bulletins</span>
               </div>
               <button
                 onClick={() => setIsMobileDetailOpen(false)}
@@ -261,23 +306,31 @@ export function LiveAnnouncementTicker({
               </button>
             </div>
 
-            <div className="space-y-2">
-              <h4 className="font-display font-black text-xl text-white">Live Official Bulletin</h4>
-              <p className="text-sm text-gray-200 leading-relaxed font-medium">
-                {announcement.message}
-              </p>
+            <div className="space-y-3">
+              {activeAnnouncements.map((ann, idx) => (
+                <div key={idx} className="p-3.5 rounded-2xl bg-[#08111F] border border-[#D8AD55]/20 space-y-2">
+                  {ann.tournamentName && (
+                    <div className="flex items-center gap-1.5 text-[#F2D69A] text-[11px] font-black uppercase">
+                      <Trophy className="w-3 h-3 text-[#D8AD55]" />
+                      <span>{ann.tournamentName}</span>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-200 leading-relaxed font-medium">
+                    {ann.message}
+                  </p>
+                  {ann.linkUrl && (
+                    <Link
+                      href={ann.linkUrl}
+                      onClick={() => setIsMobileDetailOpen(false)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#D8AD55] underline"
+                    >
+                      <span>{ann.linkText || 'Open Link'}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  )}
+                </div>
+              ))}
             </div>
-
-            {announcement.linkUrl && (
-              <Link
-                href={announcement.linkUrl}
-                onClick={() => setIsMobileDetailOpen(false)}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
-              >
-                <span>{announcement.linkText || 'Open Link'}</span>
-                <ExternalLink className="w-4 h-4" />
-              </Link>
-            )}
 
             {isSuperAdmin && (
               <button
@@ -289,7 +342,7 @@ export function LiveAnnouncementTicker({
                 className="w-full py-2.5 rounded-xl bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold flex items-center justify-center gap-1.5"
               >
                 <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit as Super Admin</span>
+                <span>Post Broadcast Announcement</span>
               </button>
             )}
           </div>
@@ -344,6 +397,20 @@ export function LiveAnnouncementTicker({
 
             {/* Form */}
             <form onSubmit={handleSaveAnnouncement} className="space-y-4 text-xs sm:text-sm">
+              {/* League Name / Scope */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
+                  Tournament / League Badge (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formLeague}
+                  onChange={(e) => setFormLeague(e.target.value)}
+                  placeholder="e.g. DDPL 2027 or Global Broadcast"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white placeholder:text-gray-500 focus:outline-none focus:border-[#D8AD55] text-sm"
+                />
+              </div>
+
               {/* Message */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
@@ -354,7 +421,7 @@ export function LiveAnnouncementTicker({
                   rows={3}
                   value={formMessage}
                   onChange={(e) => setFormMessage(e.target.value)}
-                  placeholder="e.g. 🏏 Most awaited league for this year DDPL 2.0 is going to start soon... Keep playing hard!"
+                  placeholder="e.g. 🏏 Most awaited league for this year is going to start soon... Keep playing hard!"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white placeholder:text-gray-500 focus:outline-none focus:border-[#D8AD55] text-sm"
                 />
               </div>
@@ -415,7 +482,7 @@ export function LiveAnnouncementTicker({
                     type="text"
                     value={formLinkText}
                     onChange={(e) => setFormLinkText(e.target.value)}
-                    placeholder="e.g. Explore DDPL 2.0"
+                    placeholder="e.g. Explore League"
                     className="w-full px-3.5 py-2 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white focus:outline-none focus:border-[#D8AD55]"
                   />
                 </div>

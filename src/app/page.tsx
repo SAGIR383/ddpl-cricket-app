@@ -56,7 +56,7 @@ interface LiveStats {
 }
 
 export default function HomePage() {
-  const { isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -79,56 +79,28 @@ export default function HomePage() {
   });
 
   const [stats, setStats] = useState<LiveStats>({
-    tournamentsCount: 2,
-    teamsCount: 6,
-    playersCount: 18,
-    seasonsCount: 2,
-    ddplTeamsCount: 6,
-    ddplOvers: 8,
+    tournamentsCount: 0,
+    teamsCount: 0,
+    playersCount: 0,
+    seasonsCount: 0,
+    ddplTeamsCount: 0,
+    ddplOvers: 10,
     gorOvers: 12,
     matchesCount: 0,
     liveMatches: [],
   });
 
-  const [tournaments, setTournaments] = useState<TournamentCardItem[]>([
-    {
-      slug: 'ddpl',
-      name: 'DDPL',
-      shortName: 'DDPL',
-      fullName: 'Desk to Dugout Premier League (DDPL)',
-      tagline: 'High-intensity 10-over matches, powerplay restrictions, and intra-department corporate pride.',
-      status: 'upcoming',
-      overs: 10,
-      teamsCount: 6,
-      pursePerTeam: 10000,
-      logo: '/images/ddpl-logo.jpg',
-    },
-    {
-      slug: 'game-of-run',
-      name: 'Game of RUN',
-      shortName: 'GOR',
-      fullName: 'Game of RUN Championship',
-      tagline: 'The flagship corporate championship. Features 12-over matches, group stage showdowns, and playoffs.',
-      status: 'upcoming',
-      overs: 12,
-      teamsCount: 6,
-      pursePerTeam: 10000,
-      logo: '/images/game-of-run-logo.jpg',
-    },
-  ]);
-
+  const [tournaments, setTournaments] = useState<TournamentCardItem[]>([]);
   const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('stopped');
   const [liveMatch, setLiveMatch] = useState<any | null>(null);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
-  const [announcement, setAnnouncement] = useState<LiveAnnouncementData | null>({
-    id: 'ann-init',
-    message: '🏏 Most awaited league for this year DDPL 2.0 is going to start soon... Keep playing hard! Player registration details updating soon.',
-    type: 'championship',
-    isActive: true,
-    linkText: 'Explore Tournaments',
-    linkUrl: '/tournaments',
-    updatedAt: new Date().toISOString(),
-  });
+  const [announcement, setAnnouncement] = useState<LiveAnnouncementData | null>(null);
+  const [announcements, setAnnouncements] = useState<LiveAnnouncementData[]>([]);
+  const [myTournamentMeta, setMyTournamentMeta] = useState<{
+    slug: string;
+    tournamentName?: string;
+    organizationName?: string;
+  } | null>(null);
 
   const handleDeleteTournament = async (slug: string, name: string) => {
     if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This will delete all its matches, auction data, and registrations.`)) {
@@ -234,11 +206,23 @@ export default function HomePage() {
       if (res.ok) {
         const d = await res.json();
         if (d.announcement) setAnnouncement(d.announcement);
+        if (d.announcements && Array.isArray(d.announcements)) setAnnouncements(d.announcements);
       }
     } catch (e) {
       console.warn('Failed to refresh announcement:', e);
     }
   };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cricplus_my_tournament_meta');
+        if (stored) {
+          setMyTournamentMeta(JSON.parse(stored));
+        }
+      } catch (e) {}
+    }
+  }, [user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -255,6 +239,9 @@ export default function HomePage() {
 
         if (!isMounted) return;
 
+        if (annData?.announcements && Array.isArray(annData.announcements)) {
+          setAnnouncements(annData.announcements);
+        }
         if (annData?.announcement) {
           setAnnouncement(annData.announcement);
         }
@@ -291,35 +278,10 @@ export default function HomePage() {
         setLiveMatch(live.length > 0 ? live[0] : null);
         setUpcomingMatches(upcoming);
 
-        // Tournaments dynamic list sync - DO NOT resurrect deleted tournaments if server returned tournamentsList
+        // Tournaments dynamic list sync - Only show tournaments that actually exist in the database
         let baseList: any[] = [];
-        if (regData?.tournamentsList !== undefined) {
+        if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
           baseList = regData.tournamentsList;
-        } else {
-          baseList = [
-            {
-              slug: 'ddpl',
-              name: 'DDPL',
-              shortName: 'DDPL',
-              fullName: 'Desk to Dugout Premier League (DDPL)',
-              tagline: 'High-intensity 10-over matches, powerplay restrictions, and intra-department corporate pride.',
-              status: 'upcoming',
-              overs: 10,
-              pursePerTeam: 10000,
-              logo: '/images/ddpl-logo.jpg',
-            },
-            {
-              slug: 'game-of-run',
-              name: 'Game of RUN',
-              shortName: 'GOR',
-              fullName: 'Game of RUN Championship',
-              tagline: 'The flagship corporate championship. Features 12-over matches, group stage showdowns, and playoffs.',
-              status: 'upcoming',
-              overs: 12,
-              pursePerTeam: 10000,
-              logo: '/images/game-of-run-logo.jpg',
-            },
-          ];
         }
 
         const allConfigs = regData?.allConfigs || {};
@@ -623,12 +585,46 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* LIVE ANNOUNCEMENT BROADCAST TICKER (Pixel-perfect inside marked space) */}
+      {/* LIVE ANNOUNCEMENT BROADCAST TICKER (Sequential multi-league updates) */}
       <LiveAnnouncementTicker
         announcement={announcement}
+        announcements={announcements}
         isSuperAdmin={isSuperAdmin}
         onRefresh={refreshAnnouncement}
       />
+
+      {/* PERSONALIZED USER TOURNAMENT PORTAL BANNER (If logged in employee/player registered for a tournament) */}
+      {myTournamentMeta && (
+        <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-[#D8AD55]/20 via-[#0D1B2A] to-[#122339] border border-[#D8AD55]/50 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-[#D8AD55]/20 border border-[#D8AD55]/40 flex items-center justify-center text-[#D8AD55] shrink-0 shadow-md">
+              <Trophy className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#D8AD55] bg-[#D8AD55]/15 px-2 py-0.5 rounded-md border border-[#D8AD55]/30">
+                  Your Organization Tournament
+                </span>
+                {myTournamentMeta.organizationName && (
+                  <span className="text-xs text-gray-300 font-semibold hidden xs:inline">
+                    • {myTournamentMeta.organizationName}
+                  </span>
+                )}
+              </div>
+              <h3 className="font-display font-black text-base sm:text-lg text-white mt-0.5">
+                {myTournamentMeta.tournamentName || myTournamentMeta.slug.toUpperCase()}
+              </h3>
+            </div>
+          </div>
+          <Link
+            href={`/tournaments/${myTournamentMeta.slug}`}
+            className="btn-press shimmer-btn shrink-0 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 flex items-center justify-center gap-2"
+          >
+            <span>Open Tournament Hub</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
 
       {/* 2. DYNAMIC LIVE STATS BANNER (Panel 1 Bottom) */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
