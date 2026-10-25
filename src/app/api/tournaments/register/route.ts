@@ -38,6 +38,13 @@ export interface TournamentConfig {
   startDate?: string | null;
   endDate?: string | null;
   createdAt?: string;
+  organizationSlug?: string;
+  organizationName?: string;
+  country?: string;
+  currency?: string;
+  currencySymbol?: string;
+  creatorEmail?: string;
+  isPublic?: boolean;
 }
 
 const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
@@ -62,6 +69,12 @@ const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
     startDate: null,
     endDate: null,
     createdAt: '2026-01-01T00:00:00.000Z',
+    organizationSlug: 'ddpl-foundation',
+    organizationName: 'DDPL Sports Foundation',
+    country: 'India',
+    currency: 'INR',
+    currencySymbol: '₹',
+    isPublic: true,
   },
   'game-of-run': {
     slug: 'game-of-run',
@@ -84,6 +97,12 @@ const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
     startDate: null,
     endDate: null,
     createdAt: '2026-01-01T00:00:00.000Z',
+    organizationSlug: 'gor-sports',
+    organizationName: 'Game of RUN Corporate',
+    country: 'United Arab Emirates',
+    currency: 'AED',
+    currencySymbol: 'د.إ',
+    isPublic: true,
   },
 };
 
@@ -686,7 +705,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // 5. CREATE CUSTOM TOURNAMENT (Super Admin)
+    // 5. CREATE CUSTOM TOURNAMENT (Super Admin & Global Tournament Organizers)
     if (action === 'create_tournament') {
       const { 
         name, 
@@ -706,6 +725,13 @@ export async function POST(req: Request) {
         status = 'open',
         startDate = null,
         endDate = null,
+        organizationName,
+        organizationSlug: rawOrgSlug,
+        country = 'India',
+        currency = 'INR',
+        currencySymbol = '₹',
+        creatorEmail = '',
+        isPublic = true,
       } = body;
 
       if (!name || !name.trim()) {
@@ -733,6 +759,12 @@ export async function POST(req: Request) {
       const resolvedBanner = bannerColor || (resolvedFormat === 'game-of-run' ? 'from-amber-950 via-orange-950 to-cricket-dark' : 'from-blue-900 via-indigo-950 to-cricket-dark');
       const resolvedLogo = logo || (resolvedFormat === 'game-of-run' ? '/images/game-of-run-logo.jpg' : '/images/ddpl-logo.jpg');
 
+      const resolvedOrgName = (organizationName || `${name.trim()} League Org`).trim();
+      const finalOrgSlug = (rawOrgSlug || resolvedOrgName)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'global-leagues';
+
       const newTournamentConfig: TournamentConfig = {
         slug: generatedSlug,
         name: name.trim(),
@@ -754,10 +786,63 @@ export async function POST(req: Request) {
         startDate: startDate || null,
         endDate: endDate || null,
         createdAt: new Date().toISOString(),
+        organizationSlug: finalOrgSlug,
+        organizationName: resolvedOrgName,
+        country: country?.trim() || 'Global',
+        currency: currency?.trim() || 'INR',
+        currencySymbol: currencySymbol?.trim() || '₹',
+        creatorEmail: creatorEmail?.trim() || undefined,
+        isPublic: Boolean(isPublic),
       };
 
       configs[generatedSlug] = newTournamentConfig;
       await setStoreData('tournament_configs', configs, 'tournament_configs.json');
+
+      // Auto-register / link with Corporate Organizations store
+      try {
+        const orgs = await getStoreData<Record<string, any>>(
+          'corporate_organizations',
+          'organizations.json',
+          {}
+        );
+        const currentOrg = orgs[finalOrgSlug] || {
+          id: `org-${Date.now()}`,
+          slug: finalOrgSlug,
+          name: resolvedOrgName,
+          country: country?.trim() || 'Global',
+          currency: currency?.trim() || 'INR',
+          currencySymbol: currencySymbol?.trim() || '₹',
+          adminEmails: [],
+          tournaments: [],
+          createdAt: new Date().toISOString(),
+          isVerified: false,
+        };
+
+        if (creatorEmail && !currentOrg.adminEmails?.includes(creatorEmail.toLowerCase())) {
+          currentOrg.adminEmails = [...(currentOrg.adminEmails || []), creatorEmail.toLowerCase()];
+        }
+        if (!currentOrg.tournaments?.includes(generatedSlug)) {
+          currentOrg.tournaments = [...(currentOrg.tournaments || []), generatedSlug];
+        }
+
+        orgs[finalOrgSlug] = currentOrg;
+        await setStoreData('corporate_organizations', orgs, 'organizations.json');
+      } catch (orgErr) {
+        console.warn('Could not auto-sync organization:', orgErr);
+      }
+
+      // Auto-promote tournament creator to Organizer role
+      if (creatorEmail) {
+        try {
+          const roles = await getStoreData<Record<string, string>>('user_roles', 'roles.json', {});
+          if (!roles[creatorEmail.toLowerCase()] || roles[creatorEmail.toLowerCase()] === 'user') {
+            roles[creatorEmail.toLowerCase()] = 'organizer';
+            await setStoreData('user_roles', roles, 'roles.json');
+          }
+        } catch (rErr) {
+          console.warn('Could not auto-promote creator to organizer:', rErr);
+        }
+      }
 
       // 1. Initialize Auction State for this tournament
       const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
@@ -855,6 +940,23 @@ export async function POST(req: Request) {
         await setStoreData(`tournament_registrations_${targetSlug}`, [], `registrations_${targetSlug}.json`);
       } catch (e) {
         console.warn('Registrations cleanup skipped for deleted tournament:', e);
+      }
+
+      // 3.1 Clean up from corporate_organizations
+      try {
+        const orgs = await getStoreData<Record<string, any>>('corporate_organizations', 'organizations.json', {});
+        let modified = false;
+        Object.keys(orgs).forEach((oSlug) => {
+          if (orgs[oSlug].tournaments?.includes(targetSlug)) {
+            orgs[oSlug].tournaments = orgs[oSlug].tournaments.filter((t: string) => t !== targetSlug);
+            modified = true;
+          }
+        });
+        if (modified) {
+          await setStoreData('corporate_organizations', orgs, 'organizations.json');
+        }
+      } catch (e) {
+        console.warn('Organization tournament reference cleanup skipped:', e);
       }
 
       // 4. Invalidate server cache so all consumers see the deletion immediately

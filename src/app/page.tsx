@@ -522,11 +522,19 @@ export default function HomePage() {
             </Link>
 
             <Link
+              href="/tournaments/create"
+              className="btn-press shimmer-btn w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-[#08111F] font-display font-black text-sm sm:text-base tracking-wide shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4 text-[#08111F]" />
+              <span>Host a Tournament</span>
+            </Link>
+
+            <Link
               href="/auction"
-              className="btn-press w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl bg-[#111D2D]/90 hover:bg-[#111D2D] border border-[#D8AD55]/40 hover:border-[#D8AD55] text-white font-display font-bold text-sm sm:text-base tracking-wide backdrop-blur-md transition-all shadow-lg"
+              className="btn-press w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-xl bg-[#111D2D]/90 hover:bg-[#111D2D] border border-[#D8AD55]/40 hover:border-[#D8AD55] text-white font-display font-bold text-sm sm:text-base tracking-wide backdrop-blur-md transition-all shadow-lg"
             >
               <Gavel className="w-4 h-4 text-[#D8AD55]" />
-              <span>Live Auction Room</span>
+              <span>Live Auction</span>
             </Link>
 
             <Link
@@ -534,7 +542,7 @@ export default function HomePage() {
               className="btn-press w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-gray-200 font-bold text-sm tracking-wide backdrop-blur-md transition-all"
             >
               <Activity className="w-4 h-4 text-emerald-400" />
-              <span>Match Center</span>
+              <span>Matches</span>
             </Link>
           </div>
         </div>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles } from 'lucide-react';
+import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function Navbar() {
@@ -108,6 +108,16 @@ export function Navbar() {
 
           {/* Desktop User Controls */}
           <div className="hidden sm:flex items-center gap-3">
+            {/* Host Tournament CTA */}
+            <Link
+              href="/tournaments/create"
+              className="btn-press shimmer-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-md shadow-[#D8AD55]/15 hover:brightness-110"
+              title="Host Your Corporate Cricket League"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>+ Host League</span>
+            </Link>
+
             {/* Super Admin / Organizer Badge */}
             {isSuperAdmin ? (
               <Link
@@ -213,7 +223,16 @@ export function Navbar() {
             })}
           </div>
 
-          <div className="pt-2 border-t border-[#D8AD55]/15 flex items-center justify-between">
+          <div className="pt-2 border-t border-[#D8AD55]/15 space-y-2">
+            <Link
+              href="/tournaments/create"
+              onClick={() => setMobileMenuOpen(false)}
+              className="btn-press shimmer-btn w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-display font-extrabold uppercase tracking-wider shadow"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>+ Host Corporate Tournament</span>
+            </Link>
+
             {isSuperAdmin && (
               <Link
                 href="/admin"

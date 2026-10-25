@@ -19,6 +19,7 @@ import {
   X,
   Sparkles,
   ArrowRight,
+  ExternalLink,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -331,6 +332,31 @@ export default function TournamentDetailPage() {
                 </div>
               </div>
             </div>
+
+            {tournamentConfig.organizationName && (
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                <span className="text-[#8793A5]">Host Organization:</span>
+                {tournamentConfig.organizationSlug ? (
+                  <Link
+                    href={`/org/${tournamentConfig.organizationSlug}`}
+                    className="inline-flex items-center gap-1 text-[#F2D69A] hover:underline font-bold"
+                  >
+                    <span>{tournamentConfig.organizationName}</span>
+                    <ExternalLink className="w-3 h-3 text-[#D8AD55]" />
+                  </Link>
+                ) : (
+                  <span className="text-white font-bold">{tournamentConfig.organizationName}</span>
+                )}
+                {tournamentConfig.country && (
+                  <span className="text-[#8793A5] font-normal">• {tournamentConfig.country}</span>
+                )}
+                {tournamentConfig.currency && (
+                  <span className="px-2 py-0.5 rounded-md bg-[#08111F] border border-[#D8AD55]/30 text-[#D8AD55] text-[10px] font-bold">
+                    {tournamentConfig.currency} ({tournamentConfig.currencySymbol || '₹'})
+                  </span>
+                )}
+              </div>
+            )}
 
             <p className="text-sm text-gray-300 max-w-2xl leading-relaxed">
               {tournament.description}

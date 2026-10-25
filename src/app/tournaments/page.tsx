@@ -3,7 +3,20 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Trophy, Calendar, Users, ChevronRight, Award, PlusCircle, Sparkles, Trash2 } from 'lucide-react';
+import {
+  Trophy,
+  Calendar,
+  Users,
+  ChevronRight,
+  Award,
+  PlusCircle,
+  Sparkles,
+  Trash2,
+  Globe2,
+  Building2,
+  Search,
+  ExternalLink,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchWithCache } from '@/lib/clientCache';
 
@@ -22,6 +35,11 @@ interface TournamentMeta {
   status: string;
   startDate?: string | null;
   endDate?: string | null;
+  organizationSlug?: string;
+  organizationName?: string;
+  country?: string;
+  currency?: string;
+  currencySymbol?: string;
 }
 
 export default function TournamentsPage() {
@@ -29,6 +47,8 @@ export default function TournamentsPage() {
   const [tournaments, setTournaments] = useState<TournamentMeta[]>([]);
   const [loading, setLoading] = useState(false);
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState('all');
 
   const handleDeleteTournament = async (slug: string, name: string) => {
     if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This will delete all its matches, auction data, and registrations.`)) {
@@ -102,6 +122,11 @@ export default function TournamentsPage() {
               bannerColor: 'from-[#08111F] via-[#0D1B2A] to-[#111D2D]',
               logo: '/images/ddpl-logo.jpg',
               status: 'open',
+              organizationSlug: 'ddpl-foundation',
+              organizationName: 'DDPL Sports Foundation',
+              country: 'India',
+              currency: 'INR',
+              currencySymbol: '₹',
             },
             {
               slug: 'game-of-run',
@@ -114,6 +139,11 @@ export default function TournamentsPage() {
               bannerColor: 'from-[#08111F] via-[#111D2D] to-[#0D1B2A]',
               logo: '/images/game-of-run-logo.jpg',
               status: 'upcoming',
+              organizationSlug: 'gor-sports',
+              organizationName: 'Game of RUN Corporate',
+              country: 'United Arab Emirates',
+              currency: 'AED',
+              currencySymbol: 'د.إ',
             },
           ];
         }
@@ -149,6 +179,11 @@ export default function TournamentsPage() {
             status: badge.label,
             startDate,
             endDate,
+            organizationSlug: cfg.organizationSlug || undefined,
+            organizationName: cfg.organizationName || undefined,
+            country: cfg.country || 'Global',
+            currency: cfg.currency || 'INR',
+            currencySymbol: cfg.currencySymbol || '₹',
           };
         });
 
@@ -174,66 +209,172 @@ export default function TournamentsPage() {
     };
   }, []);
 
+  // Filter tournaments by search and organization
+  const filteredTournaments = tournaments.filter((t) => {
+    const matchesSearch =
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.organizationName && t.organizationName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (t.country && t.country.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesOrg =
+      selectedOrgFilter === 'all' ||
+      t.organizationSlug === selectedOrgFilter ||
+      (t.organizationName && t.organizationName.toLowerCase() === selectedOrgFilter.toLowerCase());
+
+    return matchesSearch && matchesOrg;
+  });
+
+  // Extract unique organizations for filter pills
+  const orgList = Array.from(
+    new Set(
+      tournaments
+        .map((t) => t.organizationName)
+        .filter(Boolean) as string[]
+    )
+  );
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10 animate-fade-in">
       
       {/* Editorial Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
         <div>
           <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-widest flex items-center gap-1.5">
-            <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
-            <span>Official League Hub</span>
+            <Globe2 className="w-3.5 h-3.5 text-[#D8AD55]" />
+            <span>Global Multi-Tenant Cricket Platform</span>
           </div>
           <h1 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight mt-1">
             Tournaments Directory
           </h1>
           <p className="text-sm text-[#8793A5] mt-1.5 max-w-2xl">
-            Browse all official corporate cricket tournaments, active seasons, and historical archives running on CricPlus.
+            Browse all corporate cricket tournaments, inter-tech championships, and corporate sporting leagues powered by CricPlus.
           </p>
         </div>
 
-        {isSuperAdmin && (
+        {/* Global CTA - Any user can host their tournament */}
+        <div className="flex items-center gap-3 shrink-0">
           <Link
-            href="/admin"
-            className="btn-press shimmer-btn inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs tracking-wider uppercase shadow-lg shadow-[#D8AD55]/20 transition-all cursor-pointer shrink-0"
+            href="/tournaments/create"
+            className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-xl shadow-[#D8AD55]/20 transition-all cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>+ Create Tournament</span>
+            <span>+ Host Your Tournament</span>
           </Link>
+        </div>
+      </div>
+
+      {/* Corporate Self-Service Invitation Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#08111F] via-[#0E1F35] to-[#142946] border border-[#D8AD55]/30 p-6 sm:p-7 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#D8AD55]/20 border border-[#D8AD55]/40 text-[#F2D69A] text-[11px] font-bold uppercase tracking-wider">
+            <Sparkles className="w-3 h-3 text-[#D8AD55]" />
+            <span>Open to Global Organizations</span>
+          </div>
+          <h3 className="font-display font-bold text-xl sm:text-2xl text-white">
+            Want to Host a Tournament for Your Company or Club?
+          </h3>
+          <p className="text-xs sm:text-sm text-[#8793A5] leading-relaxed">
+            Launch a dedicated tournament portal with multiplayer live auctions, ball-by-ball digital scoring, team purse management, and WhatsApp shareable player cards.
+          </p>
+        </div>
+
+        <Link
+          href="/tournaments/create"
+          className="btn-press shrink-0 px-6 py-3 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/50 text-[#F2D69A] hover:text-white font-display font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md"
+        >
+          <span>Launch Your League in 2 Mins</span>
+          <ChevronRight className="w-4 h-4 text-[#D8AD55]" />
+        </Link>
+      </div>
+
+      {/* Search & Filter Controls */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-[#8793A5] absolute left-3.5 top-3" />
+          <input
+            type="text"
+            placeholder="Search tournament, company, or country…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#08111F] border border-[#D8AD55]/20 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+          />
+        </div>
+
+        {/* Organization Filter Pills */}
+        {orgList.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setSelectedOrgFilter('all')}
+              className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
+                selectedOrgFilter === 'all'
+                  ? 'border-[#D8AD55] bg-[#D8AD55]/20 text-[#F2D69A]'
+                  : 'border-[#D8AD55]/20 bg-[#08111F] text-[#8793A5] hover:text-white'
+              }`}
+            >
+              All Hosts ({tournaments.length})
+            </button>
+            {orgList.map((org) => (
+              <button
+                key={org}
+                type="button"
+                onClick={() => setSelectedOrgFilter(org)}
+                className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
+                  selectedOrgFilter === org
+                    ? 'border-[#D8AD55] bg-[#D8AD55]/20 text-[#F2D69A]'
+                    : 'border-[#D8AD55]/20 bg-[#08111F] text-[#8793A5] hover:text-white'
+                }`}
+              >
+                {org}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
       {/* Tournaments Grid */}
-      {tournaments.length === 0 ? (
+      {filteredTournaments.length === 0 ? (
         <div className="rounded-3xl p-10 bg-[#0D1B2A]/90 border border-[#D8AD55]/30 text-center space-y-4 shadow-xl">
           <Trophy className="w-12 h-12 text-[#D8AD55]/60 mx-auto" />
-          <h3 className="font-display font-black text-2xl text-white">No Tournaments Found</h3>
+          <h3 className="font-display font-black text-2xl text-white">
+            {searchQuery ? 'No Tournaments Match Your Search' : 'No Tournaments Found'}
+          </h3>
           <p className="text-xs sm:text-sm text-[#8793A5] max-w-md mx-auto">
-            All previous tournaments have been deleted. You can create a new tournament from the Admin console.
+            {searchQuery
+              ? 'Try searching with a different tournament name or corporate host keyword.'
+              : 'Launch your first corporate cricket tournament today with live auctions & scoring.'}
           </p>
-          {isSuperAdmin && (
-            <Link
-              href="/admin"
-              className="btn-press shimmer-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-bold text-xs uppercase tracking-wider shadow-lg"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Go to Create Tournament</span>
-            </Link>
-          )}
+          <Link
+            href="/tournaments/create"
+            className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-bold text-xs uppercase tracking-wider shadow-lg"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Host New Tournament</span>
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {tournaments.map((t) => (
+          {filteredTournaments.map((t) => (
             <div
               key={t.id}
-              className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl overflow-hidden flex flex-col justify-between border border-[#D8AD55]/30 shadow-2xl hover:border-[#D8AD55]/60 transition-all"
+              className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl overflow-hidden flex flex-col justify-between border border-[#D8AD55]/30 shadow-2xl hover:border-[#D8AD55]/60 transition-all group"
             >
               {/* Tournament Top Banner */}
               <div className={`p-6 sm:p-8 bg-gradient-to-br ${t.bannerColor} border-b border-[#D8AD55]/20 space-y-5`}>
                 <div className="flex items-center justify-between">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.badgeColor}`}>
-                    {t.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.badgeColor}`}>
+                      {t.status}
+                    </span>
+                    {t.country && (
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#08111F]/70 border border-[#D8AD55]/30 text-[#F2D69A] text-[10px] font-bold uppercase">
+                        <Globe2 className="w-3 h-3 text-[#D8AD55]" />
+                        <span>{t.country}</span>
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-[#8793A5] font-bold">
                       Season {t.activeSeason}
@@ -262,13 +403,28 @@ export default function TournamentsPage() {
                       className="object-cover object-center"
                     />
                   </div>
-                  <div>
-                    <h2 className="font-display font-black text-3xl sm:text-4xl text-white tracking-wide">
+                  <div className="space-y-1">
+                    <h2 className="font-display font-black text-2xl sm:text-4xl text-white tracking-wide group-hover:text-[#F2D69A] transition-colors">
                       {t.name}
                     </h2>
-                    <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider mt-0.5">
-                      {t.fullName}
-                    </div>
+                    
+                    {/* Organization Link */}
+                    {t.organizationName && (
+                      <div className="flex items-center gap-1.5 text-xs text-[#8793A5]">
+                        <Building2 className="w-3.5 h-3.5 text-[#D8AD55]" />
+                        <span>Host: </span>
+                        {t.organizationSlug ? (
+                          <Link
+                            href={`/org/${t.organizationSlug}`}
+                            className="text-[#F2D69A] hover:underline font-bold"
+                          >
+                            {t.organizationName}
+                          </Link>
+                        ) : (
+                          <span className="text-white font-bold">{t.organizationName}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">{t.tagline}</p>
@@ -293,8 +449,8 @@ export default function TournamentsPage() {
                     <div className="font-display font-bold text-lg text-white">{t.teamsCount} Teams</div>
                   </div>
                   <div className="p-3.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
-                    <div className="text-[11px] text-[#8793A5] font-semibold">Editions</div>
-                    <div className="font-display font-bold text-lg text-[#D8AD55]">{t.totalSeasons} Recorded</div>
+                    <div className="text-[11px] text-[#8793A5] font-semibold">Currency</div>
+                    <div className="font-display font-bold text-lg text-[#D8AD55]">{t.currency} ({t.currencySymbol})</div>
                   </div>
                 </div>
 
@@ -307,11 +463,11 @@ export default function TournamentsPage() {
                     <ChevronRight className="w-4 h-4" />
                   </Link>
                   <Link
-                    href={`/archive?tournament=${t.id}`}
+                    href={`/auction?tournament=${t.id}`}
                     className="btn-press px-4 py-3.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-sm font-semibold transition-colors flex items-center justify-center"
-                    title="View Historical Records"
+                    title="Live Auction Room"
                   >
-                    <Award className="w-5 h-5 text-[#D8AD55]" />
+                    <Trophy className="w-5 h-5 text-[#D8AD55]" />
                   </Link>
                 </div>
               </div>
