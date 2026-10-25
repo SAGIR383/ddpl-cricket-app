@@ -120,16 +120,16 @@ export async function GET(req: Request) {
   const configs = await getStoreData<Record<string, TournamentConfig>>(
     'tournament_configs',
     'tournament_configs.json',
-    DEFAULT_CONFIGS
+    {}
   );
 
-  const config = configs[tournament] || {
+  const config = configs[tournament] || (Object.keys(configs).length > 0 ? Object.values(configs)[0] : {
     slug: tournament,
     name: tournament.toUpperCase(),
     shortName: tournament.slice(0, 4).toUpperCase(),
     fullName: tournament.toUpperCase(),
     tagline: `${tournament.toUpperCase()} Cricket Tournament`,
-    season: '2026',
+    season: '2027',
     totalSeasons: 1,
     overs: 10,
     format: 'ddpl',
@@ -144,7 +144,8 @@ export async function GET(req: Request) {
     startDate: null,
     endDate: null,
     createdAt: new Date().toISOString(),
-  };
+    isPublic: true,
+  });
 
   const registrations = await getStoreData<TournamentPlayerRegistration[]>(
     `tournament_registrations_${tournament}`,

@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Sparkles,
   ExternalLink,
+  Zap,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +53,61 @@ export default function JoinTournamentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showCustomRoleFields, setShowCustomRoleFields] = useState(false);
+
+  const handleOneClickEnroll = async () => {
+    if (!user) return;
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const tourneyRegRes = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'register',
+          tournament: slug,
+          registration: {
+            userId: user.id,
+            name: fullName.trim() || user.user_metadata?.full_name || user.email?.split('@')[0],
+            email: user.email?.toLowerCase(),
+            phone: phone.trim() || 'WhatsApp Verified',
+            employeeId: employeeId.trim() || undefined,
+            role,
+            battingStyle,
+            bowlingStyle,
+          },
+        }),
+      });
+
+      const tourneyRegData = await tourneyRegRes.json();
+      if (!tourneyRegRes.ok || !tourneyRegData.success) {
+        throw new Error(tourneyRegData.error || 'Could not complete tournament registration.');
+      }
+
+      try {
+        localStorage.setItem('cricplus_my_tournament', slug);
+        localStorage.setItem(
+          'cricplus_my_tournament_meta',
+          JSON.stringify({
+            slug,
+            tournamentName: tournament?.name || slug.toUpperCase(),
+            organizationName: tournament?.organizationName || '',
+          })
+        );
+      } catch (e) {}
+
+      setSuccessMsg(`🎉 Success! You have officially joined ${tournament?.name || slug.toUpperCase()}! Entering tournament hub…`);
+      await refreshProfile();
+      setTimeout(() => {
+        router.push(`/tournaments/${slug}`);
+      }, 1000);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Registration failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Load Tournament Details
   useEffect(() => {
@@ -311,15 +367,6 @@ export default function JoinTournamentPage() {
           </div>
         )}
 
-        {user && (
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>
-              Signed in as <strong>{user.email}</strong>. Complete your cricket role details below to join this tournament.
-            </span>
-          </div>
-        )}
-
         {/* Alerts */}
         {errorMsg && (
           <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
@@ -335,42 +382,167 @@ export default function JoinTournamentPage() {
           </div>
         )}
 
-        {/* Registration Form */}
-        <form onSubmit={handleCreateAccountAndJoin} className="space-y-4 text-xs">
-          {/* Section 1: Account Information */}
-          <div className="space-y-3 border-b border-[#D8AD55]/15 pb-4">
-            <div className="font-bold text-gray-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-[#D8AD55]" />
-              <span>Player Identity &amp; Contact</span>
+        {/* If Logged In: 1-Click Fast Track Enrollment */}
+        {user ? (
+          <div className="space-y-4">
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-[#08111F] to-[#0D1B2A] border border-[#D8AD55]/40 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] flex items-center justify-center font-display font-black text-[#08111F] text-base shadow-md">
+                    {(profile?.full_name || user.email || 'U')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">
+                      Welcome back, {profile?.full_name || user.email?.split('@')[0]}!
+                    </h3>
+                    <p className="text-[11px] text-[#8793A5]">{user.email}</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
+                  Account Active
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-[#08111F]/80 border border-white/5 text-center text-xs">
+                <div>
+                  <span className="text-[10px] text-[#8793A5] block">Role</span>
+                  <span className="font-bold text-[#F2D69A]">{role || 'All-rounder'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-[#8793A5] block">Batting</span>
+                  <span className="font-bold text-white text-[11px]">{battingStyle || 'Right-hand'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-[#8793A5] block">Bowling</span>
+                  <span className="font-bold text-white text-[11px] truncate">{bowlingStyle || 'None'}</span>
+                </div>
+              </div>
+
+              {showCustomRoleFields ? (
+                <div className="space-y-3 pt-3 border-t border-[#D8AD55]/15 text-xs animate-fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-semibold block text-[10px]">Playing Role</label>
+                      <select
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        className="w-full px-2 py-1.5 rounded-lg bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
+                      >
+                        <option value="All-rounder">All-rounder</option>
+                        <option value="Batter">Batter</option>
+                        <option value="Bowler">Bowler</option>
+                        <option value="Wicket-keeper">Wicket-keeper</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-semibold block text-[10px]">Batting Style</label>
+                      <select
+                        value={battingStyle}
+                        onChange={(e) => setBattingStyle(e.target.value)}
+                        className="w-full px-2 py-1.5 rounded-lg bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
+                      >
+                        <option value="Right-hand bat">Right-hand bat</option>
+                        <option value="Left-hand bat">Left-hand bat</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-gray-300 font-semibold block text-[10px]">Bowling Style</label>
+                      <select
+                        value={bowlingStyle}
+                        onChange={(e) => setBowlingStyle(e.target.value)}
+                        className="w-full px-2 py-1.5 rounded-lg bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
+                      >
+                        <option value="Right-arm medium">Right-arm medium</option>
+                        <option value="Right-arm fast">Right-arm fast</option>
+                        <option value="Right-arm off-spin">Right-arm off-spin</option>
+                        <option value="Right-arm leg-spin">Right-arm leg-spin</option>
+                        <option value="Left-arm medium">Left-arm medium</option>
+                        <option value="Left-arm fast">Left-arm fast</option>
+                        <option value="Left-arm orthodox">Left-arm orthodox</option>
+                        <option value="None">None (Pure Batter)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-gray-300 font-semibold block text-[10px]">Employee / Member ID (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. EMP-102"
+                      value={employeeId}
+                      onChange={(e) => setEmployeeId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomRoleFields(true)}
+                    className="text-[11px] text-[#D8AD55] hover:text-[#F2D69A] underline cursor-pointer"
+                  >
+                    Tweak playing style / Employee ID for this tournament →
+                  </button>
+                </div>
+              )}
+
+              <div className="p-3 rounded-xl bg-[#08111F] border border-emerald-500/20 text-[11px] text-[#8793A5] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  Your profile will be registered with role <strong>Spectator / Player</strong> and entered directly into the live auction player pool.
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOneClickEnroll}
+                disabled={isSubmitting}
+                className="btn-press shimmer-btn w-full py-4 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-sm uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Zap className="w-4 h-4 fill-current" />
+                <span>
+                  {isSubmitting
+                    ? 'Enrolling You…'
+                    : `⚡ 1-Click Join ${tournament?.name || slug.toUpperCase()} Auction Pool`}
+                </span>
+              </button>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-gray-300 font-semibold block">Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Rahul Sharma"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55]"
-                />
+          </div>
+        ) : (
+          /* Registration Form for Unauthenticated Users */
+          <form onSubmit={handleCreateAccountAndJoin} className="space-y-4 text-xs">
+            {/* Section 1: Account Information */}
+            <div className="space-y-3 border-b border-[#D8AD55]/15 pb-4">
+              <div className="font-bold text-gray-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-[#D8AD55]" />
+                <span>Player Identity &amp; Contact</span>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-gray-300 font-semibold block">Email Address *</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="rahul@company.com"
-                  value={email}
-                  disabled={Boolean(user)}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55] disabled:opacity-50"
-                />
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-semibold block">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Rahul Sharma"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55]"
+                  />
+                </div>
 
-              {!user && (
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-semibold block">Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="rahul@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55]"
+                  />
+                </div>
+
                 <div className="space-y-1 sm:col-span-2">
                   <label className="text-gray-300 font-semibold block">
                     {mode === 'create_account' ? 'Create Password (min 6 chars) *' : 'Account Password *'}
@@ -385,109 +557,109 @@ export default function JoinTournamentPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55]"
                   />
                 </div>
-              )}
 
-              <div className="space-y-1">
-                <label className="text-gray-300 font-semibold block">WhatsApp / Phone Number *</label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="+91 9876543210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55]"
-                />
-              </div>
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-semibold block">WhatsApp / Phone Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="+91 9876543210"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55]"
+                  />
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-gray-300 font-semibold block">Employee ID / Member ID (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="EMP-10482"
-                  value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55]"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Cricket Specialism */}
-          <div className="space-y-3 pt-1">
-            <div className="font-bold text-gray-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-              <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
-              <span>Cricket Specialism &amp; Playing Style</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-gray-300 font-semibold block">Playing Role</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
-                >
-                  <option value="All-rounder">All-rounder</option>
-                  <option value="Batter">Batter</option>
-                  <option value="Bowler">Bowler</option>
-                  <option value="Wicket-keeper">Wicket-keeper</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-gray-300 font-semibold block">Batting Style</label>
-                <select
-                  value={battingStyle}
-                  onChange={(e) => setBattingStyle(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
-                >
-                  <option value="Right-hand bat">Right-hand bat</option>
-                  <option value="Left-hand bat">Left-hand bat</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-gray-300 font-semibold block">Bowling Style</label>
-                <select
-                  value={bowlingStyle}
-                  onChange={(e) => setBowlingStyle(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
-                >
-                  <option value="Right-arm medium">Right-arm medium</option>
-                  <option value="Right-arm fast">Right-arm fast</option>
-                  <option value="Right-arm off-spin">Right-arm off-spin</option>
-                  <option value="Right-arm leg-spin">Right-arm leg-spin</option>
-                  <option value="Left-arm medium">Left-arm medium</option>
-                  <option value="Left-arm fast">Left-arm fast</option>
-                  <option value="Left-arm orthodox">Left-arm orthodox</option>
-                  <option value="None">None (Pure Batter)</option>
-                </select>
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-semibold block">Employee ID / Member ID (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="EMP-10482"
+                    value={employeeId}
+                    onChange={(e) => setEmployeeId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs focus:outline-none focus:border-[#D8AD55]"
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="p-3 rounded-xl bg-[#08111F] border border-[#D8AD55]/20 text-[11px] text-[#8793A5] flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>
-              By joining, you will be enrolled as a <strong>Spectator / Player</strong> in {tournament?.name || slug.toUpperCase()}. You will automatically enter the live auction pool.
-            </span>
-          </div>
+            {/* Section 2: Cricket Specialism */}
+            <div className="space-y-3 pt-1">
+              <div className="font-bold text-gray-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
+                <span>Cricket Specialism &amp; Playing Style</span>
+              </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="btn-press shimmer-btn w-full py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>
-              {isSubmitting
-                ? 'Processing Registration…'
-                : mode === 'create_account'
-                ? `Create Account & Join ${tournament?.name || slug.toUpperCase()}`
-                : `Sign In & Join ${tournament?.name || slug.toUpperCase()}`}
-            </span>
-          </button>
-        </form>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-semibold block">Playing Role</label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
+                  >
+                    <option value="All-rounder">All-rounder</option>
+                    <option value="Batter">Batter</option>
+                    <option value="Bowler">Bowler</option>
+                    <option value="Wicket-keeper">Wicket-keeper</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-semibold block">Batting Style</label>
+                  <select
+                    value={battingStyle}
+                    onChange={(e) => setBattingStyle(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
+                  >
+                    <option value="Right-hand bat">Right-hand bat</option>
+                    <option value="Left-hand bat">Left-hand bat</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-gray-300 font-semibold block">Bowling Style</label>
+                  <select
+                    value={bowlingStyle}
+                    onChange={(e) => setBowlingStyle(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold"
+                  >
+                    <option value="Right-arm medium">Right-arm medium</option>
+                    <option value="Right-arm fast">Right-arm fast</option>
+                    <option value="Right-arm off-spin">Right-arm off-spin</option>
+                    <option value="Right-arm leg-spin">Right-arm leg-spin</option>
+                    <option value="Left-arm medium">Left-arm medium</option>
+                    <option value="Left-arm fast">Left-arm fast</option>
+                    <option value="Left-arm orthodox">Left-arm orthodox</option>
+                    <option value="None">None (Pure Batter)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[#08111F] border border-[#D8AD55]/20 text-[11px] text-[#8793A5] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>
+                By joining, you will be enrolled as a <strong>Spectator / Player</strong> in {tournament?.name || slug.toUpperCase()}. You will automatically enter the live auction pool.
+              </span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-press shimmer-btn w-full py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-xl shadow-[#D8AD55]/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>
+                {isSubmitting
+                  ? 'Processing Registration…'
+                  : mode === 'create_account'
+                  ? `Create Account & Join ${tournament?.name || slug.toUpperCase()}`
+                  : `Sign In & Join ${tournament?.name || slug.toUpperCase()}`}
+              </span>
+            </button>
+          </form>
+        )}
 
         <div className="text-center pt-2">
           <Link

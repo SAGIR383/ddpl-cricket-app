@@ -129,7 +129,7 @@ const FORMAT_OPTIONS = [
 
 export default function CreateTournamentPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isSuperAdmin, profile } = useAuth();
 
   // Wizard Step
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -218,7 +218,7 @@ export default function CreateTournamentPage() {
       alert('Organizer email is required for administration access');
       return;
     }
-    if (!adminPassword.trim() || adminPassword.trim().length < 6) {
+    if (!isSuperAdmin && (!adminPassword.trim() || adminPassword.trim().length < 6)) {
       alert('Please create a Super Admin password (minimum 6 characters) to manage and govern your tournament.');
       return;
     }
@@ -963,10 +963,21 @@ export default function CreateTournamentPage() {
                     Tournament Super Admin Credentials
                   </h3>
                   <p className="text-xs text-[#8793A5]">
-                    Set your exclusive credentials to govern your tournament, approve players, and conduct the auction.
+                    {isSuperAdmin
+                      ? 'You are authenticated as Super Admin. This new tournament will link directly to your management console.'
+                      : 'Set your exclusive credentials to govern your tournament, approve players, and conduct the auction.'}
                   </p>
                 </div>
               </div>
+
+              {isSuperAdmin && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Authenticated Organization Super Admin (<strong>{user?.email}</strong>). Your credentials will manage this new league.
+                  </span>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="space-y-1.5">
@@ -999,14 +1010,14 @@ export default function CreateTournamentPage() {
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-gray-200">
-                    Super Admin Password (Min 6 chars) <span className="text-rose-400">*</span>
+                    Super Admin Password {isSuperAdmin ? '(Leave blank to keep existing password)' : <span className="text-rose-400">*</span>}
                   </label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      placeholder="Enter secure admin password"
+                      required={!isSuperAdmin}
+                      minLength={isSuperAdmin ? 0 : 6}
+                      placeholder={isSuperAdmin ? 'Existing password retained (or enter new)' : 'Enter secure admin password'}
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       className="w-full pl-4 pr-10 py-3 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"

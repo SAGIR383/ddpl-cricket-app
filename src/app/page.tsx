@@ -709,14 +709,13 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             {isSuperAdmin && (
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(true)}
+              <Link
+                href="/tournaments/create"
                 className="btn-press shimmer-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs tracking-wider uppercase shadow-md shadow-[#D8AD55]/20 cursor-pointer"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
                 <span>+ Create Tournament</span>
-              </button>
+              </Link>
             )}
             <Link
               href="/tournaments"
@@ -737,14 +736,13 @@ export default function HomePage() {
               All previous tournaments have been removed. Use the Create Tournament option to initialize a new competition.
             </p>
             {isSuperAdmin && (
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(true)}
+              <Link
+                href="/tournaments/create"
                 className="btn-press shimmer-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-bold text-xs uppercase tracking-wider shadow-lg"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Create New Tournament</span>
-              </button>
+              </Link>
             )}
           </div>
         ) : (

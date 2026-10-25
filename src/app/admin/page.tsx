@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   ShieldCheck, 
   Users, 
@@ -12,7 +13,8 @@ import {
   Trash2, 
   Edit3, 
   CheckCircle2, 
-  XCircle, 
+  XCircle,
+  Share2, 
   RefreshCw, 
   Settings, 
   Trophy, 
@@ -92,22 +94,21 @@ interface UserAccount {
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const { isOrganizer, isSuperAdmin, role, signOut, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement'>('teams');
-  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
+  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [copiedInviteLink, setCopiedInviteLink] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState('2026');
   const [adminAnnouncement, setAdminAnnouncement] = useState<any>({
-    message: '🏏 Most awaited league for this year DDPL 2.0 is going to start soon... Keep playing hard! Live auction & player registration details updating daily.',
+    message: '🏏 Most awaited league for this year is going to start soon... Keep playing hard!',
     type: 'championship',
     isActive: true,
     linkText: 'Explore Tournaments',
     linkUrl: '/tournaments',
   });
   const [savingAnnouncement, setSavingAnnouncement] = useState(false);
-  const [tournamentsList, setTournamentsList] = useState<any[]>([
-    { slug: 'ddpl', name: 'DDPL', shortName: 'DDPL', fullName: 'Desk to Dugout Premier League (DDPL)', season: '2026', status: 'open' },
-    { slug: 'game-of-run', name: 'Game of RUN', shortName: 'GOR', fullName: 'Game of RUN Championship', season: '2026', status: 'upcoming' },
-  ]);
+  const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [isCreateTournamentModalOpen, setIsCreateTournamentModalOpen] = useState(false);
   const [isCreatingTournament, setIsCreatingTournament] = useState(false);
   const [newTournamentForm, setNewTournamentForm] = useState({
@@ -209,9 +210,12 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        const updatedList = data.tournamentsList || tournamentsList.filter((t) => t.slug !== slug);
+        const updatedList = Array.isArray(data.tournamentsList)
+          ? data.tournamentsList
+          : tournamentsList.filter((t) => t.slug !== slug);
         setTournamentsList(updatedList);
         setSelectedTournament(updatedList.length > 0 ? updatedList[0].slug : '');
+        invalidateClientCache();
         showNotification(`Tournament "${name}" permanently deleted.`);
       } else {
         alert(data.error || 'Failed to delete tournament');
@@ -922,8 +926,16 @@ export default function AdminDashboardPage() {
           const regData = await regRes.json();
           if (regData.config?.status) setTournamentStatus(regData.config.status);
           if (regData.registrations) setTournamentRegistrations(regData.registrations);
-          if (regData.tournamentsList && regData.tournamentsList.length > 0) {
+          if (regData.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
             setTournamentsList(regData.tournamentsList);
+            if (regData.tournamentsList.length > 0) {
+              setSelectedTournament((prev) => {
+                const found = regData.tournamentsList.some((t: any) => t.slug === prev);
+                return found ? prev : regData.tournamentsList[0].slug;
+              });
+            } else {
+              setSelectedTournament('');
+            }
           }
         }
 
@@ -1325,21 +1337,25 @@ export default function AdminDashboardPage() {
               onChange={(e) => setSelectedTournament(e.target.value)}
               className="px-4 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
             >
-              {tournamentsList.map((t) => (
-                <option key={t.slug} value={t.slug}>
-                  {t.name} {t.season ? `(${t.season})` : ''}
-                </option>
-              ))}
+              {tournamentsList.length === 0 ? (
+                <option value="">— No Active Tournaments —</option>
+              ) : (
+                tournamentsList.map((t) => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.name} {t.season ? `(${t.season})` : ''}
+                  </option>
+                ))
+              )}
             </select>
             {isSuperAdmin && (
               <button
                 type="button"
-                onClick={() => setIsCreateTournamentModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold shadow-md transition-all active:scale-95"
-                title="Create a new custom tournament"
+                onClick={() => router.push('/tournaments/create')}
+                className="btn-press flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-cricket-dark text-xs font-black shadow-md transition-all active:scale-95 cursor-pointer"
+                title="Launch a new tournament with Custom Format & Overs Studio"
               >
-                <PlusCircle className="w-4 h-4 text-emerald-400" />
-                <span>New Tournament</span>
+                <PlusCircle className="w-4 h-4 text-cricket-dark" />
+                <span>+ New Tournament</span>
               </button>
             )}
             {isSuperAdmin && selectedTournament && (
@@ -1349,7 +1365,7 @@ export default function AdminDashboardPage() {
                   const curr = tournamentsList.find((t) => t.slug === selectedTournament);
                   handleDeleteTournament(selectedTournament, curr?.name || selectedTournament);
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 text-xs font-bold transition-all shadow-sm"
+                className="btn-press flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
                 title="Delete this tournament permanently"
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-400" />
@@ -1390,6 +1406,59 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* 1-Click Tournament Player Registration Link Box */}
+      {selectedTournament && (
+        <div className="rounded-2xl p-4 bg-gradient-to-r from-[#08111F] via-[#0E1F35] to-[#142946] border border-[#D8AD55]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#D8AD55]/20 border border-[#D8AD55]/40 flex items-center justify-center text-[#D8AD55] shrink-0">
+              <Share2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#D8AD55]">
+                Share Tournament Player Registration Link
+              </div>
+              <div className="text-xs text-gray-200 font-mono font-medium truncate max-w-sm sm:max-w-md">
+                {typeof window !== 'undefined' ? `${window.location.origin}/join/${selectedTournament}` : `/join/${selectedTournament}`}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                const url = `${window.location.origin}/join/${selectedTournament}`;
+                navigator.clipboard.writeText(url);
+                setCopiedInviteLink(true);
+                setTimeout(() => setCopiedInviteLink(false), 3000);
+              }
+            }}
+            className="btn-press px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-black uppercase tracking-wider shadow-md hover:brightness-110 flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            {copiedInviteLink ? <Check className="w-4 h-4 text-emerald-800" /> : <Copy className="w-4 h-4" />}
+            <span>{copiedInviteLink ? 'Copied Link!' : 'Copy Player Invite Link'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Empty State Banner (When all tournaments are deleted / none created yet) */}
+      {tournamentsList.length === 0 && (
+        <div className="rounded-3xl p-8 sm:p-12 bg-[#0D1B2A]/90 border border-[#D8AD55]/30 text-center space-y-4 shadow-2xl">
+          <Trophy className="w-14 h-14 text-[#D8AD55] mx-auto animate-pulse" />
+          <h3 className="font-display font-black text-2xl sm:text-3xl text-white">No Tournaments Active Right Now</h3>
+          <p className="text-xs sm:text-sm text-[#8793A5] max-w-lg mx-auto leading-relaxed">
+            All previous tournament data has been permanently cleared. You can now launch your next tournament using the Custom Format &amp; Overs Studio.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push('/tournaments/create')}
+            className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>+ Host &amp; Launch New Tournament</span>
+          </button>
+        </div>
+      )}
 
       {/* Real-time Notification Banner */}
       {notification && (
