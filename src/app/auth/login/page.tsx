@@ -16,12 +16,14 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 type AuthMode = 'signin' | 'register' | 'forgot_password';
 type ResetStep = 'send_otp' | 'verify_otp';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { refreshProfile } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [resetStep, setResetStep] = useState<ResetStep>('send_otp');
 
@@ -55,7 +57,7 @@ export default function LoginPage() {
     return () => clearInterval(timer);
   }, [resendCountdown]);
 
-  // Standard Login / Register Handler
+  // Standard Login / Register Handler via Bulletproof Same-Origin Server Route
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg(null);
@@ -64,19 +66,28 @@ export default function LoginPage() {
 
     try {
       if (authMode === 'register') {
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim().toLowerCase(),
-          password,
-          options: {
-            data: {
-              full_name: fullName.trim(),
-            },
-          },
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password,
+            fullName: fullName.trim(),
+          }),
         });
 
-        if (error) throw error;
+        const result = await res.json();
+        if (!res.ok || !result.success) {
+          throw new Error(result.error || 'Registration failed.');
+        }
 
-        if (data.session) {
+        if (result.session) {
+          try {
+            await supabase.auth.setSession(result.session);
+          } catch (e) {
+            console.warn('Local session sync skipped:', e);
+          }
+          await refreshProfile();
           router.push('/profile');
           router.refresh();
         } else {
@@ -84,26 +95,57 @@ export default function LoginPage() {
           setAuthMode('signin');
         }
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password,
+        // Sign In via Same-Origin API Route (immune to Safari ITP, Adblockers, and Corporate Firewalls)
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+          }),
         });
 
-        if (error) throw error;
-
-        if (data.session) {
-          router.push('/');
-          router.refresh();
+        const result = await res.json();
+        if (!res.ok || !result.success) {
+          throw new Error(result.error || 'Authentication failed. Please verify credentials.');
         }
+
+        // Synchronize client-side Supabase auth state if session returned
+        if (result.session) {
+          try {
+            await supabase.auth.setSession(result.session);
+          } catch (e) {
+            console.warn('Local session sync skipped:', e);
+          }
+        }
+
+        // Refresh global AuthContext
+        await refreshProfile();
+
+        setSuccessMsg('Signed in successfully! Launching CricPlus…');
+
+        setTimeout(() => {
+          if (result.role === 'super_admin') {
+            router.push('/admin');
+          } else {
+            router.push('/');
+          }
+          router.refresh();
+        }, 500);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'An error occurred during authentication.');
+      const msg = err.message || '';
+      if (msg.includes('Load failed') || msg.includes('Failed to fetch')) {
+        setErrorMsg('Unable to reach the authentication service. Please check your internet connection or try again.');
+      } else {
+        setErrorMsg(msg || 'An error occurred during authentication.');
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  // Step 1: Send OTP to User's Email
+  // Step 1: Send OTP / Reset Email via Server Route
   async function handleSendOtp(e?: React.FormEvent) {
     if (e) e.preventDefault();
     setErrorMsg(null);
@@ -118,37 +160,36 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Trigger Supabase password recovery / OTP with dynamic live redirect URL
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://ddpl-cricket-app.vercel.app';
-      const redirectUrl = `${origin}/auth/callback?next=/auth/reset-password`;
-
-      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-        redirectTo: redirectUrl,
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'request_otp',
+          email: targetEmail,
+        }),
       });
 
-      if (error) {
-        // Fallback to signInWithOtp if resetPasswordForEmail fails
-        const fallback = await supabase.auth.signInWithOtp({
-          email: targetEmail,
-          options: {
-            shouldCreateUser: false,
-            emailRedirectTo: redirectUrl,
-          },
-        });
-        if (fallback.error) throw fallback.error;
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Could not send verification code.');
       }
 
-      setSuccessMsg(`Reset instructions sent to ${targetEmail}! You can tap the "Reset password" button in your email OR enter the 6-digit code below.`);
+      setSuccessMsg(result.message || `Reset instructions sent to ${targetEmail}!`);
       setResetStep('verify_otp');
       setResendCountdown(60);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not send verification code. Please check your email.');
+      const msg = err.message || '';
+      if (msg.includes('Load failed') || msg.includes('Failed to fetch')) {
+        setErrorMsg('Unable to connect to the recovery service. Please check your network connection.');
+      } else {
+        setErrorMsg(msg || 'Could not send verification code. Please check your email.');
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  // Step 2: Verify 6-digit OTP & Set New Password
+  // Step 2: Verify OTP & Reset Password via Server Route
   async function handleVerifyOtpAndResetPassword(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg(null);
@@ -175,50 +216,36 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Verify OTP code
-      let verified = false;
-      let lastError: any = null;
-
-      const resRecovery = await supabase.auth.verifyOtp({
-        email: targetEmail,
-        token: cleanOtp,
-        type: 'recovery',
-      });
-
-      if (!resRecovery.error) {
-        verified = true;
-      } else {
-        lastError = resRecovery.error;
-        const resEmail = await supabase.auth.verifyOtp({
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify_otp',
           email: targetEmail,
-          token: cleanOtp,
-          type: 'email',
-        });
-        if (!resEmail.error) {
-          verified = true;
-          lastError = null;
-        }
-      }
-
-      if (!verified) {
-        throw new Error(lastError?.message || 'Invalid or expired 6-digit code. Please try again or request a new code.');
-      }
-
-      // Update password for the verified authenticated session
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
+          otp: cleanOtp,
+          newPassword,
+        }),
       });
 
-      if (updateError) throw updateError;
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to reset password.');
+      }
 
       setSuccessMsg('Password successfully changed! Logging you in…');
 
       setTimeout(() => {
-        router.push('/profile');
-        router.refresh();
-      }, 1000);
+        setAuthMode('signin');
+        setEmail(targetEmail);
+        setSuccessMsg('Password updated! You can now sign in with your new password.');
+      }, 1200);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to reset password. Please check the OTP code.');
+      const msg = err.message || '';
+      if (msg.includes('Load failed') || msg.includes('Failed to fetch')) {
+        setErrorMsg('Unable to connect to service. Please check your network connection.');
+      } else {
+        setErrorMsg(msg || 'Failed to reset password. Please check the verification code.');
+      }
     } finally {
       setLoading(false);
     }
@@ -407,13 +434,19 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">Email Address</label>
+              <label className="text-xs font-bold text-[#8793A5] uppercase tracking-wider">
+                {authMode === 'register' ? 'Email Address' : 'Email Address / Username'}
+              </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-[#8793A5] absolute left-3.5 top-3.5" />
                 <input
-                  type="email"
+                  type={authMode === 'register' ? 'email' : 'text'}
                   required
-                  placeholder="e.g. rahul.cricket@gmail.com"
+                  placeholder={
+                    authMode === 'register'
+                      ? 'e.g. rahul.cricket@gmail.com'
+                      : 'e.g. rahul.cricket@gmail.com or superadmin'
+                  }
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white placeholder-gray-500 focus:outline-none focus:border-[#D8AD55] text-sm transition-colors"

@@ -42,7 +42,12 @@ export default function SuperAdminLoginPage() {
         router.refresh();
       }, 700);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Authentication failed.');
+      const msg = err.message || '';
+      if (msg.includes('Load failed') || msg.includes('Failed to fetch')) {
+        setErrorMsg('Unable to connect to the authentication server. Please check your internet connection.');
+      } else {
+        setErrorMsg(msg || 'Authentication failed.');
+      }
     } finally {
       setLoading(false);
     }

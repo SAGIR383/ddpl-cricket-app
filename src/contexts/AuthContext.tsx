@@ -123,40 +123,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // 2. Regular user Supabase auth session check
-    const { data } = await supabase.auth.getSession();
-    const currentUser = data.session?.user || null;
-    setUser(currentUser);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const currentUser = data?.session?.user || null;
+      setUser(currentUser);
 
-    if (currentUser) {
-      await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata);
-    } else {
+      if (currentUser) {
+        await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata);
+      } else {
+        setProfile(null);
+        setActiveRole('user');
+      }
+    } catch (e) {
+      console.warn('Session check fallback:', e);
       setProfile(null);
       setActiveRole('user');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     refreshProfile();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user || null;
-      setUser(currentUser);
-      if (currentUser) {
-        await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata);
-      } else {
-        // If Supabase signed out, verify if Super Admin is active
-        await refreshProfile();
-      }
-      setLoading(false);
-    });
+    let subscription: any = null;
+    try {
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const currentUser = session?.user || null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata);
+        } else {
+          // If Supabase signed out, verify if Super Admin is active
+          await refreshProfile();
+        }
+        setLoading(false);
+      });
+      subscription = authListener?.subscription;
+    } catch (e) {
+      console.warn('Auth state listener init fallback:', e);
+    }
 
     return () => {
-      authListener.subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
     try {
       await fetch('/api/admin/auth', { method: 'DELETE' });
     } catch {}

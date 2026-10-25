@@ -10,7 +10,7 @@ import type { Profile } from '@/types/database.types';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { role, refreshProfile } = useAuth();
+  const { role, isSuperAdmin, user: authUser, profile: authProfile, refreshProfile } = useAuth();
   const [profile, setProfile] = useState<Partial<Profile>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,42 +23,67 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        router.push('/auth/login');
-        return;
-      }
-
-      const user = sessionData.session.user;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (data) {
-        setProfile(data);
-        if (data.avatar_url) {
-          // Estimate current size if data URL
-          if (data.avatar_url.startsWith('data:')) {
-            const kb = Math.round((data.avatar_url.length - 22) * 0.75 / 1024);
-            setPhotoInfo({ sizeInKb: kb });
-          }
-        }
-      } else {
+      if (isSuperAdmin) {
         setProfile({
-          id: user.id,
-          email: user.email || '',
-          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+          id: authUser?.id || 'super-admin-master-id',
+          email: authUser?.email || 'superadmin@cricplus.com',
+          full_name: authUser?.name || 'Master Super Admin',
           primary_role: 'All-rounder',
           batting_style: 'Right-hand bat',
           bowling_style: 'Right-arm medium',
+          system_role: 'super_admin',
         });
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session) {
+          if (authUser) {
+            setProfile(authProfile || { id: authUser.id, email: authUser.email });
+            setLoading(false);
+            return;
+          }
+          router.push('/auth/login');
+          return;
+        }
+
+        const user = sessionData.session.user;
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (data) {
+          setProfile(data);
+          if (data.avatar_url) {
+            if (data.avatar_url.startsWith('data:')) {
+              const kb = Math.round(((data.avatar_url.length - 22) * 0.75) / 1024);
+              setPhotoInfo({ sizeInKb: kb });
+            }
+          }
+        } else {
+          setProfile({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+            primary_role: 'All-rounder',
+            batting_style: 'Right-hand bat',
+            bowling_style: 'Right-arm medium',
+          });
+        }
+      } catch (err) {
+        if (authProfile) {
+          setProfile(authProfile);
+        }
+      } finally {
+        setLoading(false);
+      }
     }
     loadProfile();
-  }, []);
+  }, [isSuperAdmin, authUser, authProfile]);
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
