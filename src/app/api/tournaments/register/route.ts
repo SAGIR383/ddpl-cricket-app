@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getStoreData, setStoreData } from '@/lib/supabase/store';
+import { getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
 
 export interface TournamentPlayerRegistration {
   id: string;
@@ -818,25 +818,52 @@ export async function POST(req: Request) {
       });
     }
 
-    // 6. DELETE CUSTOM TOURNAMENT (Super Admin)
+    // 6. DELETE TOURNAMENT (Super Admin - Any created or previous tournament)
     if (action === 'delete_tournament') {
-      const targetSlug = body.slug || tSlug;
-      if (targetSlug === 'ddpl' || targetSlug === 'game-of-run') {
-        return NextResponse.json({ success: false, error: 'Cannot delete default flagship tournaments.' }, { status: 400 });
-      }
+      const targetSlug = (body.slug || tSlug).toLowerCase();
 
       const configs = await getStoreData<Record<string, TournamentConfig>>(
         'tournament_configs',
         'tournament_configs.json',
-        DEFAULT_CONFIGS
+        {}
       );
 
+      const deletedTournamentName = configs[targetSlug]?.name || targetSlug;
       delete configs[targetSlug];
       await setStoreData('tournament_configs', configs, 'tournament_configs.json');
 
+      // 1. Clean up Auction Data for this tournament
+      try {
+        const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+        if (allAuction?.tournaments?.[targetSlug]) {
+          delete allAuction.tournaments[targetSlug];
+          await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+        }
+      } catch (e) {
+        console.warn('Auction cleanup skipped for deleted tournament:', e);
+      }
+
+      // 2. Clean up Schedule
+      try {
+        await setStoreData(`tournament_schedule_${targetSlug}`, { tournament: targetSlug, matches: [] }, `schedule_${targetSlug}.json`);
+      } catch (e) {
+        console.warn('Schedule cleanup skipped for deleted tournament:', e);
+      }
+
+      // 3. Clean up Registrations
+      try {
+        await setStoreData(`tournament_registrations_${targetSlug}`, [], `registrations_${targetSlug}.json`);
+      } catch (e) {
+        console.warn('Registrations cleanup skipped for deleted tournament:', e);
+      }
+
+      // 4. Invalidate server cache so all consumers see the deletion immediately
+      invalidateStoreCache();
+
       return NextResponse.json({
         success: true,
-        message: `Tournament ${targetSlug} removed successfully.`,
+        message: `Tournament "${deletedTournamentName}" deleted successfully.`,
+        deletedSlug: targetSlug,
         allConfigs: configs,
         tournamentsList: Object.values(configs),
       });

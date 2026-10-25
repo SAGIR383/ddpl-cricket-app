@@ -186,11 +186,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteTournament = async (slug: string, name: string) => {
-    if (slug === 'ddpl' || slug === 'game-of-run') {
-      alert('Default tournaments (DDPL, Game of RUN) cannot be deleted.');
-      return;
-    }
-    if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This will delete all its data.`)) {
+    if (!confirm(`Are you sure you want to permanently delete tournament "${name}"? This will delete all its matches, auction data, and registrations.`)) {
       return;
     }
     try {
@@ -204,13 +200,10 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        if (data.tournamentsList) {
-          setTournamentsList(data.tournamentsList);
-        } else {
-          setTournamentsList((prev) => prev.filter((t) => t.slug !== slug));
-        }
-        setSelectedTournament('ddpl');
-        showNotification(`Tournament "${name}" deleted.`);
+        const updatedList = data.tournamentsList || tournamentsList.filter((t) => t.slug !== slug);
+        setTournamentsList(updatedList);
+        setSelectedTournament(updatedList.length > 0 ? updatedList[0].slug : '');
+        showNotification(`Tournament "${name}" permanently deleted.`);
       } else {
         alert(data.error || 'Failed to delete tournament');
       }
@@ -1286,17 +1279,18 @@ export default function AdminDashboardPage() {
                 <span>New Tournament</span>
               </button>
             )}
-            {isSuperAdmin && selectedTournament !== 'ddpl' && selectedTournament !== 'game-of-run' && (
+            {isSuperAdmin && selectedTournament && (
               <button
                 type="button"
                 onClick={() => {
                   const curr = tournamentsList.find((t) => t.slug === selectedTournament);
                   handleDeleteTournament(selectedTournament, curr?.name || selectedTournament);
                 }}
-                className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-bold transition-all"
-                title="Delete this custom tournament"
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-300 text-xs font-bold transition-all shadow-sm"
+                title="Delete this tournament permanently"
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span className="hidden sm:inline">Delete</span>
               </button>
             )}
           </div>
