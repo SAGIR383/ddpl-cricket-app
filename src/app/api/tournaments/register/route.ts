@@ -45,6 +45,10 @@ export interface TournamentConfig {
   currencySymbol?: string;
   creatorEmail?: string;
   isPublic?: boolean;
+  maxBowlerOvers?: number;
+  ballsPerOver?: number;
+  pitchType?: string;
+  formatTitle?: string;
 }
 
 const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
@@ -719,6 +723,10 @@ export async function POST(req: Request) {
         season = '2027', 
         format = 'ddpl', 
         overs = 10,
+        maxBowlerOvers,
+        ballsPerOver = 6,
+        pitchType,
+        formatTitle,
         pursePerTeam = 10000,
         ownerBasePrice = 500,
         maxSquad = 11,
@@ -796,6 +804,10 @@ export async function POST(req: Request) {
         currencySymbol: currencySymbol?.trim() || '₹',
         creatorEmail: creatorEmail?.trim() || undefined,
         isPublic: Boolean(isPublic),
+        maxBowlerOvers: Number(maxBowlerOvers) || Math.max(1, Math.ceil(resolvedOvers / 5)),
+        ballsPerOver: Number(ballsPerOver) || 6,
+        pitchType: pitchType || undefined,
+        formatTitle: formatTitle || undefined,
       };
 
       configs[generatedSlug] = newTournamentConfig;
@@ -878,7 +890,8 @@ export async function POST(req: Request) {
         maxSquadSize: newTournamentConfig.maxSquad,
         minSquadSize: newTournamentConfig.minSquad,
         matchOvers: newTournamentConfig.overs,
-        maxBowlerOvers: Math.max(1, Math.ceil(newTournamentConfig.overs! / 5)),
+        maxBowlerOvers: newTournamentConfig.maxBowlerOvers || Math.max(1, Math.ceil(newTournamentConfig.overs! / 5)),
+        ballsPerOver: newTournamentConfig.ballsPerOver || 6,
         wideBallPenalty: '+1 Run & Extra Ball',
         noBallPenalty: '+1 Run + Free Hit',
         pointsPerWin: 2,

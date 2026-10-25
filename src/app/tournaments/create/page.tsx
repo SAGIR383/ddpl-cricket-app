@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Flame,
   Layers,
+  Sliders,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -111,6 +112,13 @@ const FORMAT_OPTIONS = [
     desc: 'Indoor turf / turf arena box cricket format.',
     format: 'ddpl' as const,
   },
+  {
+    id: 'custom',
+    name: 'Custom Format & Overs',
+    overs: 15,
+    desc: 'Self-configure exact match overs (5–50), bowler quota, ball type, & bracket format.',
+    format: 'ddpl' as const,
+  },
 ];
 
 export default function CreateTournamentPage() {
@@ -130,6 +138,16 @@ export default function CreateTournamentPage() {
   const [shortName, setShortName] = useState('');
   const [season, setSeason] = useState('2026');
   const [selectedFormat, setSelectedFormat] = useState(FORMAT_OPTIONS[0]);
+
+  // Custom Match Format & Overs State
+  const [customOvers, setCustomOvers] = useState(15);
+  const [customFormatName, setCustomFormatName] = useState('Corporate T15 Super Cup');
+  const [customMaxBowlerOvers, setCustomMaxBowlerOvers] = useState(3);
+  const [customTournamentStructure, setCustomTournamentStructure] = useState<'round-robin-playoffs' | 'group-stage-playoffs'>('round-robin-playoffs');
+  const [customPitchType, setCustomPitchType] = useState('Tennis / Tape Ball (Turf Ground)');
+  const [customBallsPerOver, setCustomBallsPerOver] = useState(6);
+  const [showAdvancedTuning, setShowAdvancedTuning] = useState(false);
+
   const [pursePerTeam, setPursePerTeam] = useState(10000);
   const [ownerBasePrice, setOwnerBasePrice] = useState(500);
   const [maxSquad, setMaxSquad] = useState(11);
@@ -172,15 +190,28 @@ export default function CreateTournamentPage() {
 
     setSubmitting(true);
     try {
+      const isCustom = selectedFormat.id === 'custom' || showAdvancedTuning;
+      const resolvedOvers = isCustom ? Number(customOvers) || 10 : selectedFormat.overs;
+      const resolvedFormat = isCustom
+        ? (customTournamentStructure === 'group-stage-playoffs' ? 'game-of-run' : 'ddpl')
+        : selectedFormat.format;
+      const resolvedMaxBowler = isCustom
+        ? Number(customMaxBowlerOvers) || Math.max(1, Math.ceil(resolvedOvers / 5))
+        : Math.max(1, Math.ceil(selectedFormat.overs / 5));
+
       const payload = {
         action: 'create_tournament',
         name: tournamentName.trim(),
         shortName: shortName.trim() || undefined,
         fullName: `${tournamentName.trim()} Championship`,
-        tagline: orgTagline.trim() || `Official ${tournamentName.trim()} Corporate Cricket Tournament`,
+        tagline: orgTagline.trim() || (isCustom ? `${customFormatName} (${resolvedOvers} Overs)` : `Official ${tournamentName.trim()} Corporate Cricket Tournament`),
         season,
-        format: selectedFormat.format,
-        overs: selectedFormat.overs,
+        format: resolvedFormat,
+        overs: resolvedOvers,
+        maxBowlerOvers: resolvedMaxBowler,
+        ballsPerOver: isCustom ? customBallsPerOver : 6,
+        pitchType: isCustom ? customPitchType : undefined,
+        formatTitle: isCustom ? customFormatName : selectedFormat.name,
         pursePerTeam: Number(pursePerTeam) || 10000,
         ownerBasePrice: Number(ownerBasePrice) || 500,
         maxSquad: Number(maxSquad) || 11,
@@ -456,27 +487,268 @@ export default function CreateTournamentPage() {
               </div>
 
               {/* Match Format Selector */}
-              <div className="sm:col-span-2 space-y-2">
-                <label className="block text-xs font-bold text-gray-200">
-                  Match Format &amp; Overs
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {FORMAT_OPTIONS.map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => setSelectedFormat(f)}
-                      className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                        selectedFormat.id === f.id
-                          ? 'border-[#D8AD55] bg-[#D8AD55]/15 text-white shadow-md'
-                          : 'border-[#D8AD55]/20 bg-[#08111F] text-[#8793A5] hover:text-white'
-                      }`}
-                    >
-                      <div className="font-bold text-sm text-[#F2D69A]">{f.name}</div>
-                      <p className="text-[11px] text-[#8793A5] mt-1">{f.desc}</p>
-                    </button>
-                  ))}
+              <div className="sm:col-span-2 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="block text-xs font-bold text-gray-200">
+                    Match Format &amp; Overs <span className="text-rose-400">*</span>
+                  </label>
+                  <span className="text-[11px] text-[#D8AD55] font-semibold">
+                    Select a tournament format preset or customize your exact overs
+                  </span>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {FORMAT_OPTIONS.map((f) => {
+                    const isSelected = selectedFormat.id === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedFormat(f);
+                          if (f.id === 'custom') {
+                            setShowAdvancedTuning(true);
+                          } else {
+                            setCustomOvers(f.overs);
+                            setCustomMaxBowlerOvers(Math.max(1, Math.ceil(f.overs / 5)));
+                          }
+                        }}
+                        className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group ${
+                          isSelected
+                            ? 'border-[#D8AD55] bg-[#D8AD55]/15 text-white shadow-lg shadow-[#D8AD55]/10'
+                            : 'border-[#D8AD55]/20 bg-[#08111F] text-[#8793A5] hover:text-white hover:border-[#D8AD55]/40'
+                        }`}
+                      >
+                        {f.id === 'custom' && (
+                          <div className="inline-block mb-1.5 px-2 py-0.5 rounded-full bg-[#D8AD55]/20 border border-[#D8AD55]/40 text-[#F2D69A] text-[9px] font-bold uppercase tracking-wider">
+                            ✨ Custom Mode
+                          </div>
+                        )}
+                        <div className="font-bold text-sm text-[#F2D69A] flex items-center justify-between">
+                          <span>{f.name}</span>
+                          {isSelected && <Check className="w-4 h-4 text-[#D8AD55]" />}
+                        </div>
+                        <p className="text-[11px] text-[#8793A5] mt-1 leading-relaxed">{f.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* CUSTOM SECTION / STUDIO FOR ORGANIZATIONS & CLUBS */}
+                {(selectedFormat.id === 'custom' || showAdvancedTuning) && (
+                  <div className="mt-3 p-5 sm:p-6 rounded-3xl bg-[#08111F] border-2 border-[#D8AD55]/40 shadow-2xl space-y-5 animate-fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#D8AD55]/20 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-[#D8AD55]" />
+                        <h4 className="font-display font-bold text-base text-white">
+                          Organization Custom Format &amp; Overs Studio
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                        Tailored for Clubs &amp; Companies
+                      </span>
+                    </div>
+
+                    {/* Quick Match Overs Preset Pills */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-gray-300">
+                          Select Match Overs (Click to pick quickly):
+                        </label>
+                        <span className="text-[11px] text-[#F2D69A] font-bold">
+                          Selected: {customOvers} Overs
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { overs: 5, label: '5 Overs (Super 6s)' },
+                          { overs: 6, label: '6 Overs (Gully Clash)' },
+                          { overs: 8, label: '8 Overs (Box Cricket)' },
+                          { overs: 10, label: '10 Overs (T10)' },
+                          { overs: 12, label: '12 Overs (T12)' },
+                          { overs: 15, label: '15 Overs (Corporate T15)' },
+                          { overs: 16, label: '16 Overs' },
+                          { overs: 20, label: '20 Overs (T20)' },
+                          { overs: 25, label: '25 Overs' },
+                          { overs: 30, label: '30 Overs' },
+                          { overs: 40, label: '40 Overs' },
+                          { overs: 50, label: '50 Overs (One Day)' },
+                        ].map((opt) => (
+                          <button
+                            key={opt.overs}
+                            type="button"
+                            onClick={() => {
+                              setCustomOvers(opt.overs);
+                              setCustomMaxBowlerOvers(Math.max(1, Math.ceil(opt.overs / 5)));
+                              setCustomFormatName(`Corporate T${opt.overs} Cup`);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                              customOvers === opt.overs
+                                ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] border-[#D8AD55] shadow-md font-extrabold scale-105'
+                                : 'bg-[#0D1B2A] text-[#8793A5] border-[#D8AD55]/20 hover:text-white'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Numeric Overs & Custom Title Inputs */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-gray-300">
+                          Exact Overs Per Innings
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={customOvers}
+                          onChange={(e) => {
+                            const val = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                            setCustomOvers(val);
+                            setCustomMaxBowlerOvers(Math.max(1, Math.ceil(val / 5)));
+                          }}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                        />
+                        <span className="text-[10px] text-[#8793A5]">Type any custom overs (1 to 100)</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-gray-300">
+                          Max Overs Per Bowler
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={customOvers}
+                          value={customMaxBowlerOvers}
+                          onChange={(e) => setCustomMaxBowlerOvers(Math.max(1, Number(e.target.value) || 1))}
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                        />
+                        <span className="text-[10px] text-[#8793A5]">Standard quota: {Math.max(1, Math.ceil(customOvers / 5))} overs</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-gray-300">
+                          Custom Format Display Title
+                        </label>
+                        <input
+                          type="text"
+                          value={customFormatName}
+                          onChange={(e) => setCustomFormatName(e.target.value)}
+                          placeholder="e.g. Corporate Super 15s"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                        />
+                        <span className="text-[10px] text-[#8793A5]">Shown on scorecards &amp; fixtures</span>
+                      </div>
+                    </div>
+
+                    {/* Tournament Progression & Ball Type */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-gray-300">
+                          Tournament Bracket &amp; Progression
+                        </label>
+                        <div className="space-y-2">
+                          <label
+                            onClick={() => setCustomTournamentStructure('round-robin-playoffs')}
+                            className={`flex items-start gap-2.5 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                              customTournamentStructure === 'round-robin-playoffs'
+                                ? 'border-[#D8AD55] bg-[#D8AD55]/10 text-white'
+                                : 'border-[#D8AD55]/20 bg-[#0D1B2A] text-[#8793A5]'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="tournament_structure"
+                              checked={customTournamentStructure === 'round-robin-playoffs'}
+                              onChange={() => setCustomTournamentStructure('round-robin-playoffs')}
+                              className="mt-0.5 accent-[#D8AD55]"
+                            />
+                            <div>
+                              <strong className="text-white block">Single League Round-Robin + Page Playoffs</strong>
+                              <span className="text-[11px] text-[#8793A5]">All teams in 1 table. Top 4 play Qualifier 1, Eliminator, Qualifier 2, Final.</span>
+                            </div>
+                          </label>
+
+                          <label
+                            onClick={() => setCustomTournamentStructure('group-stage-playoffs')}
+                            className={`flex items-start gap-2.5 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                              customTournamentStructure === 'group-stage-playoffs'
+                                ? 'border-[#D8AD55] bg-[#D8AD55]/10 text-white'
+                                : 'border-[#D8AD55]/20 bg-[#0D1B2A] text-[#8793A5]'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="tournament_structure"
+                              checked={customTournamentStructure === 'group-stage-playoffs'}
+                              onChange={() => setCustomTournamentStructure('group-stage-playoffs')}
+                              className="mt-0.5 accent-[#D8AD55]"
+                            />
+                            <div>
+                              <strong className="text-white block">Dual Group Stage + Semifinals &amp; Final</strong>
+                              <span className="text-[11px] text-[#8793A5]">Teams split into Group A &amp; Group B. Top 2 from each group play cross-over semis.</span>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-gray-300">
+                          Ball Type &amp; Venue Ground
+                        </label>
+                        <div className="space-y-2">
+                          {[
+                            { id: 'Tennis / Tape Ball (Turf Ground)', desc: 'Corporate box / outdoor turf with heavy tennis or taped tennis ball.' },
+                            { id: 'Leather Ball (Standard Cricket Ground)', desc: 'Official regulation leather cricket ball on standard 22-yard pitch.' },
+                            { id: 'Indoor Soft-Ball (Box Cricket Arena)', desc: 'Indoor netted cage box cricket with padded boundary rules.' },
+                          ].map((env) => (
+                            <label
+                              key={env.id}
+                              onClick={() => setCustomPitchType(env.id)}
+                              className={`flex items-start gap-2.5 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                                customPitchType === env.id
+                                  ? 'border-[#D8AD55] bg-[#D8AD55]/10 text-white'
+                                  : 'border-[#D8AD55]/20 bg-[#0D1B2A] text-[#8793A5]'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="pitch_type"
+                                checked={customPitchType === env.id}
+                                onChange={() => setCustomPitchType(env.id)}
+                                className="mt-0.5 accent-[#D8AD55]"
+                              />
+                              <div>
+                                <strong className="text-white block">{env.id}</strong>
+                                <span className="text-[11px] text-[#8793A5]">{env.desc}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Config Banner */}
+                    <div className="p-3.5 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 flex items-center justify-between flex-wrap gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span className="text-gray-300">Active Format:</span>
+                        <strong className="text-[#F2D69A]">{customFormatName}</strong>
+                      </div>
+                      <div className="flex items-center gap-2 text-[#8793A5] font-semibold">
+                        <span>⚡ {customOvers} Overs / Innings</span>
+                        <span>•</span>
+                        <span>🎯 Max {customMaxBowlerOvers} Overs / Bowler</span>
+                        <span>•</span>
+                        <span>🏏 {customPitchType.split(' ')[0]}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Auction & Purse Settings */}
@@ -657,7 +929,11 @@ export default function CreateTournamentPage() {
                 </div>
                 <div>
                   <span className="text-[#8793A5] block">Format &amp; Overs:</span>
-                  <b className="text-white">{selectedFormat.overs} Overs / Match</b>
+                  <b className="text-[#F2D69A]">
+                    {selectedFormat.id === 'custom' || showAdvancedTuning
+                      ? `${customOvers} Overs (${customFormatName})`
+                      : `${selectedFormat.overs} Overs (${selectedFormat.name})`}
+                  </b>
                 </div>
                 <div>
                   <span className="text-[#8793A5] block">Team Purse:</span>
