@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStoreData } from '@/lib/supabase/store';
+import { createClient } from '@supabase/supabase-js';
+
+import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
 
 const SUPERADMIN_IDENTIFIER = process.env.SUPERADMIN_IDENTIFIER || 'superadmin@cricplus.com';
 const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@2026';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
+const SUPABASE_SERVICE_KEY = getServiceRoleKey();
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,25 +52,29 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    // 2. Check Tournament Super Admin (Organization / League Creator) credentials
-    const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
-
-    for (const [slug, cfg] of Object.entries(configs)) {
-      const creatorMatch = cfg.creatorEmail && cfg.creatorEmail.trim().toLowerCase() === normalizedUser;
+    // 2. Check Persistent super_admin_accounts Store
+    const adminAccounts = await getStoreData<Record<string, any>>(
+      'super_admin_accounts',
+      'super_admin_accounts.json',
+      {}
+    );
+    const account = adminAccounts[normalizedUser];
+    if (account) {
       const passMatch =
-        (cfg.adminPassword && cfg.adminPassword === providedPass) ||
-        (cfg.adminPin && cfg.adminPin === providedPass) ||
+        (account.password && account.password === providedPass) ||
+        (account.pin && account.pin === providedPass) ||
         (providedPass === SUPERADMIN_PASSWORD);
 
-      if (creatorMatch && passMatch) {
-        const token = `organizer_session:${slug}:${Buffer.from(cfg.creatorEmail).toString('base64')}`;
+      if (passMatch) {
+        const slug = account.tournamentSlug || 'ddpl';
+        const token = `organizer_session:${slug}:${Buffer.from(account.email).toString('base64')}`;
         const response = NextResponse.json({
           success: true,
           user: {
-            id: `organizer-${slug}`,
-            email: cfg.creatorEmail,
-            name: `${cfg.name} Super Admin`,
-            role: 'organizer',
+            id: `superadmin-${slug}`,
+            email: account.email,
+            name: account.name || 'Super Admin',
+            role: 'super_admin',
             tournamentSlug: slug,
           },
           tournamentSlug: slug,
@@ -86,6 +95,90 @@ export async function POST(req: NextRequest) {
 
         return response;
       }
+    }
+
+    // 3. Check Tournament Super Admin (Organization / League Creator) credentials in tournament_configs
+    const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
+
+    for (const [slug, cfg] of Object.entries(configs)) {
+      const creatorMatch = cfg.creatorEmail && cfg.creatorEmail.trim().toLowerCase() === normalizedUser;
+      const passMatch =
+        (cfg.adminPassword && cfg.adminPassword === providedPass) ||
+        (cfg.adminPin && cfg.adminPin === providedPass) ||
+        (providedPass === SUPERADMIN_PASSWORD);
+
+      if (creatorMatch && passMatch) {
+        const token = `organizer_session:${slug}:${Buffer.from(cfg.creatorEmail).toString('base64')}`;
+        const response = NextResponse.json({
+          success: true,
+          user: {
+            id: `organizer-${slug}`,
+            email: cfg.creatorEmail,
+            name: `${cfg.name} Super Admin`,
+            role: 'super_admin',
+            tournamentSlug: slug,
+          },
+          tournamentSlug: slug,
+        });
+
+        response.cookies.set('cricplus_superadmin', token, {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+        response.cookies.set('cricpluse_superadmin', token, {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+
+        return response;
+      }
+    }
+
+    // 4. Check Supabase Auth credentials for users with assigned super_admin or organizer role
+    try {
+      const roles = await getStoreData<Record<string, string>>('user_roles', 'roles.json', {});
+      const assignedRole = roles[normalizedUser];
+      if (assignedRole === 'super_admin' || assignedRole === 'organizer') {
+        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
+        const { data: signInData, error: signInErr } = await adminClient.auth.signInWithPassword({
+          email: normalizedUser,
+          password: providedPass,
+        });
+
+        if (!signInErr && signInData?.user) {
+          const token = `organizer_session:ddpl:${Buffer.from(normalizedUser).toString('base64')}`;
+          const response = NextResponse.json({
+            success: true,
+            user: {
+              id: signInData.user.id,
+              email: normalizedUser,
+              name: signInData.user.user_metadata?.full_name || 'Super Admin',
+              role: 'super_admin',
+            },
+          });
+
+          response.cookies.set('cricplus_superadmin', token, {
+            path: '/',
+            httpOnly: false,
+            maxAge: 60 * 60 * 24 * 7,
+            sameSite: 'lax',
+          });
+          response.cookies.set('cricpluse_superadmin', token, {
+            path: '/',
+            httpOnly: false,
+            maxAge: 60 * 60 * 24 * 7,
+            sameSite: 'lax',
+          });
+
+          return response;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase auth check fallback in admin/auth:', e);
     }
 
     return NextResponse.json(
@@ -136,7 +229,7 @@ export async function GET(req: NextRequest) {
         id: `organizer-${slug}`,
         email: email || cfg.creatorEmail || 'organizer@cricplus.com',
         name: `${cfg.name || 'Tournament'} Super Admin`,
-        role: 'organizer',
+        role: 'super_admin',
         tournamentSlug: slug,
       },
       tournamentSlug: slug,
@@ -148,7 +241,7 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE() {
   const response = NextResponse.json({ success: true });
-  response.cookies.delete('cricplus_superadmin');
-  response.cookies.delete('cricpluse_superadmin');
+  response.cookies.set('cricplus_superadmin', '', { path: '/', maxAge: 0 });
+  response.cookies.set('cricpluse_superadmin', '', { path: '/', maxAge: 0 });
   return response;
 }

@@ -2,14 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 
+import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
+
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
 const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_OTwkrFMSeuzq_QbWS6htWQ_FicJF8Tf';
-const SUPABASE_SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_KEY = getServiceRoleKey();
 const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@2026';
 
 export async function POST(req: NextRequest) {
@@ -106,6 +105,109 @@ export async function POST(req: NextRequest) {
       }
 
       return response;
+    }
+
+    // 1b. Check Persistent Super Admin Accounts & Tournament Configs
+    try {
+      const { getStoreData } = await import('@/lib/supabase/store');
+      const adminAccounts = await getStoreData<Record<string, any>>(
+        'super_admin_accounts',
+        'super_admin_accounts.json',
+        {}
+      );
+      const adminAcc = adminAccounts[normalized];
+      if (
+        adminAcc &&
+        (adminAcc.password === password ||
+          (adminAcc.pin && adminAcc.pin === password) ||
+          password === SUPERADMIN_PASSWORD)
+      ) {
+        const slug = adminAcc.tournamentSlug || 'ddpl';
+        const token = `organizer_session:${slug}:${Buffer.from(adminAcc.email).toString('base64')}`;
+        const response = NextResponse.json({
+          success: true,
+          user: {
+            id: `superadmin-${slug}`,
+            email: adminAcc.email,
+            name: adminAcc.name || 'Super Admin',
+            role: 'super_admin',
+            tournamentSlug: slug,
+          },
+          role: 'super_admin',
+          profile: {
+            id: `superadmin-${slug}`,
+            email: adminAcc.email,
+            full_name: adminAcc.name || 'Super Admin',
+            system_role: 'super_admin',
+            primary_role: 'All-rounder',
+          },
+        });
+
+        response.cookies.set('cricplus_superadmin', token, {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+        response.cookies.set('cricpluse_superadmin', token, {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+
+        return response;
+      }
+
+      // Check tournament_configs
+      const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
+      for (const [slug, cfg] of Object.entries(configs)) {
+        if (cfg.creatorEmail && cfg.creatorEmail.trim().toLowerCase() === normalized) {
+          const passMatch =
+            (cfg.adminPassword && cfg.adminPassword === password) ||
+            (cfg.adminPin && cfg.adminPin === password) ||
+            password === SUPERADMIN_PASSWORD;
+
+          if (passMatch) {
+            const token = `organizer_session:${slug}:${Buffer.from(cfg.creatorEmail).toString('base64')}`;
+            const response = NextResponse.json({
+              success: true,
+              user: {
+                id: `organizer-${slug}`,
+                email: cfg.creatorEmail,
+                name: `${cfg.name} Super Admin`,
+                role: 'super_admin',
+                tournamentSlug: slug,
+              },
+              role: 'super_admin',
+              profile: {
+                id: `organizer-${slug}`,
+                email: cfg.creatorEmail,
+                full_name: `${cfg.name} Super Admin`,
+                system_role: 'super_admin',
+                primary_role: 'All-rounder',
+              },
+            });
+
+            response.cookies.set('cricplus_superadmin', token, {
+              path: '/',
+              httpOnly: false,
+              maxAge: 60 * 60 * 24 * 7,
+              sameSite: 'lax',
+            });
+            response.cookies.set('cricpluse_superadmin', token, {
+              path: '/',
+              httpOnly: false,
+              maxAge: 60 * 60 * 24 * 7,
+              sameSite: 'lax',
+            });
+
+            return response;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Super admin fallback check skipped:', e);
     }
 
     // 2. Resolve Target Email (if username provided without @)

@@ -852,16 +852,88 @@ export async function POST(req: Request) {
         console.warn('Could not auto-sync organization:', orgErr);
       }
 
-      // Auto-promote tournament creator to Organizer role
+      // Auto-promote tournament creator to Super Admin role and persist credentials
       if (creatorEmail) {
         try {
           const roles = await getStoreData<Record<string, string>>('user_roles', 'roles.json', {});
-          if (!roles[creatorEmail.toLowerCase()] || roles[creatorEmail.toLowerCase()] === 'user') {
-            roles[creatorEmail.toLowerCase()] = 'organizer';
-            await setStoreData('user_roles', roles, 'roles.json');
-          }
+          roles[creatorEmail.toLowerCase()] = 'super_admin';
+          await setStoreData('user_roles', roles, 'roles.json');
         } catch (rErr) {
-          console.warn('Could not auto-promote creator to organizer:', rErr);
+          console.warn('Could not auto-promote creator to super_admin in user_roles:', rErr);
+        }
+
+        // Persist to super_admin_accounts store
+        try {
+          const adminAccounts = await getStoreData<Record<string, any>>(
+            'super_admin_accounts',
+            'super_admin_accounts.json',
+            {}
+          );
+          adminAccounts[creatorEmail.toLowerCase()] = {
+            email: creatorEmail.toLowerCase(),
+            password: adminPassword || '',
+            pin: adminPin || '',
+            name: `${name.trim()} Super Admin`,
+            role: 'super_admin',
+            tournamentSlug: generatedSlug,
+            tournamentName: name.trim(),
+            updatedAt: new Date().toISOString(),
+          };
+          await setStoreData('super_admin_accounts', adminAccounts, 'super_admin_accounts.json');
+        } catch (saErr) {
+          console.warn('Could not save to super_admin_accounts:', saErr);
+        }
+
+        // Auto-provision or update user in Supabase Auth & profiles table
+        try {
+          const { getServiceRoleKey } = await import('@/lib/supabase/serviceKey');
+          const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
+          const SUPABASE_SERVICE_KEY = getServiceRoleKey();
+          const { createClient } = await import('@supabase/supabase-js');
+          const adminAuth = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
+
+          const { data: userList } = await adminAuth.auth.admin.listUsers();
+          const existingUser = userList?.users?.find(
+            (u) => u.email?.toLowerCase() === creatorEmail.toLowerCase()
+          );
+
+          let uid = existingUser?.id;
+
+          if (!existingUser) {
+            const { data: newUser, error: createErr } = await adminAuth.auth.admin.createUser({
+              email: creatorEmail.toLowerCase(),
+              password: adminPassword || 'SuperAdmin@2026',
+              email_confirm: true,
+              user_metadata: {
+                full_name: `${name.trim()} Super Admin`,
+                role: 'super_admin',
+              },
+            });
+            if (!createErr && newUser?.user) {
+              uid = newUser.user.id;
+            }
+          } else if (adminPassword) {
+            await adminAuth.auth.admin.updateUserById(existingUser.id, {
+              password: adminPassword,
+              user_metadata: {
+                full_name: `${name.trim()} Super Admin`,
+                role: 'super_admin',
+              },
+            });
+          }
+
+          if (uid) {
+            await adminAuth.from('profiles').upsert({
+              id: uid,
+              email: creatorEmail.toLowerCase(),
+              full_name: `${name.trim()} Super Admin`,
+              system_role: 'super_admin',
+              primary_role: 'All-rounder',
+              updated_at: new Date().toISOString(),
+            });
+          }
+        } catch (authErr) {
+          console.warn('Could not auto-provision Supabase Auth user:', authErr);
         }
       }
 
@@ -916,13 +988,31 @@ export async function POST(req: Request) {
       };
       await setStoreData(`tournament_schedule_${generatedSlug}`, schedule, `schedule_${generatedSlug}.json`);
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         message: `Tournament "${newTournamentConfig.name}" created successfully!`,
         tournament: newTournamentConfig,
         allConfigs: configs,
         tournamentsList: Object.values(configs),
       });
+
+      if (creatorEmail) {
+        const token = `organizer_session:${generatedSlug}:${Buffer.from(creatorEmail).toString('base64')}`;
+        response.cookies.set('cricplus_superadmin', token, {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+        response.cookies.set('cricpluse_superadmin', token, {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+      }
+
+      return response;
     }
 
     // 6. DELETE TOURNAMENT (Super Admin - Any created or previous tournament)
