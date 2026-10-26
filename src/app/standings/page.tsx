@@ -15,9 +15,13 @@ import {
   TrendingUp,
   ShieldCheck,
   Award,
+  FileDown,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { fetchWithCache } from '@/lib/clientCache';
 import { TeamStandingRow, calculateHeadToHead, HeadToHeadStats } from '@/lib/tournamentAnalytics';
+import { generateExecutiveTournamentDossierPDF, TournamentDossierData } from '@/lib/pdfGenerator';
+import { generateTournamentExcelReport } from '@/lib/excelGenerator';
 
 export default function StandingsPage() {
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
@@ -29,6 +33,51 @@ export default function StandingsPage() {
   const [standings, setStandings] = useState<TeamStandingRow[]>([]);
   const [completedMatches, setCompletedMatches] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportDossier = async (format: 'pdf' | 'excel') => {
+    setIsExporting(true);
+    try {
+      const activeMeta = tournamentsList.find((t) => t.slug === selectedTournament) || {
+        slug: selectedTournament,
+        name: selectedTournament.toUpperCase(),
+      };
+      const [rulesData, auctionData, matchesData, analyticsData] = await Promise.all([
+        fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 10000 }),
+        fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
+        fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 10000 }),
+        fetchWithCache<any>(`/api/analytics/tournament?tournament=${selectedTournament}`, { ttlMs: 5000 }),
+      ]);
+
+      const dossierPayload: TournamentDossierData = {
+        tournament: {
+          slug: selectedTournament,
+          name: activeMeta.name || selectedTournament.toUpperCase(),
+          organizationName: activeMeta.organizationName || 'Corporate League Foundation',
+          season: selectedSeason,
+          overs: rulesData?.rules?.matchOvers || 10,
+          basePurse: rulesData?.rules?.basePurse || 10000,
+        },
+        standings: standings,
+        teams: auctionData?.data?.teams || [],
+        soldTransactions: auctionData?.data?.soldTransactions || [],
+        matches: matchesData?.schedule?.matches || [],
+        orangeCap: analyticsData?.leaderboards?.orangeCap || [],
+        purpleCap: analyticsData?.leaderboards?.purpleCap || [],
+        mvpList: analyticsData?.leaderboards?.mvp || [],
+      };
+
+      if (format === 'pdf') {
+        generateExecutiveTournamentDossierPDF(dossierPayload);
+      } else {
+        generateTournamentExcelReport(dossierPayload);
+      }
+    } catch (err: any) {
+      alert('Failed to export report: ' + err.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Head to Head Selector State
   const [h2hTeamA, setH2hTeamA] = useState<string>('');
@@ -156,17 +205,33 @@ export default function StandingsPage() {
               {completedMatches > 0 ? `${completedMatches} Matches Completed` : 'Live Synced'}
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 badge-live-radar" />
-              Top 4 Advance to Playoffs
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={isExporting}
+              onClick={() => handleExportDossier('pdf')}
+              className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold shadow-md hover:brightness-110 cursor-pointer disabled:opacity-50"
+              title="Download Executive Tournament Dossier (PDF)"
+            >
+              <FileDown className="w-3.5 h-3.5 text-[#08111F]" />
+              <span>Dossier PDF</span>
+            </button>
+            <button
+              type="button"
+              disabled={isExporting}
+              onClick={() => handleExportDossier('excel')}
+              className="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+              title="Download Official Standings & Ledger (Excel .xlsx)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Excel Report</span>
+            </button>
             <Link
               href="/leaderboard"
-              className="px-3 py-1 rounded-xl bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all flex items-center gap-1"
             >
               <Award className="w-3.5 h-3.5" />
-              <span>MVP &amp; Caps</span>
+              <span>Caps</span>
             </Link>
           </div>
         </div>

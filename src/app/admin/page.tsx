@@ -42,8 +42,13 @@ import {
   MapPin,
   Save,
   Megaphone,
+  FileDown,
+  FileSpreadsheet,
+  Printer,
 } from 'lucide-react';
-import { invalidateClientCache } from '@/lib/clientCache';
+import { invalidateClientCache, fetchWithCache } from '@/lib/clientCache';
+import { generateCertificatePDF, generateExecutiveTournamentDossierPDF, TournamentDossierData } from '@/lib/pdfGenerator';
+import { generateTournamentExcelReport } from '@/lib/excelGenerator';
 
 interface TeamItem {
   id: string;
@@ -81,6 +86,7 @@ interface PlayerItem {
   bowling: string;
   basePrice: number;
   status: 'approved' | 'pending' | 'rejected';
+  team?: string;
 }
 
 interface UserAccount {
@@ -96,9 +102,18 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { isOrganizer, isSuperAdmin, role, signOut, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement'>('teams');
+  const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement' | 'reports'>('teams');
   const [selectedTournament, setSelectedTournament] = useState<string>('');
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
+
+  // Certificate Studio & Dossier Reports State
+  const [certRecipient, setCertRecipient] = useState('');
+  const [certType, setCertType] = useState<'participation' | 'winner' | 'runner_up' | 'mvp' | 'orange_cap' | 'purple_cap'>('participation');
+  const [certTeam, setCertTeam] = useState('');
+  const [certSignatoryName, setCertSignatoryName] = useState('Tournament Governing Council');
+  const [certSignatoryRole, setCertSignatoryRole] = useState('Tournament Director');
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [exportingReport, setExportingReport] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState('2026');
   const [adminAnnouncement, setAdminAnnouncement] = useState<any>({
     message: '🏏 Most awaited league for this year is going to start soon... Keep playing hard!',
@@ -533,6 +548,99 @@ export default function AdminDashboardPage() {
       alert(`Error deleting franchise: ${err.message}`);
     } finally {
       setIsDeletingTeamId(null);
+    }
+  };
+
+  // --- CERTIFICATE & DOSSIER REPORT HANDLERS ---
+  const handleExportDossier = async (format: 'pdf' | 'excel') => {
+    setExportingReport(true);
+    try {
+      const activeMeta = tournamentsList.find((t) => t.slug === selectedTournament) || {
+        slug: selectedTournament,
+        name: selectedTournament.toUpperCase(),
+      };
+      const [rulesData, aData, mData, analyticsData] = await Promise.all([
+        fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 5000 }),
+        fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 5000 }),
+        fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 5000 }),
+        fetchWithCache<any>(`/api/analytics/tournament?tournament=${selectedTournament}`, { ttlMs: 5000 }),
+      ]);
+
+      const dossierPayload: TournamentDossierData = {
+        tournament: {
+          slug: selectedTournament,
+          name: activeMeta.name || selectedTournament.toUpperCase(),
+          organizationName: activeMeta.organizationName || 'Corporate League Foundation',
+          season: activeMeta.season || selectedSeason || '2027',
+          overs: rulesData?.rules?.matchOvers || 10,
+          basePurse: rulesData?.rules?.basePurse || 10000,
+        },
+        standings: analyticsData?.standings || [],
+        teams: aData?.data?.teams || teams,
+        soldTransactions: aData?.data?.soldTransactions || [],
+        matches: mData?.schedule?.matches || matches,
+        orangeCap: analyticsData?.leaderboards?.orangeCap || [],
+        purpleCap: analyticsData?.leaderboards?.purpleCap || [],
+        mvpList: analyticsData?.leaderboards?.mvp || [],
+      };
+
+      if (format === 'pdf') {
+        generateExecutiveTournamentDossierPDF(dossierPayload);
+      } else {
+        generateTournamentExcelReport(dossierPayload);
+      }
+      showNotification(`Official Tournament ${format.toUpperCase()} Dossier downloaded!`);
+    } catch (err: any) {
+      alert('Failed to generate report: ' + err.message);
+    } finally {
+      setExportingReport(false);
+    }
+  };
+
+  const handleGenerateSingleCertificate = () => {
+    if (!certRecipient.trim()) {
+      alert('Please enter or select a recipient name.');
+      return;
+    }
+    const activeMeta = tournamentsList.find((t) => t.slug === selectedTournament);
+    generateCertificatePDF({
+      recipientName: certRecipient.trim(),
+      type: certType,
+      tournamentName: activeMeta?.name || selectedTournament.toUpperCase(),
+      organizationName: activeMeta?.organizationName || 'Corporate League Governance',
+      teamName: certTeam.trim() || undefined,
+      signatoryName: certSignatoryName,
+      signatoryRole: certSignatoryRole,
+    });
+    showNotification(`Official Certificate for "${certRecipient}" downloaded!`);
+  };
+
+  const handleBulkGenerateParticipation = async () => {
+    const approvedPlayers = players.filter((p) => p.status === 'approved' || p.name);
+    if (approvedPlayers.length === 0) {
+      alert('No approved players found in this tournament player pool.');
+      return;
+    }
+    setBulkGenerating(true);
+    try {
+      const activeMeta = tournamentsList.find((t) => t.slug === selectedTournament);
+      for (const p of approvedPlayers) {
+        generateCertificatePDF({
+          recipientName: p.name,
+          type: 'participation',
+          tournamentName: activeMeta?.name || selectedTournament.toUpperCase(),
+          organizationName: activeMeta?.organizationName || 'Corporate League Governance',
+          teamName: p.team || undefined,
+          signatoryName: certSignatoryName,
+          signatoryRole: certSignatoryRole,
+        });
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      showNotification(`Generated ${approvedPlayers.length} participation certificates successfully!`);
+    } catch (err: any) {
+      alert('Error generating bulk certificates: ' + err.message);
+    } finally {
+      setBulkGenerating(false);
     }
   };
 
@@ -1569,6 +1677,18 @@ export default function AdminDashboardPage() {
         >
           <Megaphone className="w-5 h-5 text-[#D8AD55]" />
           <span>Live Broadcast Announcement</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('reports')}
+          className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'reports'
+              ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+              : 'border-transparent text-[#8793A5] hover:text-white'
+          }`}
+        >
+          <Award className="w-5 h-5 text-[#D8AD55]" />
+          <span>Certificates &amp; Dossiers</span>
         </button>
       </div>
 
@@ -3749,6 +3869,252 @@ export default function AdminDashboardPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 8: CERTIFICATES & TOURNAMENT DOSSIER REPORTS */}
+      {/* ========================================================================= */}
+      {activeTab === 'reports' && (
+        <div className="space-y-8 animate-fade-in">
+          {/* Top Dossier Downloads Banner */}
+          <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border border-[#D8AD55]/30 shadow-2xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D8AD55]/20 pb-4">
+              <div>
+                <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-[#D8AD55]" />
+                  <span>Official Tournament Documentation &amp; Exports</span>
+                </div>
+                <h3 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight mt-1">
+                  Executive Dossier &amp; Data Exporter
+                </h3>
+                <p className="text-xs text-[#8793A5] mt-1 max-w-xl">
+                  Download branded, audit-ready tournament reports for corporate sponsors, league executives, and media partners.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={exportingReport}
+                  onClick={() => handleExportDossier('pdf')}
+                  className="btn-press shimmer-btn flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs uppercase tracking-wider shadow-xl hover:brightness-110 cursor-pointer disabled:opacity-50"
+                >
+                  <FileDown className="w-4 h-4 text-[#08111F]" />
+                  <span>{exportingReport ? 'Generating Dossier…' : 'Executive Dossier (PDF)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={exportingReport}
+                  onClick={() => handleExportDossier('excel')}
+                  className="btn-press flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 font-display font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  <span>Full Ledger (Excel .xlsx)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Dossier Features Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 space-y-1.5">
+                <div className="font-bold text-[#F2D69A] flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-[#D8AD55]" />
+                  <span>League Standings &amp; NRR</span>
+                </div>
+                <p className="text-[#8793A5] leading-relaxed">
+                  Complete points table breakdown with runs scored, overs faced, net run rate, and playoff qualifications.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 space-y-1.5">
+                <div className="font-bold text-emerald-300 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <span>Franchise Auction Ledger</span>
+                </div>
+                <p className="text-[#8793A5] leading-relaxed">
+                  Audit-ready financial summary of base purses, expenditure, balance remaining, and player acquisition rosters.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 space-y-1.5">
+                <div className="font-bold text-cyan-300 flex items-center gap-2">
+                  <Award className="w-4 h-4 text-cyan-400" />
+                  <span>Caps &amp; Match Center</span>
+                </div>
+                <p className="text-[#8793A5] leading-relaxed">
+                  Orange Cap top run-scorers, Purple Cap top wicket-takers, tournament MVP, and match results archive.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 1-Click Certificate Studio */}
+          <div className="rounded-3xl p-6 sm:p-8 bg-[#0D1B2A]/90 border border-[#D8AD55]/30 shadow-2xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D8AD55]/20 pb-4">
+              <div>
+                <div className="text-xs font-bold text-[#D8AD55] uppercase tracking-wider flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-[#D8AD55]" />
+                  <span>Digital Awards &amp; Credentials</span>
+                </div>
+                <h3 className="font-display font-black text-2xl text-white tracking-tight mt-1">
+                  Official Certificate Studio
+                </h3>
+                <p className="text-xs text-[#8793A5] mt-1 max-w-xl">
+                  Generate high-resolution, gold-embossed PDF certificates for players, championship winners, and tournament MVPs with cryptographic verification hashes.
+                </p>
+              </div>
+
+              {/* Bulk Generate Action */}
+              <button
+                type="button"
+                disabled={bulkGenerating}
+                onClick={handleBulkGenerateParticipation}
+                className="btn-press flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/40 text-purple-300 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                title="Generate individual participation certificates for all approved players"
+              >
+                <Award className="w-4 h-4 text-purple-400" />
+                <span>{bulkGenerating ? 'Generating All…' : 'Bulk All Player Certificates'}</span>
+              </button>
+            </div>
+
+            {/* Certificate Form */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Controls */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-300">
+                    Award / Certificate Category
+                  </label>
+                  <select
+                    value={certType}
+                    onChange={(e) => setCertType(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                  >
+                    <option value="participation">📜 Certificate of Participation</option>
+                    <option value="winner">🏆 Championship Winner Certificate</option>
+                    <option value="runner_up">🥈 Runner-Up Commendation Certificate</option>
+                    <option value="mvp">⭐ Most Valuable Player (MVP) Award</option>
+                    <option value="orange_cap">🟠 Orange Cap (Leading Run Scorer)</option>
+                    <option value="purple_cap">🟣 Purple Cap (Leading Wicket Taker)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-300">
+                    Recipient Full Name <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe / Team Thunderbolts"
+                      value={certRecipient}
+                      onChange={(e) => setCertRecipient(e.target.value)}
+                      className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                    />
+                    {players.length > 0 && (
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setCertRecipient(e.target.value);
+                            const found = players.find((p) => p.name === e.target.value);
+                            if (found?.team) setCertTeam(found.team);
+                          }
+                        }}
+                        className="px-3 py-2 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-gray-300 text-xs font-medium"
+                      >
+                        <option value="">Quick Pick Player</option>
+                        {players.map((p) => (
+                          <option key={p.id || p.name} value={p.name}>
+                            {p.name} {p.team ? `(${p.team})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-300">
+                      Franchise / Team Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Super Strikers"
+                      value={certTeam}
+                      onChange={(e) => setCertTeam(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-300">
+                      Signatory Official Name
+                    </label>
+                    <input
+                      type="text"
+                      value={certSignatoryName}
+                      onChange={(e) => setCertSignatoryName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleGenerateSingleCertificate}
+                    className="btn-press shimmer-btn w-full py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-xl hover:brightness-110 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Award className="w-4 h-4 text-[#08111F]" />
+                    <span>Generate Official Certificate (PDF)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Live Preview Box */}
+              <div className="rounded-2xl p-6 bg-[#08111F] border border-[#D8AD55]/30 flex flex-col justify-between space-y-4">
+                <div className="border border-[#D8AD55]/40 rounded-xl p-5 text-center space-y-2 relative overflow-hidden bg-gradient-to-b from-[#0D1B2A] to-[#08111F]">
+                  <div className="text-[10px] font-black tracking-widest text-[#D8AD55] uppercase">
+                    CricPlus Certified Credential Preview
+                  </div>
+                  <div className="font-display font-black text-lg text-[#F2D69A] uppercase tracking-wider">
+                    {certType === 'winner'
+                      ? 'Championship Victory Certificate'
+                      : certType === 'runner_up'
+                      ? 'Runner-Up Commendation Certificate'
+                      : certType === 'mvp'
+                      ? 'Most Valuable Player (MVP) Award'
+                      : certType === 'orange_cap'
+                      ? 'Orange Cap Leading Run Scorer'
+                      : certType === 'purple_cap'
+                      ? 'Purple Cap Leading Wicket Taker'
+                      : 'Certificate of Participation'}
+                  </div>
+                  <div className="text-xs text-gray-400">Awarded to:</div>
+                  <div className="font-display font-black text-2xl text-white">
+                    {certRecipient || 'Recipient Athlete Name'}
+                  </div>
+                  <div className="text-xs text-[#8793A5]">
+                    {certTeam ? `Representing franchise "${certTeam}" in ` : 'During '}
+                    <strong className="text-[#D8AD55]">
+                      {tournamentsList.find((t) => t.slug === selectedTournament)?.name || selectedTournament.toUpperCase() || 'Tournament'}
+                    </strong>
+                  </div>
+                  <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-400">
+                    <span>Director: {certSignatoryName}</span>
+                    <span className="text-[#D8AD55] font-mono">CP-CERT-VERIFIED</span>
+                  </div>
+                </div>
+
+                <div className="text-xs text-[#8793A5] text-center">
+                  All certificates are generated in landscape A4, complete with gold foil styling, official digital seal, and tamper-evident hash verification.
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

@@ -21,9 +21,14 @@ import {
   ArrowRight,
   ExternalLink,
   Activity,
+  FileDown,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchWithCache } from '@/lib/clientCache';
+import { generateExecutiveTournamentDossierPDF, TournamentDossierData } from '@/lib/pdfGenerator';
+import { generateTournamentExcelReport } from '@/lib/excelGenerator';
 
 export default function TournamentDetailPage() {
   const params = useParams();
@@ -62,6 +67,47 @@ export default function TournamentDetailPage() {
     maxSquadSize: 11,
     minSquadSize: 7,
   });
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportDossier = async (format: 'pdf' | 'excel') => {
+    setIsExporting(true);
+    try {
+      const [matchesData, analyticsData, auctionData] = await Promise.all([
+        fetchWithCache<any>(`/api/matches?tournament=${slug}`, { ttlMs: 5000 }),
+        fetchWithCache<any>(`/api/analytics/tournament?tournament=${slug}`, { ttlMs: 5000 }),
+        fetchWithCache<any>(`/api/auction/data?tournament=${slug}`, { ttlMs: 5000 }),
+      ]);
+
+      const dossierPayload: TournamentDossierData = {
+        tournament: {
+          slug,
+          name: tournamentConfig.name || slug.toUpperCase(),
+          organizationName: tournamentConfig.organizationName || 'Corporate League Foundation',
+          season: tournamentConfig.season || selectedSeason || '2027',
+          overs: matchOvers,
+          basePurse: rules?.basePurse || 10000,
+        },
+        standings: analyticsData?.standings || [],
+        teams: auctionData?.data?.teams || teams,
+        soldTransactions: auctionData?.data?.soldTransactions || [],
+        matches: matchesData?.schedule?.matches || [],
+        orangeCap: analyticsData?.leaderboards?.orangeCap || [],
+        purpleCap: analyticsData?.leaderboards?.purpleCap || [],
+        mvpList: analyticsData?.leaderboards?.mvp || [],
+      };
+
+      if (format === 'pdf') {
+        generateExecutiveTournamentDossierPDF(dossierPayload);
+      } else {
+        generateTournamentExcelReport(dossierPayload);
+      }
+    } catch (err: any) {
+      alert('Failed to export dossier: ' + err.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Sync teams, rules and registration state with live auto-refresh
   useEffect(() => {
@@ -367,31 +413,35 @@ export default function TournamentDetailPage() {
           </div>
 
           {/* Season / Edition Badge */}
-          <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
+          <div className="flex flex-col sm:items-end gap-2 shrink-0">
             <span className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
-              Tournament Edition
+              Edition &amp; Official Dossier
             </span>
-            {tournament.seasons.length > 1 ? (
-              <div className="flex rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 p-1 shadow-md">
-                {tournament.seasons.map((year) => (
-                  <button
-                    key={year}
-                    onClick={() => setSelectedSeason(year)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                      selectedSeason === year
-                        ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
-                        : 'text-[#8793A5] hover:text-white'
-                    }`}
-                  >
-                    Season {year}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="px-4 py-2 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white font-bold text-xs shadow-md">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => handleExportDossier('pdf')}
+                className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold shadow-md hover:brightness-110 cursor-pointer disabled:opacity-50"
+                title="Download Executive PDF Dossier"
+              >
+                <FileDown className="w-3.5 h-3.5 text-[#08111F]" />
+                <span>PDF Dossier</span>
+              </button>
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => handleExportDossier('excel')}
+                className="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                title="Download Full Excel Ledger (.xlsx)"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Excel</span>
+              </button>
+              <div className="px-3 py-1.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white font-bold text-xs shadow-md">
                 Season {tournamentConfig.season || selectedSeason || '2027'}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

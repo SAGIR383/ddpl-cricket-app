@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Shield, CheckCircle2, AlertCircle, LogOut, Save, Trophy, Camera, UploadCloud } from 'lucide-react';
+import { User, Shield, CheckCircle2, AlertCircle, LogOut, Save, Trophy, Camera, UploadCloud, Award } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { compressImageUnder100KB } from '@/lib/imageCompressor';
+import { generateCertificatePDF } from '@/lib/pdfGenerator';
 import type { Profile } from '@/types/database.types';
 
 export default function ProfilePage() {
@@ -266,6 +267,38 @@ export default function ProfilePage() {
           <span>{msg.text}</span>
         </div>
       )}
+
+      {/* Official Player Certificate Download Card */}
+      <div className="rounded-3xl p-6 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border border-[#D8AD55]/30 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-[#D8AD55]/15 border border-[#D8AD55]/40 flex items-center justify-center text-[#D8AD55] shrink-0">
+            <Award className="w-6 h-6 text-[#D8AD55]" />
+          </div>
+          <div>
+            <h3 className="font-display font-black text-lg text-white">
+              Official Tournament Participation Certificate
+            </h3>
+            <p className="text-xs text-[#8793A5]">
+              Download your verified CricPlus athlete certificate with gold seal and digital authenticity hash.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            generateCertificatePDF({
+              recipientName: profile.full_name || 'Tournament Athlete',
+              type: 'participation',
+              tournamentName: 'Corporate Cricket Championship',
+              organizationName: 'Corporate Sports Foundation',
+            });
+          }}
+          className="btn-press shimmer-btn shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-bold text-xs shadow-lg hover:brightness-110 cursor-pointer"
+        >
+          <Award className="w-4 h-4 text-[#08111F]" />
+          <span>Download Certificate (PDF)</span>
+        </button>
+      </div>
 
       {/* Profile Form */}
       <form onSubmit={handleSave} className="rounded-3xl p-6 sm:p-8 space-y-6 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/30 shadow-2xl">

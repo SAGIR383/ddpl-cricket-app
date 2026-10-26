@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { MatchLiveState, InningsData } from '@/types/match.types';
 import { calculateOversString, calculateStrikeRate } from '@/lib/matchEngine';
+import { generateMatchScorecardPDF } from '@/lib/pdfGenerator';
 
 interface ScorecardTabProps {
   state: MatchLiveState;
@@ -282,12 +283,12 @@ export function ScorecardTab({ state }: ScorecardTabProps) {
         </div>
 
         <button
-          onClick={() => window.print()}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-bold hover:bg-[#111D2D] transition-all cursor-pointer shadow"
-          title="Print or Save PDF"
+          onClick={() => generateMatchScorecardPDF(state, state.tournament)}
+          className="btn-press shimmer-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold transition-all cursor-pointer shadow-md hover:brightness-110"
+          title="Download Official Branded PDF Scorecard"
         >
-          <Download className="w-3.5 h-3.5 text-[#D8AD55]" />
-          <span>Export PDF</span>
+          <Download className="w-3.5 h-3.5 text-[#08111F]" />
+          <span>Download PDF Scorecard</span>
         </button>
       </div>
 

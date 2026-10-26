@@ -17,10 +17,12 @@ import {
   ChevronRight,
   TrendingUp,
   Tv,
+  FileDown,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { MatchLiveState, InningsData } from '@/types/match.types';
+import { generateMatchScorecardPDF } from '@/lib/pdfGenerator';
 import {
   calculateOversString,
   calculateEconomyRate,
@@ -319,12 +321,34 @@ export default function MatchDetailPage() {
         isRefreshing={isRefreshing}
       />
 
-      {/* 2. SEGMENTED NAVIGATION TABS */}
-      <SegmentedTabs
-        activeTab={activeTab}
-        onChangeTab={setActiveTab}
-        isLive={matchState.status === 'live'}
-      />
+      {/* 2. SEGMENTED NAVIGATION TABS & ACTIONS */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SegmentedTabs
+          activeTab={activeTab}
+          onChangeTab={setActiveTab}
+          isLive={matchState.status === 'live'}
+        />
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => generateMatchScorecardPDF(matchState, matchState.tournament)}
+            className="btn-press shimmer-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold shadow-md hover:brightness-110 cursor-pointer"
+            title="Download Official Branded PDF Scorecard"
+          >
+            <FileDown className="w-4 h-4 text-[#08111F]" />
+            <span>PDF Scorecard</span>
+          </button>
+          <Link
+            href={`/matches/${matchId}/overlay`}
+            target="_blank"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold hover:bg-[#111D2D] transition-colors"
+          >
+            <Tv className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Broadcast Overlay</span>
+          </Link>
+        </div>
+      </div>
 
       {/* 3. TAB CONTENT */}
 
