@@ -605,7 +605,7 @@ export default function TournamentsPage() {
                 <input
                   type="text"
                   required
-                  placeholder="admin@company.com or superadmin@cricplus.com"
+                  placeholder="Enter admin email or username"
                   value={adminAuthInput.username}
                   onChange={(e) => setAdminAuthInput({ ...adminAuthInput, username: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"

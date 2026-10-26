@@ -1166,12 +1166,18 @@ export default function AdminDashboardPage() {
   };
 
   // Super Admin inline login state for access gate
-  const [inlineAdminIdentifier, setInlineAdminIdentifier] = useState('superadmin@cricplus.com');
-  const [inlineAdminPassword, setInlineAdminPassword] = useState('SuperAdmin@2026');
+  const [inlineAdminIdentifier, setInlineAdminIdentifier] = useState('');
+  const [inlineAdminPassword, setInlineAdminPassword] = useState('');
   const [inlineLoginLoading, setInlineLoginLoading] = useState(false);
   const [inlineLoginError, setInlineLoginError] = useState<string | null>(null);
 
-  const handleInstantSuperAdminLogin = async (customUser?: string, customPass?: string) => {
+  const handleAdminLogin = async (customUser?: string, customPass?: string) => {
+    const userToAuth = (customUser || inlineAdminIdentifier).trim();
+    const passToAuth = (customPass || inlineAdminPassword).trim();
+    if (!userToAuth || !passToAuth) {
+      setInlineLoginError('Please enter your Super Admin username/email and password.');
+      return;
+    }
     setInlineLoginLoading(true);
     setInlineLoginError(null);
     try {
@@ -1179,8 +1185,8 @@ export default function AdminDashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: customUser || inlineAdminIdentifier,
-          password: customPass || inlineAdminPassword,
+          username: userToAuth,
+          password: passToAuth,
         }),
       });
       const data = await res.json();
@@ -1199,7 +1205,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // If user does not have Organizer or Super Admin privileges, provide instant 1-click access
+  // If user does not have Organizer or Super Admin privileges, provide access gate
   if (!isOrganizer) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6">
@@ -1216,32 +1222,12 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="rounded-3xl p-6 sm:p-8 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/30 max-w-md mx-auto space-y-5 text-left shadow-2xl">
-          <div className="space-y-2 text-center pb-2 border-b border-[#D8AD55]/20">
-            <span className="text-xs font-bold text-[#F2D69A] uppercase tracking-wider">Quick Organizer Unlock</span>
+          <div className="space-y-1 text-center pb-2 border-b border-[#D8AD55]/20">
+            <span className="text-xs font-bold text-[#F2D69A] uppercase tracking-wider">Super Admin Authentication</span>
             <p className="text-xs text-[#8793A5]">
-              Click below to immediately authenticate as the Master Super Admin and unlock all tournament features, controls, and auction tools:
+              Sign in with your tournament Super Admin or Host credentials to continue:
             </p>
           </div>
-
-          {/* 1-Click Instant Login Button */}
-          <button
-            type="button"
-            disabled={inlineLoginLoading}
-            onClick={() => handleInstantSuperAdminLogin('superadmin@cricplus.com', 'SuperAdmin@2026')}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-sm tracking-wide shadow-xl hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            {inlineLoginLoading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin text-[#08111F]" />
-                <span>Authenticating Super Admin...</span>
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="w-4 h-4 text-[#08111F]" />
-                <span>⚡ 1-Click Instant Super Admin Access</span>
-              </>
-            )}
-          </button>
 
           {inlineLoginError && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold text-center">
@@ -1249,36 +1235,48 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          {/* Inline Form Option */}
-          <div className="pt-2 border-t border-white/10 space-y-3">
-            <div className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider text-center">
-              Or Sign In With Custom Admin Credentials
-            </div>
-            <div className="space-y-2">
+          <form onSubmit={(e) => { e.preventDefault(); handleAdminLogin(); }} className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider block">
+                Admin Username / Email
+              </label>
               <input
                 type="text"
-                placeholder="Username / Email"
+                required
+                placeholder="Enter admin email or username"
                 value={inlineAdminIdentifier}
                 onChange={(e) => setInlineAdminIdentifier(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-medium focus:outline-none focus:border-[#D8AD55]"
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider block">
+                Password
+              </label>
               <input
                 type="password"
-                placeholder="Password"
+                required
+                placeholder="Enter password"
                 value={inlineAdminPassword}
                 onChange={(e) => setInlineAdminPassword(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-medium focus:outline-none focus:border-[#D8AD55]"
               />
-              <button
-                type="button"
-                disabled={inlineLoginLoading}
-                onClick={() => handleInstantSuperAdminLogin()}
-                className="w-full py-2.5 rounded-xl bg-[#111D2D] hover:bg-[#1a2b42] border border-[#D8AD55]/40 text-[#F2D69A] font-bold text-xs transition-all cursor-pointer"
-              >
-                Sign In
-              </button>
             </div>
-          </div>
+            <button
+              type="submit"
+              disabled={inlineLoginLoading}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {inlineLoginLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-[#08111F]" />
+                  <span>Signing In...</span>
+                </>
+              ) : (
+                <span>Sign In as Super Admin</span>
+              )}
+            </button>
+          </form>
 
           <div className="pt-2 text-center flex flex-col items-center gap-2">
             <Link
