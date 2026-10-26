@@ -26,6 +26,8 @@ import {
 import { fetchWithCache } from '@/lib/clientCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { LiveAnnouncementTicker } from '@/components/home/LiveAnnouncementTicker';
+import { InteractiveFeatureShowcase } from '@/components/home/InteractiveFeatureShowcase';
+import { GlobalMatchRadarMap } from '@/components/home/GlobalMatchRadarMap';
 import type { LiveAnnouncementData } from '@/app/api/announcement/route';
 
 interface TournamentCardItem {
@@ -841,6 +843,9 @@ export default function HomePage() {
         )}
       </section>
 
+      {/* INTERACTIVE DEVICE FEATURE SHOWCASE (Matching Visual Reference 1) */}
+      <InteractiveFeatureShowcase />
+
       {/* 4. UPCOMING & LIVE MATCHES SHOWCASE (Storyboard Panel 3) */}
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#D8AD55]/15 pb-4">
@@ -989,6 +994,9 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* GLOBAL LIVE MATCH RADAR WORLD MAP (Matching Visual Reference 2) */}
+      <GlobalMatchRadarMap />
 
       {/* 5. EDITORIAL STORYBOARD CALLOUT (Style D Sports Broadcast) */}
       <section className="bg-gradient-to-r from-[#0D1B2A] via-[#111D2D] to-[#0D1B2A] rounded-3xl p-8 sm:p-12 border border-[#D8AD55]/30 shadow-2xl relative overflow-hidden">
