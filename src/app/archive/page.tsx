@@ -23,7 +23,7 @@ export default function HistoricalArchivePage() {
               Historical Championship Vault
             </h1>
             <p className="text-sm text-gray-300 max-w-2xl leading-relaxed">
-              Official archive of concluded tournament editions, championship finals, and verified career player milestones across DDPL and Game of RUN.
+              Official archive of concluded tournament editions, championship finals, and verified career player milestones across corporate leagues.
             </p>
           </div>
         </div>
@@ -71,16 +71,16 @@ export default function HistoricalArchivePage() {
 
         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
           <Link
-            href="/tournaments/ddpl"
+            href="/tournaments"
             className="btn-press px-5 py-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 font-bold text-xs border border-blue-500/40 transition-all"
           >
-            Explore DDPL 2026
+            Explore Active Leagues
           </Link>
           <Link
-            href="/tournaments/game-of-run"
+            href="/tournaments/create"
             className="btn-press px-5 py-2.5 rounded-xl bg-[#D8AD55]/20 hover:bg-[#D8AD55]/30 text-[#F2D69A] font-bold text-xs border border-[#D8AD55]/40 transition-all"
           >
-            Explore Game of RUN 2026
+            + Host Tournament
           </Link>
           <Link
             href="/auction"

@@ -35,20 +35,14 @@ const DEFAULT_GOR_RULES = {
 
 async function readAllRules(): Promise<Record<string, any>> {
   const container = await getStoreData<any>('tournament_rules', 'rules.json', {
-    tournaments: {
-      ddpl: DEFAULT_DDPL_RULES,
-      'game-of-run': DEFAULT_GOR_RULES,
-    },
+    tournaments: {},
   });
 
   if (container?.tournaments) {
     return container;
   }
   return {
-    tournaments: {
-      ddpl: { ...DEFAULT_DDPL_RULES, ...(container || {}) },
-      'game-of-run': { ...DEFAULT_GOR_RULES, ...(container?.['game-of-run'] || {}) },
-    },
+    tournaments: container || {},
   };
 }
 
@@ -56,17 +50,17 @@ async function saveAllRules(rulesContainer: any) {
   return setStoreData('tournament_rules', rulesContainer, 'rules.json');
 }
 
-// GET /api/admin/rules?tournament=ddpl (or game-of-run)
+// GET /api/admin/rules?tournament=slug
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
+  const tournament = (searchParams.get('tournament') || 'default').toLowerCase();
 
   const container = await readAllRules();
   const rulesMap = container.tournaments || {};
 
   // If requesting tournament-specific rule
-  const targetRules = rulesMap[tournament] || (tournament === 'game-of-run' ? DEFAULT_GOR_RULES : DEFAULT_DDPL_RULES);
-  const matchOvers = Number(targetRules.matchOvers) || (tournament === 'game-of-run' ? 12 : 10);
+  const targetRules = rulesMap[tournament] || DEFAULT_DDPL_RULES;
+  const matchOvers = Number(targetRules.matchOvers) || 10;
   const defaultBowlerLimit = targetRules.maxBowlerOvers !== undefined
     ? Number(targetRules.maxBowlerOvers)
     : Math.max(1, Math.ceil(matchOvers / 5));

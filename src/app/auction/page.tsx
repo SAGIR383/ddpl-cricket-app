@@ -74,11 +74,8 @@ export default function AuctionPage() {
   const supabase = createClient();
   const channelRef = useRef<any>(null);
 
-  const [activeTournament, setActiveTournament] = useState<string>('ddpl');
-  const [tournamentsList, setTournamentsList] = useState<any[]>([
-    { slug: 'ddpl', name: 'DDPL', season: '2026' },
-    { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
-  ]);
+  const [activeTournament, setActiveTournament] = useState<string>('');
+  const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [bidStep, setBidStep] = useState(100);
   const [selectedIncrement, setSelectedIncrement] = useState<number>(100);
   const [isOpeningAtBase, setIsOpeningAtBase] = useState<boolean>(true);
@@ -130,7 +127,7 @@ export default function AuctionPage() {
   const [rtmSelectedTeam, setRtmSelectedTeam] = useState<string>('');
 
   const currentTourneyMeta = tournamentsList.find((t) => t.slug === activeTournament);
-  const currencySymbol = currentTourneyMeta?.currencySymbol || (activeTournament === 'game-of-run' ? 'د.إ' : '₹');
+  const currencySymbol = currentTourneyMeta?.currencySymbol || '₹';
 
   useEffect(() => {
     setIsAudioMuted(auctionAudio.isMuted());
@@ -185,8 +182,14 @@ export default function AuctionPage() {
 
         if (!isMounted) return;
 
-        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+        if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
           setTournamentsList(regData.tournamentsList);
+          if (regData.tournamentsList.length > 0) {
+            setActiveTournament((prev) => {
+              const exists = regData.tournamentsList.some((t: any) => t.slug === prev);
+              return exists && prev ? prev : regData.tournamentsList[0].slug;
+            });
+          }
         }
 
         if (rulesData?.success && rulesData.rules) {
@@ -967,22 +970,29 @@ export default function AuctionPage() {
             </div>
           )}
 
-          {/* Tournament Switcher */}
-          <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold shadow-md">
-            {tournamentsList.map((t) => (
-              <button
-                key={t.slug}
-                onClick={() => setActiveTournament(t.slug)}
-                className={`px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap ${
-                  activeTournament === t.slug
-                    ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
-                    : 'text-[#8793A5] hover:text-white'
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
+          {/* Tournament Switcher: Only render if multiple tournaments exist */}
+          {tournamentsList.length > 1 && (
+            <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold shadow-md">
+              {tournamentsList.map((t) => (
+                <button
+                  key={t.slug}
+                  onClick={() => setActiveTournament(t.slug)}
+                  className={`px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+                    activeTournament === t.slug
+                      ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
+                      : 'text-[#8793A5] hover:text-white'
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {tournamentsList.length === 1 && (
+            <div className="px-3.5 py-1.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold shadow-md">
+              {tournamentsList[0].name}
+            </div>
+          )}
         </div>
       </div>
 

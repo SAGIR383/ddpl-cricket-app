@@ -34,7 +34,7 @@ function AuctionProjectorContent() {
 
   const [tournamentConfig, setTournamentConfig] = useState<any>({
     name: activeTournament.toUpperCase(),
-    currencySymbol: activeTournament === 'game-of-run' ? 'د.إ' : '₹',
+    currencySymbol: '₹',
   });
 
   const [currentLot, setCurrentLot] = useState<any | null>(null);

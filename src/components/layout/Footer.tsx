@@ -34,14 +34,14 @@ export function Footer() {
             <div className="space-y-2">
               <div className="text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">Tournaments</div>
               <div className="flex flex-col space-y-1.5">
-                <Link href="/tournaments/ddpl" className="hover:text-white transition-colors">
-                  DDPL 2026
-                </Link>
-                <Link href="/tournaments/game-of-run" className="hover:text-white transition-colors">
-                  Game of RUN
-                </Link>
                 <Link href="/tournaments" className="hover:text-white transition-colors">
-                  All Leagues
+                  Explore Leagues
+                </Link>
+                <Link href="/tournaments/create" className="hover:text-white transition-colors">
+                  Host a Tournament
+                </Link>
+                <Link href="/archive" className="hover:text-white transition-colors">
+                  Championship Vault
                 </Link>
               </div>
             </div>

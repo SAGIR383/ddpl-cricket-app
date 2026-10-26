@@ -23,11 +23,8 @@ interface MatchDisplay {
 }
 
 export default function MatchesPage() {
-  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
-  const [tournamentsList, setTournamentsList] = useState<any[]>([
-    { slug: 'ddpl', name: 'DDPL', season: '2026' },
-    { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
-  ]);
+  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [matches, setMatches] = useState<MatchDisplay[]>([]);
   const [tournamentStartDate, setTournamentStartDate] = useState<string | null>(null);
   const [tournamentEndDate, setTournamentEndDate] = useState<string | null>(null);
@@ -49,14 +46,20 @@ export default function MatchesPage() {
 
         if (!isMounted) return;
 
-        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+        if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
           setTournamentsList(regData.tournamentsList);
+          if (regData.tournamentsList.length > 0) {
+            setSelectedTournament((prev) => {
+              const exists = regData.tournamentsList.some((t: any) => t.slug === prev);
+              return exists && prev ? prev : regData.tournamentsList[0].slug;
+            });
+          }
         }
 
         const activeTourneyMeta = tournamentsList.find((t) => t.slug === selectedTournament);
         const tourneyLabel = activeTourneyMeta?.name || selectedTournament.toUpperCase();
 
-        let tournamentOvers = selectedTournament === 'game-of-run' ? 12 : 10;
+        let tournamentOvers = 10;
         if (rulesData?.success && rulesData.rules?.matchOvers) {
           tournamentOvers = rulesData.rules.matchOvers;
         }
@@ -112,7 +115,7 @@ export default function MatchesPage() {
                 generated.push({
                   id: `match-${matchNum}`,
                   matchNumber: matchNum,
-                  tournament: selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN 2026',
+                  tournament: `${tourneyLabel} ${activeTourneyMeta?.season || ''}`.trim(),
                   stage: 'League',
                   title: `Match ${matchNum}: ${auctionTeams[i].short} vs ${auctionTeams[j].short} (${tournamentOvers} Ov)`,
                   teamA: {
@@ -182,22 +185,29 @@ export default function MatchesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Tournament Selector Pill Bar */}
-          <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold shadow-md">
-            {tournamentsList.map((t) => (
-              <button
-                key={t.slug}
-                onClick={() => setSelectedTournament(t.slug)}
-                className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
-                  selectedTournament === t.slug
-                    ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
-                    : 'text-[#8793A5] hover:text-white'
-                }`}
-              >
-                {t.name} Fixtures
-              </button>
-            ))}
-          </div>
+          {/* Tournament Selector: Only render if multiple tournaments exist */}
+          {tournamentsList.length > 1 && (
+            <div className="flex rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 p-1 text-xs font-bold shadow-md">
+              {tournamentsList.map((t) => (
+                <button
+                  key={t.slug}
+                  onClick={() => setSelectedTournament(t.slug)}
+                  className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+                    selectedTournament === t.slug
+                      ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow'
+                      : 'text-[#8793A5] hover:text-white'
+                  }`}
+                >
+                  {t.name} Fixtures
+                </button>
+              ))}
+            </div>
+          )}
+          {tournamentsList.length === 1 && (
+            <div className="px-4 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold shadow-md">
+              {tournamentsList[0].name} Fixtures
+            </div>
+          )}
 
           {/* Export Actions */}
           {matches.length > 0 && (

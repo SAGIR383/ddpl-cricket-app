@@ -570,7 +570,9 @@ export default function HomePage() {
                   <span className="text-[10px] font-bold text-[#8793A5]">Season 2026</span>
                 </div>
                 <div>
-                  <div className="font-display font-extrabold text-lg text-white">DDPL &amp; Game of RUN</div>
+                  <div className="font-display font-extrabold text-lg text-white">
+                    {tournaments.length > 0 ? tournaments.map((t) => t.name).join(' & ') : 'Official Leagues'}
+                  </div>
                   <p className="text-xs text-[#8793A5] mt-0.5">
                     {stats.teamsCount > 0 ? `${stats.teamsCount} Franchises confirmed.` : 'Franchise rosters being finalized.'} Official tournaments upcoming.
                   </p>

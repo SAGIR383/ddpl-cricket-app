@@ -37,20 +37,14 @@ const EMPTY_TOURNAMENT_STATE = {
 
 async function readAllAuctionData(): Promise<any> {
   const parsed = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', {
-    tournaments: {
-      ddpl: DEFAULT_STATE,
-      'game-of-run': EMPTY_TOURNAMENT_STATE,
-    },
+    tournaments: {},
   });
 
   if (parsed?.tournaments) {
     return parsed;
   }
   return {
-    tournaments: {
-      ddpl: parsed || DEFAULT_STATE,
-      'game-of-run': EMPTY_TOURNAMENT_STATE,
-    },
+    tournaments: parsed || {},
   };
 }
 
@@ -64,7 +58,7 @@ export async function GET(req: Request) {
   const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
 
   const allData = await readAllAuctionData();
-  const tournamentData = allData.tournaments?.[tournament] || (tournament === 'ddpl' ? DEFAULT_STATE : EMPTY_TOURNAMENT_STATE);
+  const tournamentData = allData.tournaments?.[tournament] || EMPTY_TOURNAMENT_STATE;
 
   return NextResponse.json(
     {

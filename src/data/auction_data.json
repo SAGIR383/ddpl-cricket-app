@@ -1,24 +1,3 @@
 {
-  "tournaments": {
-    "ddpl": {
-      "teams": [],
-      "playerPool": [],
-      "soldTransactions": [],
-      "unsoldPlayers": [],
-      "currentLotIndex": 0,
-      "lastUpdated": "2026-10-16T03:00:00.000Z",
-      "currentLot": null,
-      "mascotEvent": null,
-      "tournament": "ddpl"
-    },
-    "game-of-run": {
-      "teams": [],
-      "playerPool": [],
-      "soldTransactions": [],
-      "unsoldPlayers": [],
-      "currentLotIndex": 0,
-      "lastUpdated": "2026-10-16T03:00:00.000Z",
-      "currentLot": null
-    }
-  }
+  "tournaments": {}
 }

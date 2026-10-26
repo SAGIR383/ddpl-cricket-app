@@ -24,12 +24,9 @@ import { generateExecutiveTournamentDossierPDF, TournamentDossierData } from '@/
 import { generateTournamentExcelReport } from '@/lib/excelGenerator';
 
 export default function StandingsPage() {
-  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
-  const [selectedSeason, setSelectedSeason] = useState('2026');
-  const [tournamentsList, setTournamentsList] = useState<any[]>([
-    { slug: 'ddpl', name: 'DDPL', season: '2026' },
-    { slug: 'game-of-run', name: 'Game of RUN', season: '2026' },
-  ]);
+  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [selectedSeason, setSelectedSeason] = useState('2027');
+  const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [standings, setStandings] = useState<TeamStandingRow[]>([]);
   const [completedMatches, setCompletedMatches] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -98,8 +95,14 @@ export default function StandingsPage() {
 
         if (!isMounted) return;
 
-        if (regData?.tournamentsList && regData.tournamentsList.length > 0) {
+        if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
           setTournamentsList(regData.tournamentsList);
+          if (regData.tournamentsList.length > 0) {
+            setSelectedTournament((prev) => {
+              const exists = regData.tournamentsList.some((t: any) => t.slug === prev);
+              return exists && prev ? prev : regData.tournamentsList[0].slug;
+            });
+          }
         }
 
         const soldTx = auctionData?.data?.soldTransactions || [];
@@ -172,17 +175,24 @@ export default function StandingsPage() {
 
         {/* Filters */}
         <div className="flex items-center gap-3">
-          <select
-            value={selectedTournament}
-            onChange={(e) => setSelectedTournament(e.target.value)}
-            className="px-4 py-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
-          >
-            {tournamentsList.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          {tournamentsList.length > 1 && (
+            <select
+              value={selectedTournament}
+              onChange={(e) => setSelectedTournament(e.target.value)}
+              className="px-4 py-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+            >
+              {tournamentsList.map((t) => (
+                <option key={t.slug} value={t.slug}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {tournamentsList.length === 1 && (
+            <div className="px-3.5 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold shadow-md">
+              {tournamentsList[0].name}
+            </div>
+          )}
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(e.target.value)}
