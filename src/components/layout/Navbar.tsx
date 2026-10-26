@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle, Globe, Palette } from 'lucide-react';
+import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle, Globe, Palette, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCorporateTheme } from '@/contexts/ThemeContext';
@@ -15,7 +15,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
-  const { user, isSuperAdmin, isOrganizer } = useAuth();
+  const { user, isSuperAdmin, isOrganizer, signOut } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const { currentTheme, customLogo } = useCorporateTheme();
 
@@ -180,15 +180,29 @@ export function Navbar() {
             ) : null}
 
             {user ? (
-              <Link
-                href="/profile"
-                className="btn-press flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#111D2D] hover:bg-[#111D2D]/80 border border-[#D8AD55]/30 text-xs font-bold text-white shadow-sm"
-              >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-black text-[11px] shadow-sm">
-                  {user.email?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <span className="max-w-[110px] truncate text-gray-200">{user.email?.split('@')[0]}</span>
-              </Link>
+              <div className="flex items-center gap-1.5">
+                <Link
+                  href="/profile"
+                  className="btn-press flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#111D2D] hover:bg-[#111D2D]/80 border border-[#D8AD55]/30 text-xs font-bold text-white shadow-sm"
+                  title="View Profile"
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-black text-[11px] shadow-sm">
+                    {user.email?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <span className="max-w-[110px] truncate text-gray-200">{user.email?.split('@')[0]}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await signOut();
+                    window.location.href = '/';
+                  }}
+                  className="p-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-colors cursor-pointer"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
             ) : (
               <Link
                 href="/auth/login"
@@ -319,6 +333,21 @@ export function Navbar() {
                 <Shield className="w-3.5 h-3.5 text-[#D8AD55]" />
                 <span>Super Admin Console</span>
               </Link>
+            )}
+
+            {user && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setMobileMenuOpen(false);
+                  await signOut();
+                  window.location.href = '/';
+                }}
+                className="btn-press w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 text-xs font-bold transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out ({user.email?.split('@')[0]})</span>
+              </button>
             )}
           </div>
         </div>

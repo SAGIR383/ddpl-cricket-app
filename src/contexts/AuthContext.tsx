@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = async () => {
     // 1. First check if Super Admin session is active
     try {
-      const adminRes = await fetch('/api/admin/auth');
+      const adminRes = await fetch('/api/admin/auth', { cache: 'no-store' });
       if (adminRes.ok) {
         const adminData = await adminRes.json();
         if (adminData.authenticated && adminData.user) {
@@ -171,14 +171,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST', cache: 'no-store' });
     } catch {}
     try {
-      await fetch('/api/admin/auth', { method: 'DELETE' });
+      await fetch('/api/admin/auth', { method: 'DELETE', cache: 'no-store' });
     } catch {}
     try {
       await supabase.auth.signOut();
     } catch {}
+
+    // Flush client cookies & local cache directly to guarantee mobile app & web logout
+    if (typeof document !== 'undefined') {
+      const cookiesToWipe = ['cricplus_superadmin', 'cricpluse_superadmin'];
+      document.cookie.split(';').forEach((cookie) => {
+        const name = cookie.split('=')[0].trim();
+        if (
+          name.startsWith('sb-') ||
+          name.includes('supabase') ||
+          name.includes('superadmin') ||
+          name.includes('auth')
+        ) {
+          cookiesToWipe.push(name);
+        }
+      });
+      cookiesToWipe.forEach((name) => {
+        document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0;`;
+        try {
+          if (window.location.hostname) {
+            document.cookie = `${name}=; path=/; domain=${window.location.hostname}; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0;`;
+          }
+        } catch {}
+      });
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {}
+    }
+
     setUser(null);
     setProfile(null);
     setActiveRole('user');

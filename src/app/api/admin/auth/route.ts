@@ -200,16 +200,25 @@ export async function GET(req: NextRequest) {
   const cookie = req.cookies.get('cricplus_superadmin') || req.cookies.get('cricpluse_superadmin');
   const cookieVal = cookie?.value || '';
 
+  const noCacheHeaders = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+    Pragma: 'no-cache',
+    Expires: '0',
+  };
+
   if (cookieVal === 'active_session') {
-    return NextResponse.json({
-      authenticated: true,
-      user: {
-        id: 'super-admin-master-id',
-        email: 'superadmin@cricplus.com',
-        name: 'Master Super Admin',
-        role: 'super_admin',
+    return NextResponse.json(
+      {
+        authenticated: true,
+        user: {
+          id: 'super-admin-master-id',
+          email: 'superadmin@cricplus.com',
+          name: 'Master Super Admin',
+          role: 'super_admin',
+        },
       },
-    });
+      { headers: noCacheHeaders }
+    );
   }
 
   if (cookieVal.startsWith('organizer_session:')) {
@@ -223,25 +232,29 @@ export async function GET(req: NextRequest) {
     const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
     const cfg = configs[slug] || {};
 
-    return NextResponse.json({
-      authenticated: true,
-      user: {
-        id: `organizer-${slug}`,
-        email: email || cfg.creatorEmail || 'organizer@cricplus.com',
-        name: `${cfg.name || 'Tournament'} Super Admin`,
-        role: 'super_admin',
+    return NextResponse.json(
+      {
+        authenticated: true,
+        user: {
+          id: `organizer-${slug}`,
+          email: email || cfg.creatorEmail || 'organizer@cricplus.com',
+          name: `${cfg.name || 'Tournament'} Super Admin`,
+          role: 'super_admin',
+          tournamentSlug: slug,
+        },
         tournamentSlug: slug,
       },
-      tournamentSlug: slug,
-    });
+      { headers: noCacheHeaders }
+    );
   }
 
-  return NextResponse.json({ authenticated: false });
+  return NextResponse.json({ authenticated: false }, { headers: noCacheHeaders });
 }
 
 export async function DELETE() {
   const response = NextResponse.json({ success: true });
-  response.cookies.set('cricplus_superadmin', '', { path: '/', maxAge: 0 });
-  response.cookies.set('cricpluse_superadmin', '', { path: '/', maxAge: 0 });
+  const expiredOptions = { path: '/', maxAge: 0, expires: new Date(0), sameSite: 'lax' as const };
+  response.cookies.set('cricplus_superadmin', '', expiredOptions);
+  response.cookies.set('cricpluse_superadmin', '', expiredOptions);
   return response;
 }

@@ -10,7 +10,7 @@ import type { Profile } from '@/types/database.types';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { role, isSuperAdmin, user: authUser, profile: authProfile, refreshProfile } = useAuth();
+  const { role, isSuperAdmin, user: authUser, profile: authProfile, refreshProfile, signOut } = useAuth();
   const [profile, setProfile] = useState<Partial<Profile>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -153,9 +153,14 @@ export default function ProfilePage() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
+    try {
+      setLoading(true);
+      await signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    } finally {
+      window.location.href = '/';
+    }
   }
 
   if (loading) {

@@ -31,14 +31,38 @@ export async function POST(req: NextRequest) {
 
   const response = NextResponse.json({ success: true });
 
-  // Delete Super Admin cookies
-  response.cookies.delete('cricplus_superadmin');
-  response.cookies.delete('cricpluse_superadmin');
+  const expiredOptions = {
+    path: '/',
+    maxAge: 0,
+    expires: new Date(0),
+    sameSite: 'lax' as const,
+  };
 
-  // Delete all Supabase auth cookies
+  // Explicitly expire Super Admin cookies
+  response.cookies.set('cricplus_superadmin', '', expiredOptions);
+  response.cookies.set('cricpluse_superadmin', '', expiredOptions);
+
+  // Expire all cookies present in incoming request that relate to auth/supabase/admin
+  req.cookies.getAll().forEach((c) => {
+    if (
+      c.name.startsWith('sb-') ||
+      c.name.includes('supabase') ||
+      c.name.includes('superadmin') ||
+      c.name.includes('auth') ||
+      c.name.includes('token')
+    ) {
+      response.cookies.set(c.name, '', expiredOptions);
+    }
+  });
+
+  // Expire Supabase SSR cookies from ssrClient
   for (const c of cookieActions) {
-    response.cookies.set(c.name, '', { ...c.options, maxAge: 0, path: '/' });
+    response.cookies.set(c.name, '', { ...c.options, ...expiredOptions });
   }
 
   return response;
+}
+
+export async function GET(req: NextRequest) {
+  return POST(req);
 }
