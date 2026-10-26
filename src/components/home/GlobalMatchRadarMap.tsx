@@ -2,116 +2,187 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Globe, Radio, Sparkles, MapPin, Activity, Trophy, ChevronRight } from 'lucide-react';
+import { Trophy, ChevronRight, Activity, MapPin } from 'lucide-react';
+import { WorldMapPaths } from './WorldMapPaths';
 
-interface RadarHub {
+export interface RadarHub {
   id: string;
   city: string;
   country: string;
-  xPercent: number; // 0 to 100 on world map SVG coordinate
-  yPercent: number; // 0 to 100 on world map SVG coordinate
-  delaySeconds: number; // Staggered blinking delay so they don't blink at the same time
+  region: string;
+  cx: number; // SVG viewBox coordinate X (30.767 to 814.844)
+  cy: number; // SVG viewBox coordinate Y (241.591 to 700.218)
+  delaySeconds: number; // Staggered blinking delay so points blink asynchronously
   tournamentName: string;
   matchScore: string;
   status: 'Live Match' | 'Auction Concluded' | 'Grand Finals' | 'Player Registration';
 }
 
-const GLOBAL_HUBS: RadarHub[] = [
+export const GLOBAL_HUBS: RadarHub[] = [
   {
     id: 'dubai',
     city: 'Dubai',
     country: 'United Arab Emirates',
-    xPercent: 62.5,
-    yPercent: 44.5,
+    region: 'Middle East',
+    cx: 532,
+    cy: 466,
     delaySeconds: 0.2,
     tournamentName: 'Game of RUN Corporate 2027',
     matchScore: 'Desert Hawks 124/4 (9.2 Ov) • Live',
     status: 'Live Match',
   },
   {
-    id: 'delhi',
-    city: 'New Delhi',
-    country: 'India',
-    xPercent: 68.5,
-    yPercent: 42.0,
-    delaySeconds: 1.5,
-    tournamentName: 'DDPL Premier League',
-    matchScore: 'Tech Titans 143/8 vs Strikers 134/6',
-    status: 'Grand Finals',
-  },
-  {
     id: 'mumbai',
     city: 'Mumbai',
     country: 'India',
-    xPercent: 67.2,
-    yPercent: 48.0,
-    delaySeconds: 0.8,
+    region: 'South Asia',
+    cx: 582,
+    cy: 486,
+    delaySeconds: 1.1,
     tournamentName: 'Corporate Super Cup 2027',
     matchScore: 'Auction Room Live • 42 Players Drafted',
     status: 'Auction Concluded',
   },
   {
+    id: 'delhi',
+    city: 'New Delhi',
+    country: 'India',
+    region: 'South Asia',
+    cx: 587,
+    cy: 462,
+    delaySeconds: 2.3,
+    tournamentName: 'DDPL Premier League',
+    matchScore: 'Tech Titans 143/8 vs Strikers 134/6',
+    status: 'Grand Finals',
+  },
+  {
+    id: 'bangalore',
+    city: 'Bengaluru',
+    country: 'India',
+    region: 'South Asia',
+    cx: 588,
+    cy: 498,
+    delaySeconds: 0.7,
+    tournamentName: 'Silicon City Corporate T20',
+    matchScore: 'Byte Warriors 98/2 (7.1 Ov)',
+    status: 'Live Match',
+  },
+  {
+    id: 'dhaka',
+    city: 'Dhaka',
+    country: 'Bangladesh',
+    region: 'South Asia',
+    cx: 620,
+    cy: 465,
+    delaySeconds: 3.4,
+    tournamentName: 'Bengal Corporate Premier League',
+    matchScore: 'Padma Super Kings 138/7 (10 Ov)',
+    status: 'Grand Finals',
+  },
+  {
+    id: 'colombo',
+    city: 'Colombo',
+    country: 'Sri Lanka',
+    region: 'South Asia',
+    cx: 605,
+    cy: 512,
+    delaySeconds: 1.8,
+    tournamentName: 'Island Corporate League',
+    matchScore: 'Colombo Lions 112/5 (8.4 Ov)',
+    status: 'Live Match',
+  },
+  {
+    id: 'lahore',
+    city: 'Lahore',
+    country: 'Pakistan',
+    region: 'South Asia',
+    cx: 574,
+    cy: 452,
+    delaySeconds: 4.1,
+    tournamentName: 'Punjab Corporate Shield',
+    matchScore: 'Qalandars XI 105/3 (8.0 Ov)',
+    status: 'Live Match',
+  },
+  {
     id: 'london',
     city: 'London',
     country: 'United Kingdom',
-    xPercent: 48.0,
-    yPercent: 28.5,
-    delaySeconds: 2.3,
+    region: 'Europe',
+    cx: 412,
+    cy: 382,
+    delaySeconds: 2.7,
     tournamentName: 'UK Corporate City Championship',
     matchScore: 'Canary Wharf XI 88/2 (7.0 Ov)',
     status: 'Live Match',
   },
   {
-    id: 'singapore',
-    city: 'Singapore',
-    country: 'Singapore',
-    xPercent: 76.5,
-    yPercent: 57.0,
-    delaySeconds: 3.1,
-    tournamentName: 'Asia-Pacific Tech Cup',
-    matchScore: 'Registrations Open • 8 Franchises',
-    status: 'Player Registration',
-  },
-  {
-    id: 'sydney',
-    city: 'Sydney',
-    country: 'Australia',
-    xPercent: 88.0,
-    yPercent: 78.0,
-    delaySeconds: 1.1,
-    tournamentName: 'Down Under Corporate Clash',
-    matchScore: 'Sydney Thunder 155/5 (10.0 Ov)',
+    id: 'amsterdam',
+    city: 'Amsterdam',
+    country: 'Netherlands',
+    region: 'Europe',
+    cx: 426,
+    cy: 380,
+    delaySeconds: 0.5,
+    tournamentName: 'European Tech Cricket Trophy',
+    matchScore: 'Tulip Titans 74/1 (5.4 Ov)',
     status: 'Live Match',
   },
   {
     id: 'newyork',
     city: 'New York',
     country: 'United States',
-    xPercent: 28.5,
-    yPercent: 34.0,
-    delaySeconds: 2.7,
+    region: 'North America',
+    cx: 232,
+    cy: 402,
+    delaySeconds: 3.8,
     tournamentName: 'North America Corporate T20',
     matchScore: 'Wall Street Strikers 92/3 (6.4 Ov)',
+    status: 'Live Match',
+  },
+  {
+    id: 'seattle',
+    city: 'Seattle',
+    country: 'United States',
+    region: 'North America',
+    cx: 148,
+    cy: 375,
+    delaySeconds: 1.4,
+    tournamentName: 'Pacific Northwest Corporate Cup',
+    matchScore: 'Cascade Kings 118/4 (9.0 Ov)',
     status: 'Live Match',
   },
   {
     id: 'toronto',
     city: 'Toronto',
     country: 'Canada',
-    xPercent: 26.5,
-    yPercent: 30.5,
-    delaySeconds: 0.5,
+    region: 'North America',
+    cx: 224,
+    cy: 390,
+    delaySeconds: 4.5,
     tournamentName: 'Great Lakes Invitational',
     matchScore: 'Franchise Player Draft Ready',
     status: 'Player Registration',
   },
   {
+    id: 'barbados',
+    city: 'Bridgetown',
+    country: 'Barbados',
+    region: 'Caribbean',
+    cx: 236,
+    cy: 476,
+    delaySeconds: 2.0,
+    tournamentName: 'Caribbean Corporate Bash',
+    matchScore: 'Calypso Kings 132/5 (9.3 Ov)',
+    status: 'Live Match',
+  },
+  {
     id: 'johannesburg',
     city: 'Johannesburg',
     country: 'South Africa',
-    xPercent: 54.5,
-    yPercent: 72.0,
-    delaySeconds: 1.9,
+    region: 'Africa',
+    cx: 475,
+    cy: 592,
+    delaySeconds: 3.0,
     tournamentName: 'Highveld Corporate League',
     matchScore: 'Gold Strikers 110/6 (8.5 Ov)',
     status: 'Live Match',
@@ -120,218 +191,274 @@ const GLOBAL_HUBS: RadarHub[] = [
     id: 'nairobi',
     city: 'Nairobi',
     country: 'Kenya',
-    xPercent: 57.5,
-    yPercent: 56.5,
-    delaySeconds: 3.6,
+    region: 'Africa',
+    cx: 497,
+    cy: 526,
+    delaySeconds: 0.9,
     tournamentName: 'East Africa Corporate Trophy',
     matchScore: 'Savannah Lions 76/1 (5.2 Ov)',
     status: 'Live Match',
   },
   {
-    id: 'dhaka',
-    city: 'Dhaka',
-    country: 'Bangladesh',
-    xPercent: 72.0,
-    yPercent: 44.0,
-    delaySeconds: 2.0,
-    tournamentName: 'Bengal Corporate Premier League',
-    matchScore: 'Padma Super Kings 138/7 (10 Ov)',
-    status: 'Grand Finals',
+    id: 'singapore',
+    city: 'Singapore',
+    country: 'Singapore',
+    region: 'Southeast Asia',
+    cx: 652,
+    cy: 530,
+    delaySeconds: 2.5,
+    tournamentName: 'Asia-Pacific Tech Cup',
+    matchScore: 'Registrations Open • 8 Franchises',
+    status: 'Player Registration',
+  },
+  {
+    id: 'sydney',
+    city: 'Sydney',
+    country: 'Australia',
+    region: 'Oceania',
+    cx: 722,
+    cy: 642,
+    delaySeconds: 1.6,
+    tournamentName: 'Down Under Corporate Clash',
+    matchScore: 'Sydney Thunder 155/5 (10.0 Ov)',
+    status: 'Live Match',
   },
   {
     id: 'melbourne',
     city: 'Melbourne',
     country: 'Australia',
-    xPercent: 86.5,
-    yPercent: 82.5,
-    delaySeconds: 3.9,
+    region: 'Oceania',
+    cx: 712,
+    cy: 656,
+    delaySeconds: 4.3,
     tournamentName: 'Victoria Corporate Cup',
     matchScore: 'Live Scoring Active • 2nd Innings',
+    status: 'Live Match',
+  },
+  {
+    id: 'perth',
+    city: 'Perth',
+    country: 'Australia',
+    region: 'Oceania',
+    cx: 668,
+    cy: 630,
+    delaySeconds: 3.2,
+    tournamentName: 'Western Australia Corporate League',
+    matchScore: 'Sunset Warriors 85/3 (6.1 Ov)',
+    status: 'Live Match',
+  },
+  {
+    id: 'auckland',
+    city: 'Auckland',
+    country: 'New Zealand',
+    region: 'Oceania',
+    cx: 768,
+    cy: 665,
+    delaySeconds: 2.1,
+    tournamentName: 'Kiwi Corporate Championship',
+    matchScore: 'Waitakere Hawks 94/2 (7.4 Ov)',
     status: 'Live Match',
   },
 ];
 
 export function GlobalMatchRadarMap() {
   const [selectedHub, setSelectedHub] = useState<RadarHub>(GLOBAL_HUBS[0]);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
 
   return (
-    <section className="space-y-8 relative overflow-hidden py-8">
-      {/* Editorial Header (Matching Image 2 Reference) */}
-      <div className="text-center space-y-2 max-w-3xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/30 text-xs font-bold uppercase tracking-widest">
-          <Globe className="w-3.5 h-3.5 text-[#D8AD55]" />
-          <span>Global Corporate Cricket Footprint</span>
-        </div>
-        <h2 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight">
-          The game took us places
-        </h2>
-        <p className="text-sm sm:text-base text-[#8793A5] font-medium max-w-xl mx-auto">
-          Different countries, different grounds, different ways of playing. One seamless digital cricket management platform.
-        </p>
-      </div>
-
-      {/* World Map Container */}
-      <div className="rounded-3xl p-6 sm:p-10 bg-gradient-to-b from-[#08111F] via-[#0D1B2A] to-[#08111F] border border-[#D8AD55]/30 shadow-2xl relative overflow-hidden">
+    <section className="space-y-6 relative overflow-hidden py-6">
+      {/* Editorial Card matching user reference image */}
+      <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-xl relative overflow-hidden text-slate-900 transition-all duration-300">
         
-        {/* Subtle Map Ambient Glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-[#D8AD55]/5 rounded-full blur-3xl pointer-events-none" />
+        {/* Editorial Header */}
+        <div className="text-center space-y-2 max-w-3xl mx-auto pt-2 pb-4">
+          <h2 className="font-sans font-black text-3xl sm:text-5xl text-slate-900 tracking-tight">
+            The game took us places
+          </h2>
+          <p className="text-sm sm:text-base text-slate-500 font-normal">
+            Different countries, different grounds, different ways of playing.
+          </p>
+        </div>
 
-        {/* Live Active Match Overlay Pill */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-white/5 relative z-20">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500" />
+        {/* Live Active Match Pill / Ticker */}
+        <div className="max-w-2xl mx-auto mb-4 flex items-center justify-between p-3 px-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />
             </span>
-            <div className="text-xs">
-              <span className="text-gray-400">Inspecting Live Hub:</span>{' '}
-              <strong className="text-white">{selectedHub.city}, {selectedHub.country}</strong>
-            </div>
+            <span className="text-slate-600 font-medium">
+              Active Ground: <strong className="text-slate-900 font-semibold">{selectedHub.city}, {selectedHub.country}</strong>
+            </span>
           </div>
 
-          <div className="p-2 sm:px-4 sm:py-1.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-xs flex items-center gap-2.5">
-            <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
-            <span className="text-[#F2D69A] font-bold">{selectedHub.tournamentName}</span>
-            <span className="text-xs text-emerald-400 font-mono hidden md:inline">• {selectedHub.matchScore}</span>
+          <div className="flex items-center gap-2 text-slate-700">
+            <Trophy className="w-3.5 h-3.5 text-amber-500" />
+            <span className="font-semibold text-slate-900">{selectedHub.tournamentName}</span>
+            <span className="hidden sm:inline text-emerald-600 font-mono">• {selectedHub.matchScore}</span>
           </div>
         </div>
 
-        {/* Scalable SVG World Map with Asynchronous Pulsing Radar Nodes */}
-        <div className="relative w-full aspect-[2/1] min-h-[300px] sm:min-h-[420px] max-h-[580px] my-4 select-none">
-          
-          {/* Base Vector Continents Silhouette SVG */}
+        {/* Scalable Geographical World Map with Staggered Radar Hotspots */}
+        <div className="relative w-full aspect-[784/458] my-2 select-none">
           <svg
-            viewBox="0 0 1000 500"
-            className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(0,0,0,0.8)]"
+            viewBox="30.767 241.591 784.077 458.627"
+            className="w-full h-full object-contain"
             xmlns="http://www.w3.org/2000/svg"
           >
+            {/* Inline CSS Keyframes for Asynchronous Radar Waves */}
             <defs>
-              <linearGradient id="continentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#1E293B" stopOpacity="0.85" />
-                <stop offset="100%" stopColor="#0F172A" stopOpacity="0.95" />
-              </linearGradient>
+              <style>{`
+                @keyframes radarPulse {
+                  0% {
+                    r: 3.5px;
+                    opacity: 0.95;
+                    stroke-width: 1px;
+                  }
+                  50% {
+                    opacity: 0.5;
+                    stroke-width: 0.8px;
+                  }
+                  100% {
+                    r: 16px;
+                    opacity: 0;
+                    stroke-width: 0.4px;
+                  }
+                }
+                @keyframes coreGlow {
+                  0%, 100% {
+                    transform: scale(1);
+                    opacity: 1;
+                  }
+                  50% {
+                    transform: scale(0.85);
+                    opacity: 0.65;
+                  }
+                }
+                .radar-pulse-ring {
+                  animation: radarPulse 2.8s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+                  transform-origin: center;
+                }
+                .radar-pulse-outer {
+                  animation: radarPulse 2.8s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+                  animation-delay: 0.4s;
+                  transform-origin: center;
+                }
+              `}</style>
             </defs>
 
-            {/* Simplified Stylized World Continents Paths */}
-            {/* North America */}
-            <path
-              d="M120,60 L240,50 L320,70 L340,110 L300,160 L260,190 L220,180 L190,140 L140,130 L110,90 Z M220,195 L245,210 L255,245 L240,260 L225,230 Z"
-              fill="url(#continentGradient)"
-              stroke="#D8AD55"
-              strokeWidth="0.8"
-              strokeOpacity="0.3"
-            />
-            {/* South America */}
-            <path
-              d="M260,260 L330,270 L360,330 L340,410 L300,470 L280,450 L270,360 L245,300 Z"
-              fill="url(#continentGradient)"
-              stroke="#D8AD55"
-              strokeWidth="0.8"
-              strokeOpacity="0.3"
-            />
-            {/* Europe */}
-            <path
-              d="M450,70 L540,65 L570,95 L530,130 L490,140 L450,120 L440,90 Z M420,80 L440,75 L435,95 Z"
-              fill="url(#continentGradient)"
-              stroke="#D8AD55"
-              strokeWidth="0.8"
-              strokeOpacity="0.3"
-            />
-            {/* Africa */}
-            <path
-              d="M450,150 L560,150 L590,210 L580,310 L540,400 L490,390 L460,280 L430,210 Z M590,330 L605,340 L595,370 Z"
-              fill="url(#continentGradient)"
-              stroke="#D8AD55"
-              strokeWidth="0.8"
-              strokeOpacity="0.3"
-            />
-            {/* Asia */}
-            <path
-              d="M560,65 L820,70 L860,120 L840,200 L790,260 L730,270 L680,240 L650,170 L580,140 Z M640,240 L700,245 L690,310 L650,290 Z M735,275 L770,285 L760,330 L730,310 Z"
-              fill="url(#continentGradient)"
-              stroke="#D8AD55"
-              strokeWidth="0.8"
-              strokeOpacity="0.3"
-            />
-            {/* Australia & Oceania */}
-            <path
-              d="M780,340 L880,330 L900,390 L870,440 L790,430 L760,380 Z M900,430 L920,440 L910,470 Z"
-              fill="url(#continentGradient)"
-              stroke="#D8AD55"
-              strokeWidth="0.8"
-              strokeOpacity="0.3"
-            />
+            {/* Geographical Vector Continents */}
+            <WorldMapPaths />
+
+            {/* Asynchronous Red Blinking Radar Hotspots */}
+            {GLOBAL_HUBS.map((hub) => {
+              const isSelected = selectedHub.id === hub.id;
+
+              return (
+                <g
+                  key={hub.id}
+                  className="cursor-pointer group"
+                  onClick={() => setSelectedHub(hub)}
+                  onMouseEnter={() => {
+                    setSelectedHub(hub);
+                    setIsHovered(true);
+                  }}
+                  onMouseLeave={() => setIsHovered(false)}
+                >
+                  {/* Invisible enlarged hit target for effortless touch & hover */}
+                  <circle
+                    cx={hub.cx}
+                    cy={hub.cy}
+                    r={12}
+                    fill="transparent"
+                  />
+
+                  {/* Outer Radar Concentric Ring (Staggered Animation) */}
+                  <circle
+                    cx={hub.cx}
+                    cy={hub.cy}
+                    r={14}
+                    fill="none"
+                    stroke="#DC2626"
+                    className="radar-pulse-outer"
+                    style={{
+                      animationDelay: `${hub.delaySeconds}s`,
+                      transformOrigin: `${hub.cx}px ${hub.cy}px`,
+                    }}
+                  />
+
+                  {/* Inner Radar Concentric Ring (Staggered Animation) */}
+                  <circle
+                    cx={hub.cx}
+                    cy={hub.cy}
+                    r={7}
+                    fill="none"
+                    stroke="#DC2626"
+                    className="radar-pulse-ring"
+                    style={{
+                      animationDelay: `${hub.delaySeconds}s`,
+                      transformOrigin: `${hub.cx}px ${hub.cy}px`,
+                    }}
+                  />
+
+                  {/* Static Ambient Radar Ring (matching reference image) */}
+                  <circle
+                    cx={hub.cx}
+                    cy={hub.cy}
+                    r={isSelected ? 9 : 6.5}
+                    fill="rgba(220, 38, 38, 0.08)"
+                    stroke="#DC2626"
+                    strokeWidth={isSelected ? 1.2 : 0.6}
+                    strokeOpacity={isSelected ? 0.9 : 0.45}
+                    className="transition-all duration-300"
+                  />
+
+                  {/* Central Solid Red Blinking Hotspot Dot */}
+                  <circle
+                    cx={hub.cx}
+                    cy={hub.cy}
+                    r={isSelected ? 4 : 3.2}
+                    fill="#DC2626"
+                    className="drop-shadow-[0_0_4px_rgba(220,38,38,0.7)] transition-all duration-300"
+                  />
+                </g>
+              );
+            })}
           </svg>
-
-          {/* Radar Hotspot Overlays on the Map */}
-          {GLOBAL_HUBS.map((hub) => {
-            const isSelected = selectedHub.id === hub.id;
-            return (
-              <div
-                key={hub.id}
-                style={{
-                  left: `${hub.xPercent}%`,
-                  top: `${hub.yPercent}%`,
-                }}
-                onClick={() => setSelectedHub(hub)}
-                className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-30"
-              >
-                {/* 1. Outer Asynchronous Expanding Radar Ring (Matching Image 2 Red Concentric Circles) */}
-                <span
-                  style={{ animationDelay: `${hub.delaySeconds}s` }}
-                  className="absolute -inset-3.5 rounded-full border border-rose-500/50 animate-ping pointer-events-none"
-                />
-
-                {/* 2. Middle Radar Pulse Wave */}
-                <span
-                  style={{ animationDelay: `${hub.delaySeconds + 0.4}s` }}
-                  className="absolute -inset-1.5 rounded-full bg-rose-500/30 animate-pulse pointer-events-none"
-                />
-
-                {/* 3. Core Hotspot Solid Center Dot */}
-                <div
-                  className={`w-3 h-3 rounded-full transition-transform duration-200 border-2 ${
-                    isSelected
-                      ? 'bg-rose-500 border-white scale-150 shadow-[0_0_12px_rgba(244,63,94,1)]'
-                      : 'bg-rose-500 border-[#08111F] group-hover:scale-125 shadow-[0_0_8px_rgba(244,63,94,0.8)]'
-                  }`}
-                />
-
-                {/* 4. Hover Tooltip Pill */}
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-40 whitespace-nowrap">
-                  <div className="px-3 py-1.5 rounded-xl bg-[#08111F]/95 backdrop-blur-md border border-[#D8AD55]/40 text-[10px] text-white font-bold shadow-xl space-y-0.5 text-center">
-                    <div className="text-[#F2D69A]">{hub.city}, {hub.country}</div>
-                    <div className="text-[9px] text-[#8793A5]">{hub.tournamentName}</div>
-                    <div className="text-[9px] text-emerald-400 font-mono">{hub.matchScore}</div>
-                  </div>
-                  <div className="w-2 h-2 bg-[#08111F] rotate-45 border-r border-b border-[#D8AD55]/40 -mt-1" />
-                </div>
-              </div>
-            );
-          })}
         </div>
 
-        {/* Bottom Tagline (Matching Image 2 Reference: "Someone, somewhere, is playing cricket right now.") */}
-        <div className="text-center pt-6 border-t border-white/5 space-y-2 relative z-20">
-          <p className="font-display font-medium text-sm sm:text-base text-gray-300 italic">
-            Someone, somewhere, is playing corporate cricket{' '}
-            <strong className="text-rose-400 font-black not-italic drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]">
-              right now.
-            </strong>
+        {/* Bottom Tagline matching user reference image */}
+        <div className="text-center pt-3 pb-1">
+          <p className="text-xs sm:text-sm text-slate-700 tracking-normal">
+            Someone, somewhere, is playing cricket{' '}
+            <span className="text-red-600 font-bold italic">right now.</span>
           </p>
+        </div>
 
-          {/* Quick Metrics Live Strip */}
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-2 text-xs text-[#8793A5] font-bold">
-            <span className="flex items-center gap-1.5 text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>12 Global Hubs Live</span>
+        {/* Interactive Floating Details for Selected Hub */}
+        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-red-600" />
+            <span className="font-semibold text-slate-800">{selectedHub.city}, {selectedHub.country}</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
+              {selectedHub.status}
             </span>
-            <span className="text-gray-400">•</span>
-            <span>48 Verified Franchises</span>
-            <span className="text-gray-400">•</span>
-            <span className="text-[#F2D69A]">2,500+ Ball Events Synced</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span className="text-slate-500 hidden md:inline">
+              {selectedHub.matchScore}
+            </span>
+            <Link
+              href="/matches"
+              className="inline-flex items-center gap-1 font-bold text-red-600 hover:text-red-700 hover:underline"
+            >
+              <span>Explore Grounds & Matches</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
+
       </div>
     </section>
   );
