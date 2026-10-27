@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Radio, ChevronLeft, ChevronRight, Globe, Flame, Shield, Trophy, Activity, X, MapPin, Zap, Clock } from 'lucide-react';
+import { Radio, ChevronLeft, ChevronRight, Globe, Flame, Shield, Trophy, Activity, X, MapPin, Zap, Clock, Loader2 } from 'lucide-react';
 import { fetchWithCache } from '@/lib/clientCache';
 import { GlobalLiveMatch } from '@/app/api/live-scores/global/route';
 
@@ -13,6 +13,8 @@ export function GlobalLiveScoresTicker() {
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('all');
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedMatch, setSelectedMatch] = useState<GlobalLiveMatch | null>(null);
+  const [modalDetails, setModalDetails] = useState<GlobalLiveMatch | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -27,7 +29,6 @@ export function GlobalLiveScoresTicker() {
 
     async function loadGlobalScores() {
       try {
-        // Bypass cache or use short 3s TTL to get every ball delivered in real time
         const res = await fetchWithCache<any>('/api/live-scores/global?category=all', { ttlMs: 3000 });
         if (!isMounted) return;
         if (res?.success && Array.isArray(res.matches)) {
@@ -52,13 +53,44 @@ export function GlobalLiveScoresTicker() {
     };
   }, []);
 
-  // When match list updates, automatically update selectedMatch so modal updates ball-by-ball
+  // When a match is selected, fetch its deep ball-by-ball details (batters, bowler, partnership, recent balls)
   useEffect(() => {
-    if (selectedMatch) {
-      const updated = matches.find((m) => m.id === selectedMatch.id);
-      if (updated) setSelectedMatch(updated);
+    if (!selectedMatch) {
+      setModalDetails(null);
+      return;
     }
-  }, [matches]);
+
+    const matchId = selectedMatch.id;
+    setModalDetails(selectedMatch);
+    let isMounted = true;
+    setDetailsLoading(!selectedMatch.batters);
+
+    async function loadMatchDetails() {
+      try {
+        const res = await fetch(`/api/live-scores/global?matchId=${matchId}`);
+        if (!isMounted) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.success && data.match) {
+            setModalDetails(data.match);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load match live details:', err);
+      } finally {
+        if (isMounted) setDetailsLoading(false);
+      }
+    }
+
+    loadMatchDetails();
+
+    // Poll live ball-by-ball details for this specific match every 3.5 seconds
+    const interval = setInterval(loadMatchDetails, 3500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [selectedMatch?.id]);
 
   // Lock background scroll and listen for ESC key when details modal is open
   useEffect(() => {
@@ -101,6 +133,8 @@ export function GlobalLiveScoresTicker() {
     { id: 'franchise', label: 'Franchise (BBL/SA20)', icon: Flame },
     { id: 'domestic', label: 'County & Domestic', icon: Shield },
   ];
+
+  const displayMatch = modalDetails || selectedMatch;
 
   return (
     <section className="relative overflow-hidden py-2 select-none">
@@ -293,7 +327,7 @@ export function GlobalLiveScoresTicker() {
       </div>
 
       {/* Enterprise-grade Google-Style Pop-up Modal rendered via React Portal directly into body */}
-      {mounted && selectedMatch && createPortal(
+      {mounted && displayMatch && createPortal(
         <div
           className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md overflow-y-auto"
           onClick={() => setSelectedMatch(null)}
@@ -307,24 +341,24 @@ export function GlobalLiveScoresTicker() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-black uppercase tracking-wider text-[#D8AD55]">
-                    {selectedMatch.league}
+                    {displayMatch.league}
                   </span>
                   <span className="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px] uppercase font-bold">
-                    {selectedMatch.format}
+                    {displayMatch.format}
                   </span>
-                  {selectedMatch.status === 'live' ? (
+                  {displayMatch.status === 'live' ? (
                     <span className="flex items-center gap-1 text-red-400 text-[10px] font-black px-1.5 py-0.5 rounded bg-red-500/15 border border-red-500/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping inline-block" />
                       LIVE BALL-BY-BALL
                     </span>
                   ) : (
                     <span className="text-amber-400 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">
-                      {selectedMatch.status}
+                      {displayMatch.status}
                     </span>
                   )}
                 </div>
                 <h3 className="font-display font-black text-lg sm:text-xl text-white mt-1">
-                  {selectedMatch.teamA.name} vs {selectedMatch.teamB.name}
+                  {displayMatch.teamA.name} vs {displayMatch.teamB.name}
                 </h3>
               </div>
 
@@ -342,16 +376,16 @@ export function GlobalLiveScoresTicker() {
             {/* Match Situation & Equation Box */}
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-[#08111F] to-emerald-500/15 border border-emerald-500/30 space-y-1.5">
               <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-emerald-400">{selectedMatch.statusText}</span>
+                <span className="text-emerald-400">{displayMatch.statusText}</span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-[#8793A5] pt-0.5">
                 <span className="flex items-center gap-1 truncate max-w-[320px]">
                   <MapPin className="w-3.5 h-3.5 text-[#D8AD55] shrink-0" />
-                  <span className="truncate">{selectedMatch.venue}</span>
+                  <span className="truncate">{displayMatch.venue}</span>
                 </span>
-                {selectedMatch.toss && (
+                {displayMatch.toss && (
                   <span className="text-gray-400 text-[10px] italic shrink-0 hidden sm:inline">
-                    {selectedMatch.toss}
+                    {displayMatch.toss}
                   </span>
                 )}
               </div>
@@ -361,17 +395,17 @@ export function GlobalLiveScoresTicker() {
             <div className="space-y-2.5 p-4 rounded-2xl bg-[#08111F] border border-white/10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-2xl leading-none">{selectedMatch.teamA.flag}</span>
+                  <span className="text-2xl leading-none">{displayMatch.teamA.flag}</span>
                   <div>
-                    <span className="font-bold text-white text-sm sm:text-base">{selectedMatch.teamA.name}</span>
-                    <span className="text-gray-400 text-xs font-mono ml-2 font-normal">({selectedMatch.teamA.short})</span>
+                    <span className="font-bold text-white text-sm sm:text-base">{displayMatch.teamA.name}</span>
+                    <span className="text-gray-400 text-xs font-mono ml-2 font-normal">({displayMatch.teamA.short})</span>
                   </div>
                 </div>
                 <div className="font-mono font-black text-base sm:text-lg text-white">
-                  {selectedMatch.teamA.score || 'Yet to Bat'}
-                  {selectedMatch.teamA.overs && (
+                  {displayMatch.teamA.score || 'Yet to Bat'}
+                  {displayMatch.teamA.overs && (
                     <span className="text-xs text-gray-400 font-normal ml-1">
-                      ({selectedMatch.teamA.overs} Ov)
+                      ({displayMatch.teamA.overs} Ov)
                     </span>
                   )}
                 </div>
@@ -379,38 +413,38 @@ export function GlobalLiveScoresTicker() {
 
               <div className="flex items-center justify-between pt-2 border-t border-white/5">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-2xl leading-none">{selectedMatch.teamB.flag}</span>
+                  <span className="text-2xl leading-none">{displayMatch.teamB.flag}</span>
                   <div>
-                    <span className="font-bold text-white text-sm sm:text-base">{selectedMatch.teamB.name}</span>
-                    <span className="text-gray-400 text-xs font-mono ml-2 font-normal">({selectedMatch.teamB.short})</span>
+                    <span className="font-bold text-white text-sm sm:text-base">{displayMatch.teamB.name}</span>
+                    <span className="text-gray-400 text-xs font-mono ml-2 font-normal">({displayMatch.teamB.short})</span>
                   </div>
                 </div>
                 <div className="font-mono font-black text-base sm:text-lg text-white">
-                  {selectedMatch.teamB.score || 'Yet to Bat'}
-                  {selectedMatch.teamB.overs && (
+                  {displayMatch.teamB.score || 'Yet to Bat'}
+                  {displayMatch.teamB.overs && (
                     <span className="text-xs text-gray-400 font-normal ml-1">
-                      ({selectedMatch.teamB.overs} Ov)
+                      ({displayMatch.teamB.overs} Ov)
                     </span>
                   )}
                 </div>
               </div>
 
               {/* CRR & RRR Metrics Row */}
-              {(selectedMatch.crr || selectedMatch.rrr || selectedMatch.partnership) && (
+              {(displayMatch.crr || displayMatch.rrr || displayMatch.partnership) && (
                 <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-white/5 text-[11px] font-mono">
-                  {selectedMatch.crr && (
+                  {displayMatch.crr && (
                     <span className="px-2 py-0.5 rounded bg-white/5 text-gray-300">
-                      CRR: <strong className="text-white">{selectedMatch.crr}</strong>
+                      CRR: <strong className="text-white">{displayMatch.crr}</strong>
                     </span>
                   )}
-                  {selectedMatch.rrr && (
+                  {displayMatch.rrr && (
                     <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                      RRR: <strong className="text-emerald-400">{selectedMatch.rrr}</strong>
+                      RRR: <strong className="text-emerald-400">{displayMatch.rrr}</strong>
                     </span>
                   )}
-                  {selectedMatch.partnership && (
+                  {displayMatch.partnership && (
                     <span className="px-2 py-0.5 rounded bg-[#D8AD55]/10 text-[#F2D69A] border border-[#D8AD55]/20">
-                      🤝 {selectedMatch.partnership}
+                      🤝 {displayMatch.partnership}
                     </span>
                   )}
                 </div>
@@ -418,10 +452,10 @@ export function GlobalLiveScoresTicker() {
             </div>
 
             {/* Active Batters Live Table (Google Style) */}
-            {selectedMatch.batters && selectedMatch.batters.length > 0 && (
+            {displayMatch.batters && displayMatch.batters.length > 0 ? (
               <div className="p-3.5 rounded-2xl bg-[#08111F] border border-blue-500/20 space-y-2">
                 <div className="flex items-center justify-between text-[10px] uppercase font-bold text-blue-400 tracking-wider">
-                  <span>Batting</span>
+                  <span>Active Batters</span>
                   <div className="flex items-center gap-4 text-right pr-1 font-mono text-gray-400">
                     <span className="w-8">R</span>
                     <span className="w-8">B</span>
@@ -432,7 +466,7 @@ export function GlobalLiveScoresTicker() {
                 </div>
 
                 <div className="space-y-1.5">
-                  {selectedMatch.batters.map((b, i) => (
+                  {displayMatch.batters.map((b, i) => (
                     <div key={i} className="flex items-center justify-between text-xs font-mono">
                       <div className="flex items-center gap-1.5 truncate max-w-[190px]">
                         <span className={`font-sans font-bold truncate ${b.isStriker ? 'text-white' : 'text-gray-300'}`}>
@@ -453,13 +487,18 @@ export function GlobalLiveScoresTicker() {
                   ))}
                 </div>
               </div>
-            )}
+            ) : detailsLoading ? (
+              <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 flex items-center justify-center gap-2 text-xs text-[#8793A5]">
+                <Loader2 className="w-4 h-4 text-[#D8AD55] animate-spin" />
+                <span>Fetching live batters and bowler figures…</span>
+              </div>
+            ) : null}
 
             {/* Active Bowler Live Figures */}
-            {selectedMatch.bowler && (
+            {displayMatch.bowler ? (
               <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/10 space-y-2">
                 <div className="flex items-center justify-between text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">
-                  <span>Bowling</span>
+                  <span>Current Bowler</span>
                   <div className="flex items-center gap-4 text-right pr-1 font-mono text-gray-400">
                     <span className="w-8">O</span>
                     <span className="w-6">M</span>
@@ -471,27 +510,27 @@ export function GlobalLiveScoresTicker() {
 
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="font-sans font-bold text-white truncate max-w-[190px]">
-                    {selectedMatch.bowler.name}
+                    {displayMatch.bowler.name}
                   </span>
                   <div className="flex items-center gap-4 text-right pr-1 text-gray-200">
-                    <span className="w-8 text-gray-300">{selectedMatch.bowler.overs}</span>
-                    <span className="w-6 text-gray-400">{selectedMatch.bowler.maidens}</span>
-                    <span className="w-8 text-gray-300">{selectedMatch.bowler.runs}</span>
-                    <span className="w-6 font-black text-emerald-400">{selectedMatch.bowler.wickets}</span>
-                    <span className="w-12 text-gray-300">{selectedMatch.bowler.econ}</span>
+                    <span className="w-8 text-gray-300">{displayMatch.bowler.overs}</span>
+                    <span className="w-6 text-gray-400">{displayMatch.bowler.maidens}</span>
+                    <span className="w-8 text-gray-300">{displayMatch.bowler.runs}</span>
+                    <span className="w-6 font-black text-emerald-400">{displayMatch.bowler.wickets}</span>
+                    <span className="w-12 text-gray-300">{displayMatch.bowler.econ}</span>
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Recent Balls Strip */}
-            {selectedMatch.recentBalls && selectedMatch.recentBalls.length > 0 && (
+            {displayMatch.recentBalls && displayMatch.recentBalls.length > 0 && (
               <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 text-xs">
                 <span className="text-[10px] uppercase font-bold text-[#8793A5] tracking-wider">
                   Recent Deliveries
                 </span>
                 <div className="flex items-center gap-1.5 font-mono flex-wrap justify-end">
-                  {selectedMatch.recentBalls.map((b, idx) => {
+                  {displayMatch.recentBalls.map((b, idx) => {
                     const isWicket = b.toUpperCase().includes('W') && !b.toUpperCase().includes('WD');
                     const isFour = b.includes('4');
                     const isSix = b.includes('6');
@@ -520,9 +559,9 @@ export function GlobalLiveScoresTicker() {
             )}
 
             {/* Editorial Summary */}
-            {selectedMatch.summary && (
+            {displayMatch.summary && (
               <div className="p-3 rounded-xl bg-white/5 text-xs text-gray-300 italic border border-white/5">
-                "{selectedMatch.summary}"
+                "{displayMatch.summary}"
               </div>
             )}
 

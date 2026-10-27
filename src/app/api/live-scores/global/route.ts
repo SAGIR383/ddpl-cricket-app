@@ -54,10 +54,13 @@ export interface GlobalLiveMatch {
   lastUpdated: string;
 }
 
-// In-memory cache with ultra-short 4s TTL for genuine real-time ball-by-ball precision
+// In-memory cache with ultra-short 3s TTL for genuine real-time ball-by-ball precision
 let cachedMatches: GlobalLiveMatch[] = [];
 let lastFetchTime = 0;
-const CACHE_TTL_MS = 4000; // 4 seconds
+const CACHE_TTL_MS = 3000;
+
+// Individual match details cache (2s TTL)
+const matchDetailsCache = new Map<string, { data: Partial<GlobalLiveMatch>; time: number }>();
 
 function getCountryFlag(name: string, short: string): string {
   const n = `${name} ${short}`.toLowerCase();
@@ -160,6 +163,96 @@ function extractJSONObject(str: string, startIndex: number): { jsonStr: string; 
   return null;
 }
 
+// Fetch deep ball-by-ball details (batters, bowler, partnership, recent balls) for a specific match
+async function fetchMatchLiveDetails(numericId: string): Promise<Partial<GlobalLiveMatch> | null> {
+  const cached = matchDetailsCache.get(numericId);
+  const now = Date.now();
+  if (cached && now - cached.time < 2000) {
+    return cached.data;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+
+    const url = `https://m.cricbuzz.com/live-cricket-scores/${numericId}`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+
+    const html = await res.text();
+    const clean = html.replace(/\\\"/g, '"').replace(/\\\\/g, '\\');
+
+    const miniIdx = clean.indexOf('"miniscore":{');
+    if (miniIdx === -1) return null;
+
+    const extracted = extractJSONObject(clean, miniIdx + '"miniscore":'.length);
+    if (!extracted) return null;
+
+    const mini = JSON.parse(extracted.jsonStr);
+
+    const batters: BatterStats[] = [];
+    if (mini.batsmanStriker?.name) {
+      batters.push({
+        name: mini.batsmanStriker.name,
+        runs: mini.batsmanStriker.runs || 0,
+        balls: mini.batsmanStriker.balls || 0,
+        fours: mini.batsmanStriker.fours || 0,
+        sixes: mini.batsmanStriker.sixes || 0,
+        sr: `${mini.batsmanStriker.strikeRate || '0.00'}`,
+        isStriker: true,
+      });
+    }
+    if (mini.batsmanNonStriker?.name) {
+      batters.push({
+        name: mini.batsmanNonStriker.name,
+        runs: mini.batsmanNonStriker.runs || 0,
+        balls: mini.batsmanNonStriker.balls || 0,
+        fours: mini.batsmanNonStriker.fours || 0,
+        sixes: mini.batsmanNonStriker.sixes || 0,
+        sr: `${mini.batsmanNonStriker.strikeRate || '0.00'}`,
+        isStriker: false,
+      });
+    }
+
+    let bowler: BowlerStats | undefined = undefined;
+    if (mini.bowlerStriker?.name) {
+      bowler = {
+        name: mini.bowlerStriker.name,
+        overs: `${mini.bowlerStriker.overs || 0}`,
+        maidens: mini.bowlerStriker.maidens || 0,
+        runs: mini.bowlerStriker.runs || 0,
+        wickets: mini.bowlerStriker.wickets || 0,
+        econ: `${mini.bowlerStriker.economy || '0.00'}`,
+      };
+    }
+
+    const details: Partial<GlobalLiveMatch> = {
+      batters: batters.length > 0 ? batters : undefined,
+      bowler,
+      crr: mini.currentRunRate ? `${mini.currentRunRate}` : undefined,
+      rrr: mini.requiredRunRate && mini.requiredRunRate > 0 ? `${mini.requiredRunRate}` : undefined,
+      partnership: mini.partnerShip ? `${mini.partnerShip.runs || 0} runs (${mini.partnerShip.balls || 0} balls)` : undefined,
+      recentBalls: mini.recentOvsStats ? mini.recentOvsStats.trim().split(/\s+/).slice(-6) : undefined,
+      statusText: mini.status || mini.customStatus || undefined,
+    };
+
+    matchDetailsCache.set(numericId, { data: details, time: now });
+    return details;
+  } catch (err) {
+    console.warn(`Failed to fetch deep details for match ${numericId}:`, err);
+    return null;
+  }
+}
+
 async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
   try {
     const controller = new AbortController();
@@ -180,18 +273,6 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
 
     const html = await res.text();
     const cleanHtml = html.replace(/\\\"/g, '"').replace(/\\\\/g, '\\');
-
-    // Check for active miniscore inside cleanHtml (ball-by-ball details for the featured live match)
-    let activeMiniScore: any = null;
-    const miniIdx = cleanHtml.indexOf('"miniscore":{');
-    if (miniIdx !== -1) {
-      const extractedMini = extractJSONObject(cleanHtml, miniIdx + '"miniscore":'.length);
-      if (extractedMini) {
-        try {
-          activeMiniScore = JSON.parse(extractedMini.jsonStr);
-        } catch (e) {}
-      }
-    }
 
     const parsedList: GlobalLiveMatch[] = [];
     const seen = new Set<number>();
@@ -280,76 +361,6 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
               statusText = info.stateTitle || 'Match in progress';
             }
 
-            // Real-time Batters & Bowler stats if miniscore is available for this match
-            let batters: BatterStats[] | undefined;
-            let bowler: BowlerStats | undefined;
-            let crr: string | undefined;
-            let rrr: string | undefined;
-            let partnership: string | undefined;
-            let recentBalls: string[] | undefined;
-
-            if (activeMiniScore && activeMiniScore.matchScoreDetails?.matchId === info.matchId) {
-              if (activeMiniScore.currentRunRate) {
-                crr = `${activeMiniScore.currentRunRate}`;
-              }
-              if (activeMiniScore.requiredRunRate && activeMiniScore.requiredRunRate > 0) {
-                rrr = `${activeMiniScore.requiredRunRate}`;
-              }
-              if (activeMiniScore.partnerShip) {
-                partnership = `${activeMiniScore.partnerShip.runs || 0} runs (${activeMiniScore.partnerShip.balls || 0} balls)`;
-              }
-              if (activeMiniScore.recentOvsStats) {
-                recentBalls = activeMiniScore.recentOvsStats.trim().split(/\s+/).slice(-6);
-              }
-              if (activeMiniScore.batsmanStriker || activeMiniScore.batsmanNonStriker) {
-                batters = [];
-                if (activeMiniScore.batsmanStriker?.name) {
-                  batters.push({
-                    name: activeMiniScore.batsmanStriker.name,
-                    runs: activeMiniScore.batsmanStriker.runs || 0,
-                    balls: activeMiniScore.batsmanStriker.balls || 0,
-                    fours: activeMiniScore.batsmanStriker.fours || 0,
-                    sixes: activeMiniScore.batsmanStriker.sixes || 0,
-                    sr: `${activeMiniScore.batsmanStriker.strikeRate || '0.00'}`,
-                    isStriker: true,
-                  });
-                }
-                if (activeMiniScore.batsmanNonStriker?.name) {
-                  batters.push({
-                    name: activeMiniScore.batsmanNonStriker.name,
-                    runs: activeMiniScore.batsmanNonStriker.runs || 0,
-                    balls: activeMiniScore.batsmanNonStriker.balls || 0,
-                    fours: activeMiniScore.batsmanNonStriker.fours || 0,
-                    sixes: activeMiniScore.batsmanNonStriker.sixes || 0,
-                    sr: `${activeMiniScore.batsmanNonStriker.strikeRate || '0.00'}`,
-                    isStriker: false,
-                  });
-                }
-              }
-              if (activeMiniScore.bowlerStriker?.name) {
-                bowler = {
-                  name: activeMiniScore.bowlerStriker.name,
-                  overs: `${activeMiniScore.bowlerStriker.overs || 0}`,
-                  maidens: activeMiniScore.bowlerStriker.maidens || 0,
-                  runs: activeMiniScore.bowlerStriker.runs || 0,
-                  wickets: activeMiniScore.bowlerStriker.wickets || 0,
-                  econ: `${activeMiniScore.bowlerStriker.economy || '0.00'}`,
-                };
-              }
-              // Also update the batting team score live if available
-              if (activeMiniScore.batTeam && activeMiniScore.overs !== undefined) {
-                if (info.currBatTeamId === info.team2?.teamId) {
-                  teamBScore = `${activeMiniScore.batTeam.teamScore || 0}/${activeMiniScore.batTeam.teamWkts || 0}`;
-                  teamBOvers = `${activeMiniScore.overs}`;
-                  matchStatus = 'live';
-                } else {
-                  teamAScore = `${activeMiniScore.batTeam.teamScore || 0}/${activeMiniScore.batTeam.teamWkts || 0}`;
-                  teamAOvers = `${activeMiniScore.overs}`;
-                  matchStatus = 'live';
-                }
-              }
-            }
-
             const teamAName = info.team1?.teamName || 'Team A';
             const teamAShort = info.team1?.teamSName || 'TMA';
             const teamBName = info.team2?.teamName || 'Team B';
@@ -379,12 +390,6 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
               },
               summary: `${info.seriesName || ''} • ${statusText}`,
               toss: tossText || (stateStr === 'toss' ? statusRaw : undefined),
-              crr,
-              rrr,
-              partnership,
-              batters,
-              bowler,
-              recentBalls,
               lastUpdated: new Date().toISOString(),
             };
 
@@ -404,15 +409,15 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
     console.warn('Real-time cricket feed network fetch failed, using fallback:', err);
   }
 
-  // Graceful fallback if network is briefly unreachable
   return cachedMatches.length > 0 ? cachedMatches : [];
 }
 
-// GET /api/live-scores/global?category=all|live|upcoming|international|franchise|domestic
+// GET /api/live-scores/global?category=all|live|upcoming|international|franchise|domestic&matchId=cric-12345
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category')?.toLowerCase() || 'all';
+    const matchId = searchParams.get('matchId');
 
     const now = Date.now();
     if (!cachedMatches.length || now - lastFetchTime > CACHE_TTL_MS) {
@@ -423,9 +428,47 @@ export async function GET(req: Request) {
       }
     }
 
+    // If specific match details are requested (for popup modal)
+    if (matchId) {
+      const numericId = matchId.replace(/^cric-/, '');
+      const baseMatch = cachedMatches.find((m) => m.id === matchId) || {
+        id: matchId,
+        category: 'international',
+        league: 'Live Match',
+        format: 'T20',
+        status: 'live',
+        statusText: 'In Progress',
+        venue: 'Stadium',
+        teamA: { name: 'Team A', short: 'TMA', flag: '🏏' },
+        teamB: { name: 'Team B', short: 'TMB', flag: '🏏' },
+        summary: 'Live Match',
+        lastUpdated: new Date().toISOString(),
+      } as GlobalLiveMatch;
+
+      const deepDetails = await fetchMatchLiveDetails(numericId);
+      const enrichedMatch: GlobalLiveMatch = {
+        ...baseMatch,
+        ...(deepDetails || {}),
+        statusText: deepDetails?.statusText || baseMatch.statusText,
+      };
+
+      return NextResponse.json(
+        {
+          success: true,
+          match: enrichedMatch,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=3',
+          },
+        }
+      );
+    }
+
     let matches = cachedMatches;
 
-    // Support flexible category & status filtering
+    // Filter by status or category
     if (category === 'live') {
       matches = matches.filter((m) => m.status === 'live');
     } else if (category === 'upcoming') {
