@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Radio, ChevronLeft, ChevronRight, Globe, Flame, Shield, Trophy, Activity, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Radio, ChevronLeft, ChevronRight, Globe, Flame, Shield, Trophy, Activity, X, MapPin } from 'lucide-react';
 import { fetchWithCache } from '@/lib/clientCache';
 import { GlobalLiveMatch } from '@/app/api/live-scores/global/route';
 
@@ -12,7 +13,12 @@ export function GlobalLiveScoresTicker() {
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('all');
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedMatch, setSelectedMatch] = useState<GlobalLiveMatch | null>(null);
+  const [mounted, setMounted] = useState<boolean>(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch live global match scores feed
   useEffect(() => {
@@ -42,6 +48,24 @@ export function GlobalLiveScoresTicker() {
     };
   }, []);
 
+  // Lock background scroll and listen for ESC key when details modal is open
+  useEffect(() => {
+    if (!selectedMatch) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedMatch(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [selectedMatch]);
+
   const filteredMatches = activeCategory === 'all'
     ? matches
     : matches.filter((m) => m.category === activeCategory);
@@ -53,36 +77,37 @@ export function GlobalLiveScoresTicker() {
     }
   };
 
+  const categories: { id: FilterCategory; label: string; icon: any }[] = [
+    { id: 'all', label: 'All Matches', icon: Globe },
+    { id: 'international', label: 'International (ICC)', icon: Trophy },
+    { id: 'franchise', label: 'Franchise (BBL / SA20 / IPL)', icon: Flame },
+    { id: 'domestic', label: 'County & Domestic', icon: Shield },
+  ];
+
   return (
     <section className="relative overflow-hidden py-2 select-none">
       <div className="bg-gradient-to-b from-[#08111F] via-[#0D1B2A] to-[#08111F] border border-[#D8AD55]/30 rounded-3xl p-4 sm:p-5 shadow-2xl relative">
         
         {/* Subtle Ambient Gold Glow */}
-        <div className="absolute top-0 right-1/4 w-96 h-28 bg-[#D8AD55]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/4 w-72 h-16 bg-[#D8AD55]/10 rounded-full blur-2xl pointer-events-none" />
 
-        {/* Header Strip with Live Pill & Category Filter Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D8AD55]/15">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-black tracking-wide">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-              </span>
+        {/* Header Bar: Category Filter Pills & Left/Right Arrows */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D8AD55]/15 pb-3">
+          
+          {/* Section Eyebrow */}
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-[10px] sm:text-xs font-black tracking-wider uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping inline-block" />
               <span>LIVE MATCH HUB</span>
-            </div>
-            <span className="text-xs font-bold text-gray-300 hidden md:inline">
+            </span>
+            <span className="hidden md:inline-block text-xs font-bold text-[#8793A5]">
               Global Cricket Scores • Real-Time Broadcast
             </span>
           </div>
 
-          {/* Category Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {[
-              { id: 'all', label: 'All Matches', icon: Globe },
-              { id: 'international', label: 'International (ICC)', icon: Trophy },
-              { id: 'franchise', label: 'Franchise (BBL / SA20 / IPL)', icon: Flame },
-              { id: 'domestic', label: 'County & Domestic', icon: Shield },
-            ].map((tab) => {
+          {/* Quick Filter Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+            {categories.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeCategory === tab.id;
               return (
@@ -217,10 +242,10 @@ export function GlobalLiveScoresTicker() {
 
                   {/* Real-time Match Situation / One-line Summary */}
                   <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
-                    <span className="truncate text-emerald-400 font-medium max-w-[240px]" title={m.statusText}>
+                    <span className="truncate text-emerald-400 font-medium max-w-[230px]" title={m.statusText}>
                       {m.statusText}
                     </span>
-                    <span className="text-[#8793A5] font-mono text-[9px] hover:text-[#F2D69A] shrink-0">
+                    <span className="text-[#8793A5] font-mono text-[9px] hover:text-[#F2D69A] shrink-0 font-bold underline">
                       Details →
                     </span>
                   </div>
@@ -231,89 +256,251 @@ export function GlobalLiveScoresTicker() {
         </div>
       </div>
 
-      {/* Mini Scorecard Popup Modal */}
-      {selectedMatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-[#0D1B2A] via-[#08111F] to-[#0D1B2A] border border-[#D8AD55]/40 p-6 shadow-2xl space-y-4">
-            
+      {/* Enterprise-grade Google-Style Pop-up Modal rendered via React Portal directly into body */}
+      {mounted && selectedMatch && createPortal(
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md overflow-y-auto"
+          onClick={() => setSelectedMatch(null)}
+        >
+          <div
+            className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-3xl bg-gradient-to-b from-[#0F1D30] via-[#08111F] to-[#0A1424] border border-[#D8AD55]/50 p-5 sm:p-6 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-4 my-auto scrollbar-none"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-[#D8AD55]/15 pb-3">
+            <div className="flex items-start justify-between border-b border-[#D8AD55]/20 pb-3">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D8AD55]">
-                  {selectedMatch.league} • {selectedMatch.format}
-                </span>
-                <h3 className="font-display font-black text-lg text-white">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#D8AD55]">
+                    {selectedMatch.league}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[9px] uppercase font-bold">
+                    {selectedMatch.format}
+                  </span>
+                  {selectedMatch.status === 'live' ? (
+                    <span className="flex items-center gap-1 text-red-400 text-[10px] font-black px-1.5 py-0.5 rounded bg-red-500/15 border border-red-500/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping inline-block" />
+                      LIVE
+                    </span>
+                  ) : (
+                    <span className="text-amber-400 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">
+                      {selectedMatch.status}
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-display font-black text-lg sm:text-xl text-white mt-1">
                   {selectedMatch.teamA.name} vs {selectedMatch.teamB.name}
                 </h3>
               </div>
+
+              {/* Close Button */}
               <button
                 type="button"
                 onClick={() => setSelectedMatch(null)}
-                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white cursor-pointer"
+                className="p-1.5 rounded-full bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white cursor-pointer transition-colors"
+                title="Close (Esc)"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Match Status & Venue */}
-            <div className="p-3 rounded-2xl bg-[#08111F] border border-white/5 flex items-center justify-between text-xs">
-              <span className="text-emerald-400 font-bold">{selectedMatch.statusText}</span>
-              <span className="text-gray-400 text-[11px] truncate max-w-[200px]">{selectedMatch.venue}</span>
-            </div>
-
-            {/* Full Scores Breakdown */}
-            <div className="space-y-3 p-4 rounded-2xl bg-[#08111F]/80 border border-[#D8AD55]/20">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{selectedMatch.teamA.flag}</span>
-                  <span className="font-bold text-white text-sm">{selectedMatch.teamA.name}</span>
-                </div>
-                <div className="font-mono font-black text-base text-white">
-                  {selectedMatch.teamA.score || 'Yet to Bat'}{' '}
-                  {selectedMatch.teamA.overs && <span className="text-xs text-gray-400 font-normal">({selectedMatch.teamA.overs} Ov)</span>}
-                </div>
+            {/* Match Situation & Equation Box */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-[#08111F] to-emerald-500/15 border border-emerald-500/30 space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-emerald-400">{selectedMatch.statusText}</span>
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{selectedMatch.teamB.flag}</span>
-                  <span className="font-bold text-white text-sm">{selectedMatch.teamB.name}</span>
-                </div>
-                <div className="font-mono font-black text-base text-white">
-                  {selectedMatch.teamB.score || 'Yet to Bat'}{' '}
-                  {selectedMatch.teamB.overs && <span className="text-xs text-gray-400 font-normal">({selectedMatch.teamB.overs} Ov)</span>}
-                </div>
-              </div>
-            </div>
-
-            {/* Current Batters & Bowlers if available */}
-            {selectedMatch.currentBatters && (
-              <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs space-y-1">
-                <div className="text-[10px] uppercase font-bold text-blue-300">Active Batters & Bowler</div>
-                <div className="text-gray-200 font-mono text-[11px]">{selectedMatch.currentBatters}</div>
-                {selectedMatch.currentBowler && (
-                  <div className="text-gray-300 font-mono text-[11px] pt-0.5">Bowling: {selectedMatch.currentBowler}</div>
+              <div className="flex items-center justify-between text-[11px] text-[#8793A5] pt-0.5">
+                <span className="flex items-center gap-1 truncate max-w-[320px]">
+                  <MapPin className="w-3.5 h-3.5 text-[#D8AD55] shrink-0" />
+                  <span className="truncate">{selectedMatch.venue}</span>
+                </span>
+                {selectedMatch.toss && (
+                  <span className="text-gray-400 text-[10px] italic shrink-0 hidden sm:inline">
+                    {selectedMatch.toss}
+                  </span>
                 )}
+              </div>
+            </div>
+
+            {/* Scorecard Table */}
+            <div className="space-y-2.5 p-4 rounded-2xl bg-[#08111F] border border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl leading-none">{selectedMatch.teamA.flag}</span>
+                  <div>
+                    <span className="font-bold text-white text-sm sm:text-base">{selectedMatch.teamA.name}</span>
+                    <span className="text-gray-400 text-xs font-mono ml-2 font-normal">({selectedMatch.teamA.short})</span>
+                  </div>
+                </div>
+                <div className="font-mono font-black text-base sm:text-lg text-white">
+                  {selectedMatch.teamA.score || 'Yet to Bat'}
+                  {selectedMatch.teamA.overs && (
+                    <span className="text-xs text-gray-400 font-normal ml-1">
+                      ({selectedMatch.teamA.overs} Ov)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl leading-none">{selectedMatch.teamB.flag}</span>
+                  <div>
+                    <span className="font-bold text-white text-sm sm:text-base">{selectedMatch.teamB.name}</span>
+                    <span className="text-gray-400 text-xs font-mono ml-2 font-normal">({selectedMatch.teamB.short})</span>
+                  </div>
+                </div>
+                <div className="font-mono font-black text-base sm:text-lg text-white">
+                  {selectedMatch.teamB.score || 'Yet to Bat'}
+                  {selectedMatch.teamB.overs && (
+                    <span className="text-xs text-gray-400 font-normal ml-1">
+                      ({selectedMatch.teamB.overs} Ov)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* CRR & RRR Metrics Row */}
+              {(selectedMatch.crr || selectedMatch.rrr || selectedMatch.partnership) && (
+                <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-white/5 text-[11px] font-mono">
+                  {selectedMatch.crr && (
+                    <span className="px-2 py-0.5 rounded bg-white/5 text-gray-300">
+                      CRR: <strong className="text-white">{selectedMatch.crr}</strong>
+                    </span>
+                  )}
+                  {selectedMatch.rrr && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                      RRR: <strong className="text-emerald-400">{selectedMatch.rrr}</strong>
+                    </span>
+                  )}
+                  {selectedMatch.partnership && (
+                    <span className="px-2 py-0.5 rounded bg-[#D8AD55]/10 text-[#F2D69A] border border-[#D8AD55]/20">
+                      🤝 {selectedMatch.partnership}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Active Batters Live Table (Google Style) */}
+            {selectedMatch.batters && selectedMatch.batters.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-[#08111F] border border-blue-500/20 space-y-2">
+                <div className="flex items-center justify-between text-[10px] uppercase font-bold text-blue-400 tracking-wider">
+                  <span>Batting</span>
+                  <div className="flex items-center gap-4 text-right pr-1 font-mono text-gray-400">
+                    <span className="w-8">R</span>
+                    <span className="w-8">B</span>
+                    <span className="w-6">4s</span>
+                    <span className="w-6">6s</span>
+                    <span className="w-12">SR</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  {selectedMatch.batters.map((b, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center gap-1.5 truncate max-w-[190px]">
+                        <span className={`font-sans font-bold truncate ${b.isStriker ? 'text-white' : 'text-gray-300'}`}>
+                          {b.name}
+                        </span>
+                        {b.isStriker && (
+                          <span className="text-emerald-400 font-black text-xs">*</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-right pr-1 text-gray-200">
+                        <span className="w-8 font-black text-white">{b.runs}</span>
+                        <span className="w-8 text-gray-400">{b.balls}</span>
+                        <span className="w-6 text-gray-400">{b.fours}</span>
+                        <span className="w-6 text-gray-400">{b.sixes}</span>
+                        <span className="w-12 text-[#F2D69A]">{b.sr}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Match Summary */}
+            {/* Active Bowler Live Figures */}
+            {selectedMatch.bowler && (
+              <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/10 space-y-2">
+                <div className="flex items-center justify-between text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">
+                  <span>Bowling</span>
+                  <div className="flex items-center gap-4 text-right pr-1 font-mono text-gray-400">
+                    <span className="w-8">O</span>
+                    <span className="w-6">M</span>
+                    <span className="w-8">R</span>
+                    <span className="w-6">W</span>
+                    <span className="w-12">ECON</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="font-sans font-bold text-white truncate max-w-[190px]">
+                    {selectedMatch.bowler.name}
+                  </span>
+                  <div className="flex items-center gap-4 text-right pr-1 text-gray-200">
+                    <span className="w-8 text-gray-300">{selectedMatch.bowler.overs}</span>
+                    <span className="w-6 text-gray-400">{selectedMatch.bowler.maidens}</span>
+                    <span className="w-8 text-gray-300">{selectedMatch.bowler.runs}</span>
+                    <span className="w-6 font-black text-emerald-400">{selectedMatch.bowler.wickets}</span>
+                    <span className="w-12 text-gray-300">{selectedMatch.bowler.econ}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Recent Balls Strip */}
+            {selectedMatch.recentBalls && selectedMatch.recentBalls.length > 0 && (
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 text-xs">
+                <span className="text-[10px] uppercase font-bold text-[#8793A5] tracking-wider">
+                  Recent Over
+                </span>
+                <div className="flex items-center gap-1.5 font-mono">
+                  {selectedMatch.recentBalls.map((b, idx) => {
+                    const isWicket = b === 'W';
+                    const isFour = b === '4';
+                    const isSix = b === '6';
+
+                    return (
+                      <span
+                        key={idx}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
+                          isWicket
+                            ? 'bg-red-500 text-white animate-pulse'
+                            : isSix
+                            ? 'bg-purple-500/80 text-white'
+                            : isFour
+                            ? 'bg-blue-500/80 text-white'
+                            : b === '0'
+                            ? 'bg-white/10 text-gray-400'
+                            : 'bg-[#D8AD55]/20 text-[#F2D69A]'
+                        }`}
+                      >
+                        {b}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Editorial Summary */}
             {selectedMatch.summary && (
-              <div className="text-xs text-gray-300 italic pt-1">
+              <div className="p-3 rounded-xl bg-white/5 text-xs text-gray-300 italic border border-white/5">
                 "{selectedMatch.summary}"
               </div>
             )}
 
-            {/* Close Button */}
+            {/* Bottom Dismiss Button */}
             <button
               type="button"
               onClick={() => setSelectedMatch(null)}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider cursor-pointer shadow-md hover:brightness-110"
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg hover:brightness-110 active:scale-[0.99] transition-all"
             >
-              Close Match Details
+              Close Match Center
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
