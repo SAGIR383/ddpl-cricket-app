@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LiveAnnouncementTicker } from '@/components/home/LiveAnnouncementTicker';
 import { InteractiveFeatureShowcase } from '@/components/home/InteractiveFeatureShowcase';
 import { GlobalMatchRadarMap } from '@/components/home/GlobalMatchRadarMap';
+import { GlobalLiveScoresTicker } from '@/components/home/GlobalLiveScoresTicker';
 import type { LiveAnnouncementData } from '@/app/api/announcement/route';
 
 interface TournamentCardItem {
@@ -629,6 +630,9 @@ export default function HomePage() {
           </Link>
         </div>
       )}
+
+      {/* GOOGLE-STYLE GLOBAL LIVE CRICKET SCORES TICKER (BBL, ICC, County, Franchise & Domestic) */}
+      <GlobalLiveScoresTicker />
 
       {/* 2. DYNAMIC LIVE STATS BANNER (Panel 1 Bottom) */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
