@@ -54,10 +54,10 @@ export interface GlobalLiveMatch {
   lastUpdated: string;
 }
 
-// In-memory cache for ultra-fast response and avoiding rate limits
+// In-memory cache with ultra-short 4s TTL for genuine real-time ball-by-ball precision
 let cachedMatches: GlobalLiveMatch[] = [];
 let lastFetchTime = 0;
-const CACHE_TTL_MS = 15000; // 15 seconds
+const CACHE_TTL_MS = 4000; // 4 seconds
 
 function getCountryFlag(name: string, short: string): string {
   const n = `${name} ${short}`.toLowerCase();
@@ -181,6 +181,18 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
     const html = await res.text();
     const cleanHtml = html.replace(/\\\"/g, '"').replace(/\\\\/g, '\\');
 
+    // Check for active miniscore inside cleanHtml (ball-by-ball details for the featured live match)
+    let activeMiniScore: any = null;
+    const miniIdx = cleanHtml.indexOf('"miniscore":{');
+    if (miniIdx !== -1) {
+      const extractedMini = extractJSONObject(cleanHtml, miniIdx + '"miniscore":'.length);
+      if (extractedMini) {
+        try {
+          activeMiniScore = JSON.parse(extractedMini.jsonStr);
+        } catch (e) {}
+      }
+    }
+
     const parsedList: GlobalLiveMatch[] = [];
     const seen = new Set<number>();
     let pos = 0;
@@ -247,7 +259,6 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
             ) {
               matchStatus = 'live';
             } else if (stateStr === 'toss') {
-              // Toss done but bowling not started yet
               matchStatus = 'upcoming';
             } else {
               matchStatus = 'upcoming';
@@ -267,6 +278,76 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
               if (!teamBScore) teamBScore = 'Scheduled';
             } else if (!statusText) {
               statusText = info.stateTitle || 'Match in progress';
+            }
+
+            // Real-time Batters & Bowler stats if miniscore is available for this match
+            let batters: BatterStats[] | undefined;
+            let bowler: BowlerStats | undefined;
+            let crr: string | undefined;
+            let rrr: string | undefined;
+            let partnership: string | undefined;
+            let recentBalls: string[] | undefined;
+
+            if (activeMiniScore && activeMiniScore.matchScoreDetails?.matchId === info.matchId) {
+              if (activeMiniScore.currentRunRate) {
+                crr = `${activeMiniScore.currentRunRate}`;
+              }
+              if (activeMiniScore.requiredRunRate && activeMiniScore.requiredRunRate > 0) {
+                rrr = `${activeMiniScore.requiredRunRate}`;
+              }
+              if (activeMiniScore.partnerShip) {
+                partnership = `${activeMiniScore.partnerShip.runs || 0} runs (${activeMiniScore.partnerShip.balls || 0} balls)`;
+              }
+              if (activeMiniScore.recentOvsStats) {
+                recentBalls = activeMiniScore.recentOvsStats.trim().split(/\s+/).slice(-6);
+              }
+              if (activeMiniScore.batsmanStriker || activeMiniScore.batsmanNonStriker) {
+                batters = [];
+                if (activeMiniScore.batsmanStriker?.name) {
+                  batters.push({
+                    name: activeMiniScore.batsmanStriker.name,
+                    runs: activeMiniScore.batsmanStriker.runs || 0,
+                    balls: activeMiniScore.batsmanStriker.balls || 0,
+                    fours: activeMiniScore.batsmanStriker.fours || 0,
+                    sixes: activeMiniScore.batsmanStriker.sixes || 0,
+                    sr: `${activeMiniScore.batsmanStriker.strikeRate || '0.00'}`,
+                    isStriker: true,
+                  });
+                }
+                if (activeMiniScore.batsmanNonStriker?.name) {
+                  batters.push({
+                    name: activeMiniScore.batsmanNonStriker.name,
+                    runs: activeMiniScore.batsmanNonStriker.runs || 0,
+                    balls: activeMiniScore.batsmanNonStriker.balls || 0,
+                    fours: activeMiniScore.batsmanNonStriker.fours || 0,
+                    sixes: activeMiniScore.batsmanNonStriker.sixes || 0,
+                    sr: `${activeMiniScore.batsmanNonStriker.strikeRate || '0.00'}`,
+                    isStriker: false,
+                  });
+                }
+              }
+              if (activeMiniScore.bowlerStriker?.name) {
+                bowler = {
+                  name: activeMiniScore.bowlerStriker.name,
+                  overs: `${activeMiniScore.bowlerStriker.overs || 0}`,
+                  maidens: activeMiniScore.bowlerStriker.maidens || 0,
+                  runs: activeMiniScore.bowlerStriker.runs || 0,
+                  wickets: activeMiniScore.bowlerStriker.wickets || 0,
+                  econ: `${activeMiniScore.bowlerStriker.economy || '0.00'}`,
+                };
+              }
+              // Also update the batting team score live if available
+              if (activeMiniScore.batTeam && activeMiniScore.overs !== undefined) {
+                if (info.currBatTeamId === info.team2?.teamId) {
+                  teamBScore = `${activeMiniScore.batTeam.teamScore || 0}/${activeMiniScore.batTeam.teamWkts || 0}`;
+                  teamBOvers = `${activeMiniScore.overs}`;
+                  matchStatus = 'live';
+                } else {
+                  teamAScore = `${activeMiniScore.batTeam.teamScore || 0}/${activeMiniScore.batTeam.teamWkts || 0}`;
+                  teamAOvers = `${activeMiniScore.overs}`;
+                  matchStatus = 'live';
+                }
+              }
             }
 
             const teamAName = info.team1?.teamName || 'Team A';
@@ -298,6 +379,12 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
               },
               summary: `${info.seriesName || ''} • ${statusText}`,
               toss: tossText || (stateStr === 'toss' ? statusRaw : undefined),
+              crr,
+              rrr,
+              partnership,
+              batters,
+              bowler,
+              recentBalls,
               lastUpdated: new Date().toISOString(),
             };
 
@@ -317,159 +404,11 @@ async function fetchRealTimeMatches(): Promise<GlobalLiveMatch[]> {
     console.warn('Real-time cricket feed network fetch failed, using fallback:', err);
   }
 
-  // Robust Fallback Snapshot
-  return [
-    {
-      id: 'cric-161212',
-      category: 'international',
-      league: 'India tour of New Zealand 2026 (3rd T20I)',
-      format: 'T20',
-      status: 'upcoming',
-      statusText: '🪙 Toss: India opt to bowl first • Match starting shortly',
-      venue: 'Hnry Stadium, Wellington',
-      teamA: {
-        name: 'New Zealand',
-        short: 'NZ',
-        score: '0/0',
-        overs: '0.0',
-        flag: '🇳🇿',
-      },
-      teamB: {
-        name: 'India',
-        short: 'IND',
-        score: 'Yet to bat',
-        flag: '🇮🇳',
-      },
-      toss: 'India won the toss and elected to bowl first',
-      summary: '3rd T20I of 5-match series (India leads 2-0). Toss done at Wellington.',
-      lastUpdated: new Date().toISOString(),
-    },
-    {
-      id: 'cric-171291',
-      category: 'domestic',
-      league: 'India A tour of New Zealand, 2026 (1st Unofficial Test)',
-      format: 'TEST',
-      status: 'live',
-      statusText: 'Day 4: Bad light stops play - New Zealand A need 126 runs (1 wicket remaining)',
-      venue: 'Bert Sutcliffe Oval, Lincoln',
-      teamA: {
-        name: 'India A',
-        short: 'INDA',
-        score: '113 & 516',
-        overs: '123.1',
-        flag: '🇮🇳',
-      },
-      teamB: {
-        name: 'New Zealand A',
-        short: 'NZA',
-        score: '317 & 187/9',
-        overs: '64.6',
-        flag: '🇳🇿',
-      },
-      summary: 'Devdutt Padikkal 199 (268b) anchored India A; 1 wicket remaining for victory in Lincoln.',
-      lastUpdated: new Date().toISOString(),
-    },
-    {
-      id: 'cric-163841',
-      category: 'domestic',
-      league: 'Ranji Trophy Elite 2026-27 (Elite Group C)',
-      format: 'TEST',
-      status: 'live',
-      statusText: 'Day 2: Lunch Break - Delhi lead by 220 runs',
-      venue: 'JSCA International Stadium Complex, Ranchi',
-      teamA: {
-        name: 'Delhi',
-        short: 'DEL',
-        score: '446/5',
-        overs: '120.6',
-        flag: '🏛️',
-      },
-      teamB: {
-        name: 'Jharkhand',
-        short: 'JHKD',
-        score: '226',
-        overs: '74.2',
-        flag: '🏹',
-      },
-      summary: 'Captain Ayush Badoni 152* & Sumit Mathur power Delhi past 440.',
-      lastUpdated: new Date().toISOString(),
-    },
-    {
-      id: 'cric-163900',
-      category: 'domestic',
-      league: 'Ranji Trophy Elite 2026-27 (Elite Group D)',
-      format: 'TEST',
-      status: 'live',
-      statusText: 'Day 2: 1st Session - Tamil Nadu trail by 21 runs',
-      venue: 'MA Chidambaram Stadium, Chennai',
-      teamA: {
-        name: 'Railways',
-        short: 'RLYS',
-        score: '184',
-        overs: '53.3',
-        flag: '🚂',
-      },
-      teamB: {
-        name: 'Tamil Nadu',
-        short: 'TN',
-        score: '163/9',
-        overs: '60.6',
-        flag: '🦁',
-      },
-      summary: 'Railways attack triggers collapse, Tamil Nadu 9 wickets down.',
-      lastUpdated: new Date().toISOString(),
-    },
-    {
-      id: 'cric-176342',
-      category: 'franchise',
-      league: 'ICC Cricket World Cup League Two 2023-27 (141st Match)',
-      format: 'ODI',
-      status: 'live',
-      statusText: 'Oman opt to bowl • Netherlands 103/1 (11.6 ov)',
-      venue: 'ICC Academy Ground, Dubai',
-      teamA: {
-        name: 'Netherlands',
-        short: 'NED',
-        score: '103/1',
-        overs: '11.6',
-        flag: '🇳🇱',
-      },
-      teamB: {
-        name: 'Oman',
-        short: 'OMA',
-        score: 'Yet to bat',
-        flag: '🇴🇲',
-      },
-      summary: 'Netherlands off to rapid start in Dubai League Two encounter.',
-      lastUpdated: new Date().toISOString(),
-    },
-    {
-      id: 'cric-166630',
-      category: 'domestic',
-      league: 'Sheffield Shield 2026-27 (7th Match)',
-      format: 'TEST',
-      status: 'upcoming',
-      statusText: 'Scheduled • Match starts on Oct 28 at Adelaide Oval',
-      venue: 'Adelaide Oval, Adelaide',
-      teamA: {
-        name: 'South Australia',
-        short: 'SA',
-        score: 'Scheduled',
-        flag: '🇦🇺',
-      },
-      teamB: {
-        name: 'Western Australia',
-        short: 'WA',
-        score: 'Scheduled',
-        flag: '⚡',
-      },
-      summary: 'Redbacks host Western Australia in Round 3 Sheffield Shield.',
-      lastUpdated: new Date().toISOString(),
-    },
-  ];
+  // Graceful fallback if network is briefly unreachable
+  return cachedMatches.length > 0 ? cachedMatches : [];
 }
 
-// GET /api/live-scores/global?category=all|international|franchise|domestic
+// GET /api/live-scores/global?category=all|live|upcoming|international|franchise|domestic
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -477,19 +416,28 @@ export async function GET(req: Request) {
 
     const now = Date.now();
     if (!cachedMatches.length || now - lastFetchTime > CACHE_TTL_MS) {
-      cachedMatches = await fetchRealTimeMatches();
-      lastFetchTime = now;
+      const fresh = await fetchRealTimeMatches();
+      if (fresh.length > 0) {
+        cachedMatches = fresh;
+        lastFetchTime = now;
+      }
     }
 
     let matches = cachedMatches;
-    if (category && category !== 'all') {
+
+    // Support flexible category & status filtering
+    if (category === 'live') {
+      matches = matches.filter((m) => m.status === 'live');
+    } else if (category === 'upcoming') {
+      matches = matches.filter((m) => m.status === 'upcoming');
+    } else if (category && category !== 'all') {
       matches = matches.filter((m) => m.category === category);
     }
 
     return NextResponse.json(
       {
         success: true,
-        source: 'Real-Time Global Cricket Feed',
+        source: 'Real-Time Global Cricket Feed (Ball-by-Ball Live)',
         category,
         count: matches.length,
         matches,
@@ -497,7 +445,7 @@ export async function GET(req: Request) {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+          'Cache-Control': 'public, s-maxage=2, stale-while-revalidate=5',
         },
       }
     );

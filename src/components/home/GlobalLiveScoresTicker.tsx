@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Radio, ChevronLeft, ChevronRight, Globe, Flame, Shield, Trophy, Activity, X, MapPin } from 'lucide-react';
+import { Radio, ChevronLeft, ChevronRight, Globe, Flame, Shield, Trophy, Activity, X, MapPin, Zap, Clock } from 'lucide-react';
 import { fetchWithCache } from '@/lib/clientCache';
 import { GlobalLiveMatch } from '@/app/api/live-scores/global/route';
 
-type FilterCategory = 'all' | 'international' | 'franchise' | 'domestic';
+type FilterCategory = 'all' | 'live' | 'upcoming' | 'international' | 'franchise' | 'domestic';
 
 export function GlobalLiveScoresTicker() {
   const [matches, setMatches] = useState<GlobalLiveMatch[]>([]);
@@ -14,22 +14,26 @@ export function GlobalLiveScoresTicker() {
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedMatch, setSelectedMatch] = useState<GlobalLiveMatch | null>(null);
   const [mounted, setMounted] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Fetch live global match scores feed
+  // Fetch live global match scores feed with rapid 5-second ball-by-ball polling
   useEffect(() => {
     let isMounted = true;
 
     async function loadGlobalScores() {
       try {
-        const res = await fetchWithCache<any>('/api/live-scores/global?category=all', { ttlMs: 15000 });
+        // Bypass cache or use short 3s TTL to get every ball delivered in real time
+        const res = await fetchWithCache<any>('/api/live-scores/global?category=all', { ttlMs: 3000 });
         if (!isMounted) return;
         if (res?.success && Array.isArray(res.matches)) {
           setMatches(res.matches);
+          const now = new Date();
+          setLastSyncTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
         }
       } catch (err) {
         console.error('Failed to load global live scores feed:', err);
@@ -40,13 +44,21 @@ export function GlobalLiveScoresTicker() {
 
     loadGlobalScores();
 
-    // Auto refresh feed every 15s
-    const interval = setInterval(loadGlobalScores, 15000);
+    // Auto-refresh feed every 5s for genuine real-time ball-by-ball precision
+    const interval = setInterval(loadGlobalScores, 5000);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
   }, []);
+
+  // When match list updates, automatically update selectedMatch so modal updates ball-by-ball
+  useEffect(() => {
+    if (selectedMatch) {
+      const updated = matches.find((m) => m.id === selectedMatch.id);
+      if (updated) setSelectedMatch(updated);
+    }
+  }, [matches]);
 
   // Lock background scroll and listen for ESC key when details modal is open
   useEffect(() => {
@@ -68,6 +80,10 @@ export function GlobalLiveScoresTicker() {
 
   const filteredMatches = activeCategory === 'all'
     ? matches
+    : activeCategory === 'live'
+    ? matches.filter((m) => m.status === 'live')
+    : activeCategory === 'upcoming'
+    ? matches.filter((m) => m.status === 'upcoming')
     : matches.filter((m) => m.category === activeCategory);
 
   const scroll = (direction: 'left' | 'right') => {
@@ -79,8 +95,10 @@ export function GlobalLiveScoresTicker() {
 
   const categories: { id: FilterCategory; label: string; icon: any }[] = [
     { id: 'all', label: 'All Matches', icon: Globe },
+    { id: 'live', label: '🔴 Live Now', icon: Activity },
+    { id: 'upcoming', label: '📅 Upcoming / Scheduled', icon: Clock },
     { id: 'international', label: 'International (ICC)', icon: Trophy },
-    { id: 'franchise', label: 'Franchise (BBL / SA20 / IPL)', icon: Flame },
+    { id: 'franchise', label: 'Franchise (BBL/SA20)', icon: Flame },
     { id: 'domestic', label: 'County & Domestic', icon: Shield },
   ];
 
@@ -95,13 +113,19 @@ export function GlobalLiveScoresTicker() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D8AD55]/15 pb-3">
           
           {/* Section Eyebrow */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-[10px] sm:text-xs font-black tracking-wider uppercase">
               <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping inline-block" />
               <span>LIVE MATCH HUB</span>
             </span>
-            <span className="hidden md:inline-block text-xs font-bold text-[#8793A5]">
-              Global Cricket Scores • Real-Time Broadcast
+            <span className="hidden md:flex items-center gap-1.5 text-xs font-bold text-[#8793A5]">
+              <span>Real-Time Ball-by-Ball Feed</span>
+              {lastSyncTime && (
+                <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Sync {lastSyncTime}</span>
+                </span>
+              )}
             </span>
           </div>
 
@@ -158,7 +182,7 @@ export function GlobalLiveScoresTicker() {
           {loading ? (
             <div className="w-full py-8 text-center text-xs text-[#8793A5] flex items-center justify-center gap-2">
               <Radio className="w-4 h-4 text-[#D8AD55] animate-pulse" />
-              <span>Connecting to global live cricket scores feed…</span>
+              <span>Connecting to real-time global live cricket scores feed…</span>
             </div>
           ) : filteredMatches.length === 0 ? (
             <div className="w-full py-6 text-center text-xs text-[#8793A5]">
@@ -281,7 +305,7 @@ export function GlobalLiveScoresTicker() {
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-[#D8AD55]/20 pb-3">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-black uppercase tracking-wider text-[#D8AD55]">
                     {selectedMatch.league}
                   </span>
@@ -291,7 +315,7 @@ export function GlobalLiveScoresTicker() {
                   {selectedMatch.status === 'live' ? (
                     <span className="flex items-center gap-1 text-red-400 text-[10px] font-black px-1.5 py-0.5 rounded bg-red-500/15 border border-red-500/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping inline-block" />
-                      LIVE
+                      LIVE BALL-BY-BALL
                     </span>
                   ) : (
                     <span className="text-amber-400 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">
@@ -464,18 +488,18 @@ export function GlobalLiveScoresTicker() {
             {selectedMatch.recentBalls && selectedMatch.recentBalls.length > 0 && (
               <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 text-xs">
                 <span className="text-[10px] uppercase font-bold text-[#8793A5] tracking-wider">
-                  Recent Over
+                  Recent Deliveries
                 </span>
-                <div className="flex items-center gap-1.5 font-mono">
+                <div className="flex items-center gap-1.5 font-mono flex-wrap justify-end">
                   {selectedMatch.recentBalls.map((b, idx) => {
-                    const isWicket = b === 'W';
-                    const isFour = b === '4';
-                    const isSix = b === '6';
+                    const isWicket = b.toUpperCase().includes('W') && !b.toUpperCase().includes('WD');
+                    const isFour = b.includes('4');
+                    const isSix = b.includes('6');
 
                     return (
                       <span
                         key={idx}
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${
+                        className={`min-w-6 h-6 px-1.5 rounded-full flex items-center justify-center text-[10px] font-black ${
                           isWicket
                             ? 'bg-red-500 text-white animate-pulse'
                             : isSix
