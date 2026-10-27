@@ -188,7 +188,19 @@ export function GlobalLiveScoresTicker() {
                       <span className="px-1.5 py-0.5 rounded bg-white/5 text-gray-300 font-mono text-[9px] uppercase">
                         {m.format}
                       </span>
-                      {isLive ? (
+                      {m.statusText?.toLowerCase().includes('toss') ? (
+                        <span className="flex items-center gap-1 text-[#F2D69A] font-black bg-[#D8AD55]/15 border border-[#D8AD55]/30 px-1.5 py-0.2 rounded">
+                          <span>🪙 TOSS</span>
+                        </span>
+                      ) : m.statusText?.toLowerCase().includes('bad light') ? (
+                        <span className="flex items-center gap-1 text-sky-400 font-bold bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.2 rounded">
+                          <span>☁️ BAD LIGHT</span>
+                        </span>
+                      ) : m.statusText?.toLowerCase().includes('lunch') ? (
+                        <span className="flex items-center gap-1 text-amber-300 font-bold bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                          <span>⏸️ LUNCH</span>
+                        </span>
+                      ) : isLive ? (
                         <span className="flex items-center gap-1 text-red-400 font-black">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping inline-block" />
                           <span>LIVE</span>
