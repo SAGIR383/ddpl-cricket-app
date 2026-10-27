@@ -276,13 +276,13 @@ export function GlobalMatchRadarMap() {
         <div className="text-center space-y-1.5 max-w-2xl mx-auto pt-1 pb-3 relative z-10">
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/30 text-[11px] font-bold uppercase tracking-wider">
             <Globe className="w-3 h-3 text-[#D8AD55]" />
-            <span>Global Match Radar</span>
+            <span>ONE PASSION • INFINITE PITCHES</span>
           </div>
           <h2 className="font-display font-black text-2xl sm:text-4xl text-white tracking-tight">
-            The game took us places
+            Where passion knows no borders.
           </h2>
           <p className="text-xs sm:text-sm text-[#8793A5] font-normal">
-            Different countries, different grounds, different ways of playing.
+            From gully tape-ball battles to corporate floodlit arenas—every boundary unites us.
           </p>
         </div>
 
@@ -419,12 +419,19 @@ export function GlobalMatchRadarMap() {
           </svg>
         </div>
 
-        {/* Bottom Tagline matching user reference image */}
-        <div className="text-center pt-2 pb-0 relative z-10">
-          <p className="text-xs sm:text-sm text-slate-300 tracking-normal">
-            Someone, somewhere, is playing cricket{' '}
+        {/* Bottom Tagline & Interactive CTA Button */}
+        <div className="text-center pt-3 pb-1 relative z-10 flex flex-col items-center gap-2.5">
+          <p className="text-xs sm:text-sm text-slate-300 tracking-normal max-w-xl mx-auto">
+            Every second, on some pitch across the earth, a new legend takes the crease{' '}
             <span className="text-red-500 font-bold italic tracking-wide">right now.</span>
           </p>
+          <Link
+            href="/matches"
+            className="btn-press shimmer-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/25 hover:brightness-110 transition-all cursor-pointer"
+          >
+            <span>Explore Live Matches Worldwide</span>
+            <ChevronRight className="w-4 h-4" />
+          </Link>
         </div>
 
         {/* Interactive Details Footer for Selected Hub */}
