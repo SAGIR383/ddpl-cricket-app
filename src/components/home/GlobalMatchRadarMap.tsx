@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Trophy, ChevronRight, Activity, MapPin } from 'lucide-react';
+import { Trophy, ChevronRight, MapPin, Globe } from 'lucide-react';
 import { WorldMapPaths } from './WorldMapPaths';
 
 export interface RadarHub {
@@ -24,8 +24,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Dubai',
     country: 'United Arab Emirates',
     region: 'Middle East',
-    cx: 532,
-    cy: 466,
+    cx: 531,
+    cy: 468,
     delaySeconds: 0.2,
     tournamentName: 'Game of RUN Corporate 2027',
     matchScore: 'Desert Hawks 124/4 (9.2 Ov) • Live',
@@ -36,8 +36,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Mumbai',
     country: 'India',
     region: 'South Asia',
-    cx: 582,
-    cy: 486,
+    cx: 584,
+    cy: 482,
     delaySeconds: 1.1,
     tournamentName: 'Corporate Super Cup 2027',
     matchScore: 'Auction Room Live • 42 Players Drafted',
@@ -48,8 +48,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'New Delhi',
     country: 'India',
     region: 'South Asia',
-    cx: 587,
-    cy: 462,
+    cx: 588,
+    cy: 458,
     delaySeconds: 2.3,
     tournamentName: 'DDPL Premier League',
     matchScore: 'Tech Titans 143/8 vs Strikers 134/6',
@@ -60,8 +60,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Bengaluru',
     country: 'India',
     region: 'South Asia',
-    cx: 588,
-    cy: 498,
+    cx: 590,
+    cy: 496,
     delaySeconds: 0.7,
     tournamentName: 'Silicon City Corporate T20',
     matchScore: 'Byte Warriors 98/2 (7.1 Ov)',
@@ -72,8 +72,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Dhaka',
     country: 'Bangladesh',
     region: 'South Asia',
-    cx: 620,
-    cy: 465,
+    cx: 618,
+    cy: 462,
     delaySeconds: 3.4,
     tournamentName: 'Bengal Corporate Premier League',
     matchScore: 'Padma Super Kings 138/7 (10 Ov)',
@@ -84,8 +84,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Colombo',
     country: 'Sri Lanka',
     region: 'South Asia',
-    cx: 605,
-    cy: 512,
+    cx: 604,
+    cy: 508,
     delaySeconds: 1.8,
     tournamentName: 'Island Corporate League',
     matchScore: 'Colombo Lions 112/5 (8.4 Ov)',
@@ -96,8 +96,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Lahore',
     country: 'Pakistan',
     region: 'South Asia',
-    cx: 574,
-    cy: 452,
+    cx: 572,
+    cy: 450,
     delaySeconds: 4.1,
     tournamentName: 'Punjab Corporate Shield',
     matchScore: 'Qalandars XI 105/3 (8.0 Ov)',
@@ -108,8 +108,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'London',
     country: 'United Kingdom',
     region: 'Europe',
-    cx: 412,
-    cy: 382,
+    cx: 413,
+    cy: 386,
     delaySeconds: 2.7,
     tournamentName: 'UK Corporate City Championship',
     matchScore: 'Canary Wharf XI 88/2 (7.0 Ov)',
@@ -120,8 +120,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Amsterdam',
     country: 'Netherlands',
     region: 'Europe',
-    cx: 426,
-    cy: 380,
+    cx: 422,
+    cy: 388,
     delaySeconds: 0.5,
     tournamentName: 'European Tech Cricket Trophy',
     matchScore: 'Tulip Titans 74/1 (5.4 Ov)',
@@ -132,8 +132,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'New York',
     country: 'United States',
     region: 'North America',
-    cx: 232,
-    cy: 402,
+    cx: 230,
+    cy: 398,
     delaySeconds: 3.8,
     tournamentName: 'North America Corporate T20',
     matchScore: 'Wall Street Strikers 92/3 (6.4 Ov)',
@@ -144,8 +144,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Seattle',
     country: 'United States',
     region: 'North America',
-    cx: 148,
-    cy: 375,
+    cx: 146,
+    cy: 372,
     delaySeconds: 1.4,
     tournamentName: 'Pacific Northwest Corporate Cup',
     matchScore: 'Cascade Kings 118/4 (9.0 Ov)',
@@ -157,7 +157,7 @@ export const GLOBAL_HUBS: RadarHub[] = [
     country: 'Canada',
     region: 'North America',
     cx: 224,
-    cy: 390,
+    cy: 386,
     delaySeconds: 4.5,
     tournamentName: 'Great Lakes Invitational',
     matchScore: 'Franchise Player Draft Ready',
@@ -165,11 +165,11 @@ export const GLOBAL_HUBS: RadarHub[] = [
   },
   {
     id: 'barbados',
-    city: 'Bridgetown',
-    country: 'Barbados',
+    city: 'Kingston / West Indies',
+    country: 'Jamaica & Caribbean',
     region: 'Caribbean',
-    cx: 236,
-    cy: 476,
+    cx: 228,
+    cy: 475,
     delaySeconds: 2.0,
     tournamentName: 'Caribbean Corporate Bash',
     matchScore: 'Calypso Kings 132/5 (9.3 Ov)',
@@ -180,8 +180,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Johannesburg',
     country: 'South Africa',
     region: 'Africa',
-    cx: 475,
-    cy: 592,
+    cx: 472,
+    cy: 594,
     delaySeconds: 3.0,
     tournamentName: 'Highveld Corporate League',
     matchScore: 'Gold Strikers 110/6 (8.5 Ov)',
@@ -192,8 +192,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Nairobi',
     country: 'Kenya',
     region: 'Africa',
-    cx: 497,
-    cy: 526,
+    cx: 494,
+    cy: 524,
     delaySeconds: 0.9,
     tournamentName: 'East Africa Corporate Trophy',
     matchScore: 'Savannah Lions 76/1 (5.2 Ov)',
@@ -204,8 +204,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Singapore',
     country: 'Singapore',
     region: 'Southeast Asia',
-    cx: 652,
-    cy: 530,
+    cx: 654,
+    cy: 526,
     delaySeconds: 2.5,
     tournamentName: 'Asia-Pacific Tech Cup',
     matchScore: 'Registrations Open • 8 Franchises',
@@ -216,8 +216,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Sydney',
     country: 'Australia',
     region: 'Oceania',
-    cx: 722,
-    cy: 642,
+    cx: 714,
+    cy: 626,
     delaySeconds: 1.6,
     tournamentName: 'Down Under Corporate Clash',
     matchScore: 'Sydney Thunder 155/5 (10.0 Ov)',
@@ -228,8 +228,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Melbourne',
     country: 'Australia',
     region: 'Oceania',
-    cx: 712,
-    cy: 656,
+    cx: 704,
+    cy: 636,
     delaySeconds: 4.3,
     tournamentName: 'Victoria Corporate Cup',
     matchScore: 'Live Scoring Active • 2nd Innings',
@@ -241,7 +241,7 @@ export const GLOBAL_HUBS: RadarHub[] = [
     country: 'Australia',
     region: 'Oceania',
     cx: 668,
-    cy: 630,
+    cy: 618,
     delaySeconds: 3.2,
     tournamentName: 'Western Australia Corporate League',
     matchScore: 'Sunset Warriors 85/3 (6.1 Ov)',
@@ -252,8 +252,8 @@ export const GLOBAL_HUBS: RadarHub[] = [
     city: 'Auckland',
     country: 'New Zealand',
     region: 'Oceania',
-    cx: 768,
-    cy: 665,
+    cx: 806,
+    cy: 662,
     delaySeconds: 2.1,
     tournamentName: 'Kiwi Corporate Championship',
     matchScore: 'Waitakere Hawks 94/2 (7.4 Ov)',
@@ -263,47 +263,53 @@ export const GLOBAL_HUBS: RadarHub[] = [
 
 export function GlobalMatchRadarMap() {
   const [selectedHub, setSelectedHub] = useState<RadarHub>(GLOBAL_HUBS[0]);
-  const [isHovered, setIsHovered] = useState<boolean>(false);
 
   return (
-    <section className="space-y-6 relative overflow-hidden py-6">
-      {/* Editorial Card matching user reference image */}
-      <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-xl relative overflow-hidden text-slate-900 transition-all duration-300">
+    <section className="space-y-4 relative overflow-hidden py-4">
+      {/* Editorial Card themed to match CricPlus luxury dark navy/gold palette */}
+      <div className="bg-gradient-to-b from-[#08111F] via-[#0D1B2A] to-[#08111F] rounded-3xl p-5 sm:p-7 border border-[#D8AD55]/30 shadow-2xl relative overflow-hidden text-white transition-all duration-300">
         
+        {/* Subtle Ambient Radial Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[220px] bg-[#D8AD55]/5 rounded-full blur-3xl pointer-events-none" />
+
         {/* Editorial Header */}
-        <div className="text-center space-y-2 max-w-3xl mx-auto pt-2 pb-4">
-          <h2 className="font-sans font-black text-3xl sm:text-5xl text-slate-900 tracking-tight">
+        <div className="text-center space-y-1.5 max-w-2xl mx-auto pt-1 pb-3 relative z-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/30 text-[11px] font-bold uppercase tracking-wider">
+            <Globe className="w-3 h-3 text-[#D8AD55]" />
+            <span>Global Match Radar</span>
+          </div>
+          <h2 className="font-display font-black text-2xl sm:text-4xl text-white tracking-tight">
             The game took us places
           </h2>
-          <p className="text-sm sm:text-base text-slate-500 font-normal">
+          <p className="text-xs sm:text-sm text-[#8793A5] font-normal">
             Different countries, different grounds, different ways of playing.
           </p>
         </div>
 
         {/* Live Active Match Pill / Ticker */}
-        <div className="max-w-2xl mx-auto mb-4 flex items-center justify-between p-3 px-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs shadow-sm">
-          <div className="flex items-center gap-2.5">
+        <div className="max-w-2xl mx-auto mb-3 flex items-center justify-between p-2.5 px-3.5 rounded-2xl bg-[#08111F]/90 border border-[#D8AD55]/25 text-xs shadow-md relative z-10">
+          <div className="flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
             </span>
-            <span className="text-slate-600 font-medium">
-              Active Ground: <strong className="text-slate-900 font-semibold">{selectedHub.city}, {selectedHub.country}</strong>
+            <span className="text-[#8793A5] text-[11px] sm:text-xs">
+              Active Ground: <strong className="text-white font-semibold">{selectedHub.city}, {selectedHub.country}</strong>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-slate-700">
-            <Trophy className="w-3.5 h-3.5 text-amber-500" />
-            <span className="font-semibold text-slate-900">{selectedHub.tournamentName}</span>
-            <span className="hidden sm:inline text-emerald-600 font-mono">• {selectedHub.matchScore}</span>
+          <div className="flex items-center gap-2 text-slate-300 text-[11px] sm:text-xs">
+            <Trophy className="w-3.5 h-3.5 text-[#D8AD55]" />
+            <span className="font-semibold text-[#F2D69A]">{selectedHub.tournamentName}</span>
+            <span className="hidden sm:inline text-emerald-400 font-mono">• {selectedHub.matchScore}</span>
           </div>
         </div>
 
-        {/* Scalable Geographical World Map with Staggered Radar Hotspots */}
-        <div className="relative w-full aspect-[784/458] my-2 select-none">
+        {/* Scalable Compact World Map with Calibrated Landmass Radar Nodes */}
+        <div className="relative w-full aspect-[2.4/1] max-h-[340px] sm:max-h-[380px] my-1 select-none">
           <svg
             viewBox="30.767 241.591 784.077 458.627"
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain filter drop-shadow-[0_0_12px_rgba(0,0,0,0.6)]"
             xmlns="http://www.w3.org/2000/svg"
           >
             {/* Inline CSS Keyframes for Asynchronous Radar Waves */}
@@ -325,16 +331,6 @@ export function GlobalMatchRadarMap() {
                     stroke-width: 0.4px;
                   }
                 }
-                @keyframes coreGlow {
-                  0%, 100% {
-                    transform: scale(1);
-                    opacity: 1;
-                  }
-                  50% {
-                    transform: scale(0.85);
-                    opacity: 0.65;
-                  }
-                }
                 .radar-pulse-ring {
                   animation: radarPulse 2.8s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
                   transform-origin: center;
@@ -347,10 +343,10 @@ export function GlobalMatchRadarMap() {
               `}</style>
             </defs>
 
-            {/* Geographical Vector Continents */}
+            {/* Geographical Vector Continents in Dark Luxury Palette */}
             <WorldMapPaths />
 
-            {/* Asynchronous Red Blinking Radar Hotspots */}
+            {/* Asynchronous Red Blinking Radar Hotspots calibrated to dry land */}
             {GLOBAL_HUBS.map((hub) => {
               const isSelected = selectedHub.id === hub.id;
 
@@ -359,11 +355,7 @@ export function GlobalMatchRadarMap() {
                   key={hub.id}
                   className="cursor-pointer group"
                   onClick={() => setSelectedHub(hub)}
-                  onMouseEnter={() => {
-                    setSelectedHub(hub);
-                    setIsHovered(true);
-                  }}
-                  onMouseLeave={() => setIsHovered(false)}
+                  onMouseEnter={() => setSelectedHub(hub)}
                 >
                   {/* Invisible enlarged hit target for effortless touch & hover */}
                   <circle
@@ -379,7 +371,7 @@ export function GlobalMatchRadarMap() {
                     cy={hub.cy}
                     r={14}
                     fill="none"
-                    stroke="#DC2626"
+                    stroke="#EF4444"
                     className="radar-pulse-outer"
                     style={{
                       animationDelay: `${hub.delaySeconds}s`,
@@ -393,7 +385,7 @@ export function GlobalMatchRadarMap() {
                     cy={hub.cy}
                     r={7}
                     fill="none"
-                    stroke="#DC2626"
+                    stroke="#EF4444"
                     className="radar-pulse-ring"
                     style={{
                       animationDelay: `${hub.delaySeconds}s`,
@@ -401,15 +393,15 @@ export function GlobalMatchRadarMap() {
                     }}
                   />
 
-                  {/* Static Ambient Radar Ring (matching reference image) */}
+                  {/* Static Ambient Radar Ring */}
                   <circle
                     cx={hub.cx}
                     cy={hub.cy}
                     r={isSelected ? 9 : 6.5}
-                    fill="rgba(220, 38, 38, 0.08)"
-                    stroke="#DC2626"
-                    strokeWidth={isSelected ? 1.2 : 0.6}
-                    strokeOpacity={isSelected ? 0.9 : 0.45}
+                    fill="rgba(239, 68, 68, 0.15)"
+                    stroke="#EF4444"
+                    strokeWidth={isSelected ? 1.4 : 0.7}
+                    strokeOpacity={isSelected ? 0.95 : 0.5}
                     className="transition-all duration-300"
                   />
 
@@ -418,8 +410,8 @@ export function GlobalMatchRadarMap() {
                     cx={hub.cx}
                     cy={hub.cy}
                     r={isSelected ? 4 : 3.2}
-                    fill="#DC2626"
-                    className="drop-shadow-[0_0_4px_rgba(220,38,38,0.7)] transition-all duration-300"
+                    fill="#EF4444"
+                    className="drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] transition-all duration-300"
                   />
                 </g>
               );
@@ -428,30 +420,30 @@ export function GlobalMatchRadarMap() {
         </div>
 
         {/* Bottom Tagline matching user reference image */}
-        <div className="text-center pt-3 pb-1">
-          <p className="text-xs sm:text-sm text-slate-700 tracking-normal">
+        <div className="text-center pt-2 pb-0 relative z-10">
+          <p className="text-xs sm:text-sm text-slate-300 tracking-normal">
             Someone, somewhere, is playing cricket{' '}
-            <span className="text-red-600 font-bold italic">right now.</span>
+            <span className="text-red-500 font-bold italic tracking-wide">right now.</span>
           </p>
         </div>
 
-        {/* Interactive Floating Details for Selected Hub */}
-        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+        {/* Interactive Details Footer for Selected Hub */}
+        <div className="mt-3 pt-3 border-t border-[#D8AD55]/15 flex flex-wrap items-center justify-between gap-2.5 text-xs relative z-10">
           <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-red-600" />
-            <span className="font-semibold text-slate-800">{selectedHub.city}, {selectedHub.country}</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
+            <MapPin className="w-3.5 h-3.5 text-red-400" />
+            <span className="font-semibold text-white">{selectedHub.city}, {selectedHub.country}</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-300 border border-red-500/30">
               {selectedHub.status}
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <span className="text-slate-500 hidden md:inline">
+          <div className="flex items-center gap-3">
+            <span className="text-[#8793A5] hidden md:inline text-[11px]">
               {selectedHub.matchScore}
             </span>
             <Link
               href="/matches"
-              className="inline-flex items-center gap-1 font-bold text-red-600 hover:text-red-700 hover:underline"
+              className="inline-flex items-center gap-1 font-bold text-[#F2D69A] hover:text-white transition-colors"
             >
               <span>Explore Grounds & Matches</span>
               <ChevronRight className="w-3.5 h-3.5" />

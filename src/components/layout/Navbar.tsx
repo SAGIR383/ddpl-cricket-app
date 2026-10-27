@@ -84,7 +84,7 @@ export function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links (Floating League Glass Pill Strip - Premium Highlighting) */}
-          <nav className="hidden lg:flex items-center gap-1.5 bg-gradient-to-r from-[#0D1B2A]/95 via-[#111D2D]/90 to-[#0D1B2A]/95 backdrop-blur-2xl px-2.5 py-1.5 rounded-full border border-[#D8AD55]/35 shadow-[0_8px_32px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(242,214,154,0.3),0_0_24px_rgba(216,173,85,0.15)] ring-1 ring-[#D8AD55]/20">
+          <nav className="hidden lg:flex items-center gap-1 bg-gradient-to-r from-[#0D1B2A]/95 via-[#111D2D]/90 to-[#0D1B2A]/95 backdrop-blur-2xl px-2 py-1 rounded-full border border-[#D8AD55]/35 shadow-[0_8px_32px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(242,214,154,0.3),0_0_24px_rgba(216,173,85,0.15)] ring-1 ring-[#D8AD55]/20 shrink-0">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = link.exact ? pathname === link.href : (link.href !== '/' && pathname.startsWith(link.href));
@@ -92,7 +92,7 @@ export function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`nav-item-press group relative flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all ${
+                  className={`nav-item-press group relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-xs font-bold tracking-wide transition-all whitespace-nowrap ${
                     isActive
                       ? 'bg-gradient-to-r from-[#D8AD55]/30 via-[#F2D69A]/20 to-[#D8AD55]/30 text-[#F2D69A] border border-[#D8AD55]/60 shadow-[0_0_18px_rgba(216,173,85,0.35),inset_0_1px_1px_rgba(255,255,255,0.25)] font-extrabold'
                       : 'text-[#C2CBD8] hover:text-white hover:bg-white/[0.08] hover:border-[#D8AD55]/30 border border-transparent hover:shadow-[0_0_12px_rgba(216,173,85,0.15)]'
@@ -113,36 +113,18 @@ export function Navbar() {
           </nav>
 
           {/* Desktop User Controls */}
-          <div className="hidden sm:flex items-center gap-2.5">
-            {/* Language Selector */}
-            <div className="flex items-center rounded-full bg-[#0D1B2A] border border-white/10 p-0.5 text-[11px] font-bold">
-              {[
-                { code: 'en', label: 'EN' },
-                { code: 'hi', label: 'HI' },
-                { code: 'ar', label: 'AR' },
-                { code: 'es', label: 'ES' },
-              ].map((lang) => (
-                <button
-                  key={lang.code}
-                  type="button"
-                  onClick={() => setLanguage(lang.code as any)}
-                  className={`px-2 py-0.5 rounded-full transition-all cursor-pointer ${
-                    language === lang.code
-                      ? 'bg-[#D8AD55] text-[#08111F] font-black shadow-sm'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                  title={`Switch language to ${lang.label}`}
-                >
-                  {lang.label}
-                </button>
-              ))}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
+            {/* Language Selector: English Only */}
+            <div className="flex items-center rounded-full bg-[#0D1B2A] border border-[#D8AD55]/20 px-2.5 py-1 text-[11px] font-black text-[#F2D69A] shadow-inner" title="Language: English (Default)">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 inline-block" />
+              <span>EN</span>
             </div>
 
             {/* Corporate Theme Palette Button */}
             <button
               type="button"
               onClick={() => setIsThemeModalOpen(true)}
-              className="p-1.5 rounded-full bg-[#0D1B2A] hover:bg-[#111D2D] border border-white/10 text-gray-300 hover:text-white transition-all cursor-pointer"
+              className="p-1.5 rounded-full bg-[#0D1B2A] hover:bg-[#111D2D] border border-white/10 text-gray-300 hover:text-white transition-all cursor-pointer shrink-0"
               title="Corporate Brand & Color Palette"
             >
               <Palette className="w-4 h-4 text-[#D8AD55]" />
@@ -151,7 +133,7 @@ export function Navbar() {
             {/* Host Tournament CTA */}
             <Link
               href="/tournaments/create"
-              className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-md shadow-[#D8AD55]/15 hover:brightness-110"
+              className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-md shadow-[#D8AD55]/15 hover:brightness-110 shrink-0 whitespace-nowrap"
               title="Host Your Corporate Cricket League"
             >
               <PlusCircle className="w-3.5 h-3.5" />

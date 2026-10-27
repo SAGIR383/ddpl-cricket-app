@@ -320,10 +320,10 @@ export default function HomePage() {
 
         setStats({
           tournamentsCount: resolvedTourneys.length,
-          teamsCount: totalTeams > 0 ? totalTeams : 6,
-          playersCount: totalPlayers > 0 ? totalPlayers : 18,
-          seasonsCount: 2,
-          ddplTeamsCount: ddplTeams.length > 0 ? ddplTeams.length : 6,
+          teamsCount: totalTeams,
+          playersCount: totalPlayers,
+          seasonsCount: resolvedTourneys.length > 0 ? 1 : 0,
+          ddplTeamsCount: ddplTeams.length,
           ddplOvers,
           gorOvers,
           matchesCount: allMatches.length,
@@ -393,7 +393,7 @@ export default function HomePage() {
         pulse: true,
       };
     }
-    if (auctionStatus === 'live') {
+    if (auctionStatus === 'live' && stats.teamsCount > 0 && tournaments.length > 0) {
       return {
         label: 'Auction Live',
         subtext: 'Real-Time',
@@ -411,8 +411,8 @@ export default function HomePage() {
       };
     }
     return {
-      label: 'Pre-Season',
-      subtext: 'Live Engine',
+      label: 'Standby',
+      subtext: 'Platform Engine',
       badgeColor: 'text-[#D8AD55]',
       pulse: false,
     };
@@ -538,7 +538,7 @@ export default function HomePage() {
                   Watch Live Scorecard →
                 </Link>
               </>
-            ) : auctionStatus === 'live' ? (
+            ) : (auctionStatus === 'live' && stats.teamsCount > 0 && tournaments.length > 0) ? (
               <>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-[11px] font-black text-blue-400 uppercase tracking-wider">
@@ -669,7 +669,7 @@ export default function HomePage() {
               Registered Pool
             </div>
             <div className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight mt-0.5">
-              {stats.playersCount}+ <span className="text-xs font-bold text-[#D8AD55]">Athletes</span>
+              {stats.playersCount} <span className="text-xs font-bold text-[#D8AD55]">Athletes</span>
             </div>
           </div>
         </div>

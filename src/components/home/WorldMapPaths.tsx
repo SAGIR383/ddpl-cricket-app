@@ -2,7 +2,7 @@ import React from 'react';
 
 export const WorldMapPaths = React.memo(function WorldMapPaths() {
   return (
-    <g fill="#CBD5E1" stroke="#FFFFFF" strokeWidth="0.4" strokeLinejoin="round" opacity="0.95">
+    <g fill="#162338" stroke="#D8AD55" strokeWidth="0.4" strokeOpacity="0.3" strokeLinejoin="round" opacity="0.98">
       
     <path id="_somaliland" d="M512.674,502.797l3.526,2.403l1.046-0.052l8.757-3.008l0.994,3.206l-0.701,2.706l-1.893,1.503l-4.729-0.302l-6.769-4.158L512.674,502.797L512.674,502.797z"/>
     <path id="ae" d="M528.466,468.135l0.753,3.008l8.522,0.752l0.596-6.172l1.644-0.897l0.448-2.257l-2.688,0.753l-2.99,4.521L528.466,468.135L528.466,468.135z"/>
