@@ -80,6 +80,22 @@ export default function StandingsPage() {
   const [h2hTeamA, setH2hTeamA] = useState<string>('');
   const [h2hTeamB, setH2hTeamB] = useState<string>('');
 
+  // Group Filter Tab State (For Multi-Group Tournaments)
+  const [selectedGroupTab, setSelectedGroupTab] = useState<string>('all');
+
+  const availableGroups = useMemo(() => {
+    const set = new Set<string>();
+    standings.forEach((st) => {
+      if (st.group) set.add(st.group);
+    });
+    return Array.from(set).sort();
+  }, [standings]);
+
+  const displayedStandings = useMemo(() => {
+    if (selectedGroupTab === 'all' || availableGroups.length <= 1) return standings;
+    return standings.filter((st) => st.group === selectedGroupTab);
+  }, [standings, selectedGroupTab, availableGroups]);
+
   // Sync standings from active Analytics API
   useEffect(() => {
     let isMounted = true;
@@ -108,11 +124,14 @@ export default function StandingsPage() {
         const soldTx = auctionData?.data?.soldTransactions || [];
 
         if (analyticsData?.success && analyticsData.standings && analyticsData.standings.length > 0) {
+          const rawTeams = auctionData?.data?.teams || [];
           const mapped = analyticsData.standings.map((st: TeamStandingRow) => {
             const teamSquad = soldTx.filter((tx: any) => tx.team === st.name);
+            const foundTeam = rawTeams.find((t: any) => t.name?.toLowerCase() === st.name?.toLowerCase());
             return {
               ...st,
-              squadCount: teamSquad.length || st.squadCount || 0,
+              group: st.group || foundTeam?.group || undefined,
+              squadCount: teamSquad.length || foundTeam?.players?.length || st.squadCount || 0,
             };
           });
 
@@ -246,13 +265,51 @@ export default function StandingsPage() {
           </div>
         </div>
 
+        {/* Multi-Group Tabs Bar */}
+        {availableGroups.length > 1 && (
+          <div className="px-5 py-3 bg-[#08111F]/90 border-b border-[#D8AD55]/15 flex items-center gap-2 overflow-x-auto">
+            <span className="text-xs font-bold text-gray-400 mr-1 flex items-center gap-1.5 shrink-0">
+              <Users className="w-3.5 h-3.5 text-[#D8AD55]" />
+              <span>Divisions:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedGroupTab('all')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                selectedGroupTab === 'all'
+                  ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] shadow-md font-extrabold'
+                  : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+              }`}
+            >
+              All Groups ({standings.length})
+            </button>
+            {availableGroups.map((grp) => {
+              const count = standings.filter((s) => s.group === grp).length;
+              return (
+                <button
+                  key={grp}
+                  type="button"
+                  onClick={() => setSelectedGroupTab(grp)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                    selectedGroupTab === grp
+                      ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] shadow-md font-extrabold'
+                      : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+                  }`}
+                >
+                  {grp} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
-          {standings.length > 0 ? (
+          {displayedStandings.length > 0 ? (
             <table className="w-full text-left text-sm table-nums">
               <thead className="bg-[#08111F] text-xs font-bold text-[#8793A5] uppercase tracking-wider border-b border-[#D8AD55]/15">
                 <tr>
                   <th className="px-5 py-4 text-center">#</th>
-                  <th className="px-5 py-4">Franchise</th>
+                  <th className="px-5 py-4">Team</th>
                   <th className="px-4 py-4 text-center">Squad</th>
                   <th className="px-4 py-4 text-center">P</th>
                   <th className="px-4 py-4 text-center">W</th>
@@ -265,8 +322,8 @@ export default function StandingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {standings.map((team) => {
-                  const isPlayoffZone = team.rank <= 4;
+                {displayedStandings.map((team, idx) => {
+                  const isPlayoffZone = idx < 2 || (selectedGroupTab === 'all' && idx < 4);
                   return (
                     <tr
                       key={team.name}
@@ -276,7 +333,7 @@ export default function StandingsPage() {
                     >
                       <td className="px-5 py-4 text-center font-display font-black text-base text-gray-300">
                         <div className="flex items-center justify-center gap-1.5">
-                          <span>{team.rank}</span>
+                          <span>{selectedGroupTab === 'all' ? team.rank : idx + 1}</span>
                           {isPlayoffZone && (
                             <span
                               className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"
@@ -288,6 +345,11 @@ export default function StandingsPage() {
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-white text-sm">{team.name}</span>
+                          {team.group && (
+                            <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-400/30 text-[9px] font-bold">
+                              {team.group}
+                            </span>
+                          )}
                           {isPlayoffZone && (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 text-[9px] font-bold uppercase tracking-wider">
                               Playoffs
@@ -296,7 +358,7 @@ export default function StandingsPage() {
                         </div>
                         <div className="text-[11px] text-[#8793A5] flex items-center gap-1.5 mt-0.5">
                           <span className="font-semibold text-[#D8AD55]">{team.short}</span>
-                          {team.owner && <span>• Owner: {team.owner}</span>}
+                          {team.owner && <span>• Captain / Mgr: {team.owner}</span>}
                         </div>
                       </td>
                       <td className="px-4 py-4 text-center">

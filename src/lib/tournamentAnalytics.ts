@@ -6,6 +6,7 @@ export interface TeamStandingRow {
   name: string;
   short: string;
   owner?: string;
+  group?: string;
   played: number;
   won: number;
   lost: number;
@@ -102,6 +103,7 @@ export function calculateTournamentStandings(
       name: string;
       short: string;
       owner?: string;
+      group?: string;
       played: number;
       won: number;
       lost: number;
@@ -122,6 +124,7 @@ export function calculateTournamentStandings(
       name: t.name,
       short: t.short || t.shortName || t.name.slice(0, 3).toUpperCase(),
       owner: t.owner,
+      group: t.group || t.groupName || undefined,
       played: 0,
       won: 0,
       lost: 0,
@@ -250,6 +253,7 @@ export function calculateTournamentStandings(
       name: entry.name,
       short: entry.short,
       owner: entry.owner,
+      group: entry.group,
       played: entry.played,
       won: entry.won,
       lost: entry.lost,

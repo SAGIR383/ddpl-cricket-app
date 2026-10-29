@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -28,6 +28,8 @@ import {
   ShieldCheck,
   Key,
   Image as ImageIcon,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -146,6 +148,21 @@ export default function CreateTournamentPage() {
   const [season, setSeason] = useState('2027');
   const [selectedFormat, setSelectedFormat] = useState(FORMAT_OPTIONS[0]);
 
+  // Tournament System & Multi-Group State
+  const [tournamentType, setTournamentType] = useState<'direct_groups' | 'auction_league'>('direct_groups');
+  const [selectedGroupsCount, setSelectedGroupsCount] = useState<number>(2);
+  const [directTeams, setDirectTeams] = useState<{ id: string; name: string; short: string; group: string; captain: string }[]>([
+    { id: '1', name: 'Engineering Strikers', short: 'ENG', group: 'Group A', captain: 'Alex Turner' },
+    { id: '2', name: 'Sales Warriors', short: 'SAL', group: 'Group A', captain: 'David Miller' },
+    { id: '3', name: 'Finance Kings', short: 'FIN', group: 'Group B', captain: 'Rohan Sharma' },
+    { id: '4', name: 'Operations Titans', short: 'OPS', group: 'Group B', captain: 'Marcus Vance' },
+  ]);
+
+  const activeGroupNames = useMemo(() => {
+    if (selectedGroupsCount === 1) return ['Single Pool'];
+    return Array.from({ length: selectedGroupsCount }, (_, i) => `Group ${String.fromCharCode(65 + i)}`);
+  }, [selectedGroupsCount]);
+
   // Custom Match Format & Overs State
   const [customOvers, setCustomOvers] = useState(15);
   const [customFormatName, setCustomFormatName] = useState('Corporate T15 Super Cup');
@@ -208,6 +225,53 @@ export default function CreateTournamentPage() {
     }
   };
 
+  const handleAddDirectTeam = () => {
+    const nextIdx = directTeams.length + 1;
+    const defaultGroup = activeGroupNames[(nextIdx - 1) % activeGroupNames.length];
+    setDirectTeams((prev) => [
+      ...prev,
+      {
+        id: `team-${Date.now()}`,
+        name: `Team ${nextIdx}`,
+        short: `T${nextIdx}`,
+        group: defaultGroup,
+        captain: `Captain ${nextIdx}`,
+      },
+    ]);
+  };
+
+  const handleRemoveDirectTeam = (id: string) => {
+    if (directTeams.length <= 2) {
+      alert('Tournament requires at least 2 teams.');
+      return;
+    }
+    setDirectTeams((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleUpdateDirectTeam = (id: string, field: string, val: string) => {
+    setDirectTeams((prev) =>
+      prev.map((t) => {
+        if (t.id === id) {
+          const updated = { ...t, [field]: val };
+          if (field === 'name' && (!t.short || t.short.startsWith('T'))) {
+            updated.short = val.split(' ').map((w) => w[0]).join('').slice(0, 3).toUpperCase();
+          }
+          return updated;
+        }
+        return t;
+      })
+    );
+  };
+
+  const handleBalanceGroups = () => {
+    setDirectTeams((prev) =>
+      prev.map((t, idx) => ({
+        ...t,
+        group: activeGroupNames[idx % activeGroupNames.length],
+      }))
+    );
+  };
+
   const handleLaunchTournament = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tournamentName.trim()) {
@@ -242,14 +306,18 @@ export default function CreateTournamentPage() {
         fullName: `${tournamentName.trim()} Championship`,
         tagline: orgTagline.trim() || (isCustom ? `${customFormatName} (${resolvedOvers} Overs)` : `Official ${tournamentName.trim()} Corporate Cricket Tournament`),
         season,
-        format: resolvedFormat,
+        tournamentType,
+        groupsCount: tournamentType === 'direct_groups' ? selectedGroupsCount : 1,
+        groupNames: tournamentType === 'direct_groups' ? activeGroupNames : ['Pool A'],
+        directTeams: tournamentType === 'direct_groups' ? directTeams.filter((t) => t.name.trim()) : [],
+        format: tournamentType === 'direct_groups' ? (selectedGroupsCount > 1 ? 'group-stage-playoffs' : 'round-robin-playoffs') : resolvedFormat,
         overs: resolvedOvers,
         maxBowlerOvers: resolvedMaxBowler,
         ballsPerOver: isCustom ? customBallsPerOver : 6,
         pitchType: isCustom ? customPitchType : undefined,
         formatTitle: isCustom ? customFormatName : selectedFormat.name,
-        pursePerTeam: Number(pursePerTeam) || 10000,
-        ownerBasePrice: Number(ownerBasePrice) || 500,
+        pursePerTeam: tournamentType === 'direct_groups' ? 0 : (Number(pursePerTeam) || 10000),
+        ownerBasePrice: tournamentType === 'direct_groups' ? 0 : (Number(ownerBasePrice) || 500),
         maxSquad: Number(maxSquad) || 11,
         minSquad: Number(minSquad) || 7,
         bannerColor: selectedTheme.banner,
@@ -524,6 +592,257 @@ export default function CreateTournamentPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* TOURNAMENT SYSTEM MODE SELECTOR */}
+              <div className="sm:col-span-2 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="block text-xs font-bold text-gray-200">
+                    Tournament System <span className="text-rose-400">*</span>
+                  </label>
+                  <span className="text-[11px] text-[#D8AD55] font-semibold">
+                    Choose Direct Teams (Companies &amp; Clubs) or Franchise Auction (IPL Style)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* DIRECT TEAMS & GROUPS */}
+                  <div
+                    onClick={() => setTournamentType('direct_groups')}
+                    className={`p-5 rounded-3xl border-2 cursor-pointer transition-all relative ${
+                      tournamentType === 'direct_groups'
+                        ? 'border-[#D8AD55] bg-gradient-to-br from-[#D8AD55]/20 via-[#0D1B2A] to-[#08111F] shadow-xl shadow-[#D8AD55]/15 ring-1 ring-[#D8AD55]'
+                        : 'border-[#D8AD55]/20 bg-[#08111F] hover:border-[#D8AD55]/40 opacity-75 hover:opacity-100'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-[#D8AD55]/20 border border-[#D8AD55]/40 flex items-center justify-center text-[#F2D69A]">
+                          <Users className="w-5 h-5 text-[#D8AD55]" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-display font-black text-white text-sm sm:text-base">
+                              Direct Teams &amp; Multi-Group League
+                            </h4>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-extrabold border border-emerald-500/30">
+                              RECOMMENDED
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#8793A5] mt-0.5">
+                            For Companies, Trusts, Clubs, Communities &amp; Fixed Squads
+                          </p>
+                        </div>
+                      </div>
+                      {tournamentType === 'direct_groups' && (
+                        <CheckCircle2 className="w-5 h-5 text-[#D8AD55] shrink-0" />
+                      )}
+                    </div>
+
+                    <ul className="mt-3.5 space-y-1.5 text-[11px] text-gray-300 border-t border-white/5 pt-3">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span><strong>No auction or purse bidding</strong> — Direct team &amp; squad entry</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span><strong>Flexible Groups:</strong> 1 Pool, Group A &amp; B, up to 8 Groups (Group A to H)</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span><strong>Automatic Fixture Generator:</strong> Round-robin + Semi-Finals &amp; Final</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* AUCTION LEAGUE */}
+                  <div
+                    onClick={() => setTournamentType('auction_league')}
+                    className={`p-5 rounded-3xl border-2 cursor-pointer transition-all relative ${
+                      tournamentType === 'auction_league'
+                        ? 'border-[#D8AD55] bg-gradient-to-br from-[#D8AD55]/20 via-[#0D1B2A] to-[#08111F] shadow-xl shadow-[#D8AD55]/15 ring-1 ring-[#D8AD55]'
+                        : 'border-[#D8AD55]/20 bg-[#08111F] hover:border-[#D8AD55]/40 opacity-75 hover:opacity-100'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
+                          <Gavel className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <div>
+                          <h4 className="font-display font-black text-white text-sm sm:text-base">
+                            Franchise Player Auction League
+                          </h4>
+                          <p className="text-[11px] text-[#8793A5] mt-0.5">
+                            IPL-Style virtual bidding, team owners &amp; purse management
+                          </p>
+                        </div>
+                      </div>
+                      {tournamentType === 'auction_league' && (
+                        <CheckCircle2 className="w-5 h-5 text-[#D8AD55] shrink-0" />
+                      )}
+                    </div>
+
+                    <ul className="mt-3.5 space-y-1.5 text-[11px] text-gray-300 border-t border-white/5 pt-3">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-[#D8AD55] shrink-0" />
+                        <span><strong>Live multiplayer auction block</strong> with timer &amp; sound effects</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-[#D8AD55] shrink-0" />
+                        <span>Team purse budgets, base prices &amp; owner price deduction</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-[#D8AD55] shrink-0" />
+                        <span>Big-screen auditorium projector mode</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* GROUP CONFIGURATION & DIRECT TEAMS ENTRY (WHEN DIRECT TEAMS ACTIVE) */}
+              {tournamentType === 'direct_groups' && (
+                <div className="sm:col-span-2 p-5 sm:p-6 rounded-3xl bg-[#08111F] border-2 border-[#D8AD55]/40 shadow-2xl space-y-5 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#D8AD55]/20 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-5 h-5 text-[#D8AD55]" />
+                      <h4 className="font-display font-bold text-base text-white">
+                        Group Division &amp; Direct Squad Setup
+                      </h4>
+                    </div>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                      {selectedGroupsCount === 1 ? 'Single Pool' : `${selectedGroupsCount} Groups: ${activeGroupNames.join(', ')}`}
+                    </span>
+                  </div>
+
+                  {/* Group Count Pills */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-300">
+                      Select Number of Groups / Divisions:
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      {[
+                        { count: 1, label: '1 Pool', desc: 'Single Table' },
+                        { count: 2, label: '2 Groups', desc: 'Group A & B' },
+                        { count: 3, label: '3 Groups', desc: 'Group A, B, C' },
+                        { count: 4, label: '4 Groups', desc: 'Group A, B, C, D' },
+                        { count: 6, label: '6 Groups', desc: 'Group A to F' },
+                        { count: 8, label: '8 Groups', desc: 'Group A to H' },
+                      ].map((grp) => (
+                        <button
+                          key={grp.count}
+                          type="button"
+                          onClick={() => setSelectedGroupsCount(grp.count)}
+                          className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                            selectedGroupsCount === grp.count
+                              ? 'border-[#D8AD55] bg-[#D8AD55]/20 text-white shadow-lg'
+                              : 'border-[#D8AD55]/20 bg-[#0D1B2A] text-[#8793A5] hover:text-white hover:border-[#D8AD55]/40'
+                          }`}
+                        >
+                          <div className="font-bold text-xs text-[#F2D69A]">{grp.label}</div>
+                          <div className="text-[10px] text-[#8793A5] mt-0.5">{grp.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Direct Teams Roster Table */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h5 className="font-display font-bold text-sm text-white flex items-center gap-2">
+                          <span>Participating Teams ({directTeams.length})</span>
+                        </h5>
+                        <p className="text-[11px] text-[#8793A5]">
+                          Enter team names, short acronyms, group assignments, and captains. (You can also edit squads anytime later).
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleBalanceGroups}
+                          className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-bold text-gray-300 hover:text-white transition-all cursor-pointer"
+                        >
+                          ⚡ Auto-Balance Groups
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddDirectTeam}
+                          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#D8AD55]/20 hover:bg-[#D8AD55]/30 border border-[#D8AD55]/40 text-[11px] font-bold text-[#F2D69A] transition-all cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Team</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                      {directTeams.map((team, idx) => (
+                        <div
+                          key={team.id}
+                          className="p-3 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/20 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
+                        >
+                          <div className="sm:col-span-1 text-[11px] font-mono font-bold text-[#D8AD55] text-center sm:text-left">
+                            #{idx + 1}
+                          </div>
+                          <div className="sm:col-span-4">
+                            <input
+                              type="text"
+                              placeholder="Team Name (e.g. Sales Warriors)"
+                              value={team.name}
+                              onChange={(e) => handleUpdateDirectTeam(team.id, 'name', e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl bg-[#08111F] border border-white/10 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <input
+                              type="text"
+                              placeholder="Short (SAL)"
+                              maxLength={4}
+                              value={team.short}
+                              onChange={(e) => handleUpdateDirectTeam(team.id, 'short', e.target.value.toUpperCase())}
+                              className="w-full px-3 py-2 rounded-xl bg-[#08111F] border border-white/10 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55] uppercase"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <select
+                              value={team.group}
+                              onChange={(e) => handleUpdateDirectTeam(team.id, 'group', e.target.value)}
+                              className="w-full px-2.5 py-2 rounded-xl bg-[#08111F] border border-white/10 text-[#F2D69A] text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                            >
+                              {activeGroupNames.map((g) => (
+                                <option key={g} value={g} className="bg-[#08111F] text-white">
+                                  {g}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <input
+                              type="text"
+                              placeholder="Captain Name"
+                              value={team.captain}
+                              onChange={(e) => handleUpdateDirectTeam(team.id, 'captain', e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl bg-[#08111F] border border-white/10 text-gray-200 text-xs focus:outline-none focus:border-[#D8AD55]"
+                            />
+                          </div>
+                          <div className="sm:col-span-1 flex justify-center sm:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDirectTeam(team.id)}
+                              disabled={directTeams.length <= 2}
+                              className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 disabled:opacity-30 transition-all cursor-pointer"
+                              title="Remove team"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="block text-xs font-bold text-gray-200">
                   Tournament Name <span className="text-rose-400">*</span>
@@ -834,33 +1153,52 @@ export default function CreateTournamentPage() {
               </div>
 
               {/* Auction & Purse Settings */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-200">
-                  Franchise Auction Purse ({selectedCountry.symbol})
-                </label>
-                <input
-                  type="number"
-                  min={1000}
-                  step={500}
-                  value={pursePerTeam}
-                  onChange={(e) => setPursePerTeam(Number(e.target.value))}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
-                />
-              </div>
+              {tournamentType === 'direct_groups' ? (
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-[#08111F] border border-emerald-500/30 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <div>
+                      <h5 className="font-bold text-xs text-white">Direct Squad Registration Active</h5>
+                      <p className="text-[11px] text-[#8793A5]">
+                        Auction purse &amp; player bidding fees are bypassed. Teams compete directly with fixed player rosters.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 shrink-0">
+                    No Purse Required
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-200">
+                      Franchise Auction Purse ({selectedCountry.symbol})
+                    </label>
+                    <input
+                      type="number"
+                      min={1000}
+                      step={500}
+                      value={pursePerTeam}
+                      onChange={(e) => setPursePerTeam(Number(e.target.value))}
+                      className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                    />
+                  </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-200">
-                  Owner Base Price ({selectedCountry.symbol})
-                </label>
-                <input
-                  type="number"
-                  min={100}
-                  step={50}
-                  value={ownerBasePrice}
-                  onChange={(e) => setOwnerBasePrice(Number(e.target.value))}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
-                />
-              </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-200">
+                      Owner Base Price ({selectedCountry.symbol})
+                    </label>
+                    <input
+                      type="number"
+                      min={100}
+                      step={50}
+                      value={ownerBasePrice}
+                      onChange={(e) => setOwnerBasePrice(Number(e.target.value))}
+                      className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-200">
@@ -1129,8 +1467,12 @@ export default function CreateTournamentPage() {
                   </b>
                 </div>
                 <div>
-                  <span className="text-[#8793A5] block">Team Purse:</span>
-                  <b className="text-white">{selectedCountry.symbol}{pursePerTeam.toLocaleString()}</b>
+                  <span className="text-[#8793A5] block">System &amp; Mode:</span>
+                  <b className="text-white">
+                    {tournamentType === 'direct_groups'
+                      ? `${selectedGroupsCount === 1 ? 'Single Pool' : `${selectedGroupsCount} Groups`} (${directTeams.filter((t) => t.name.trim()).length} Teams)`
+                      : `Auction (${selectedCountry.symbol}${pursePerTeam.toLocaleString()})`}
+                  </b>
                 </div>
                 <div>
                   <span className="text-[#8793A5] block">Squad Limits:</span>

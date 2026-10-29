@@ -151,6 +151,7 @@ export default function TournamentDetailPage() {
               return {
                 name: t.name,
                 short: t.short,
+                group: t.group || undefined,
                 owner: t.owner || 'Franchise Owner',
                 captain: cap,
                 viceCaptain: t.viceCaptain || 'To be assigned',
@@ -581,13 +582,23 @@ export default function TournamentDetailPage() {
 
       {/* 3. ACTION QUICK-NAV BAR */}
       <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href={`/auction?tournament=${slug}`}
-          className="btn-press shimmer-btn flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:brightness-110"
-        >
-          <Gavel className="w-4 h-4" />
-          <span>Live Player Auction Room</span>
-        </Link>
+        {tournamentConfig?.tournamentType === 'direct_groups' ? (
+          <Link
+            href={`/teams?tournament=${slug}`}
+            className="btn-press shimmer-btn flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:brightness-110"
+          >
+            <Users className="w-4 h-4" />
+            <span>Teams &amp; Squad Rosters</span>
+          </Link>
+        ) : (
+          <Link
+            href={`/auction?tournament=${slug}`}
+            className="btn-press shimmer-btn flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:brightness-110"
+          >
+            <Gavel className="w-4 h-4" />
+            <span>Live Player Auction Room</span>
+          </Link>
+        )}
         <Link
           href={`/standings?tournament=${slug}`}
           className="btn-press flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0D1B2A] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-xs font-bold text-white transition-all"
@@ -600,7 +611,7 @@ export default function TournamentDetailPage() {
           className="btn-press flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0D1B2A] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-xs font-bold text-white transition-all"
         >
           <Users className="w-4 h-4 text-blue-400" />
-          <span>Franchises &amp; Squads</span>
+          <span>{tournamentConfig?.tournamentType === 'direct_groups' ? 'Teams & Groups' : 'Franchises & Squads'}</span>
         </Link>
         <Link
           href={`/matches?tournament=${slug}`}
@@ -659,17 +670,21 @@ export default function TournamentDetailPage() {
         </div>
       </div>
 
-      {/* 5. PARTICIPATING FRANCHISES & SQUAD LEADERSHIP */}
+      {/* 5. PARTICIPATING TEAMS & SQUADS */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-[#D8AD55]" />
             <h2 className="font-display font-black text-2xl text-white tracking-tight">
-              Auction Franchises &amp; Current Squads ({teams.length})
+              {tournamentConfig?.tournamentType === 'direct_groups'
+                ? `Tournament Teams & Rosters (${teams.length})`
+                : `Auction Franchises & Current Squads (${teams.length})`}
             </h2>
           </div>
           <span className="text-xs font-bold text-[#8793A5]">
-            Synced Live with Auction Engine
+            {tournamentConfig?.tournamentType === 'direct_groups'
+              ? 'Multi-Group League'
+              : 'Synced Live with Auction Engine'}
           </span>
         </div>
 
@@ -680,15 +695,23 @@ export default function TournamentDetailPage() {
                 <span className="w-10 h-10 rounded-2xl bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#D8AD55] font-display font-black text-base flex items-center justify-center">
                   {t.short}
                 </span>
-                <span className="text-xs font-bold text-[#F2D69A] px-2.5 py-1 rounded-full bg-[#08111F] border border-[#D8AD55]/30">
-                  {t.squadCount} Players
-                </span>
+                <div className="flex items-center gap-2">
+                  {t.group && (
+                    <span className="text-xs font-bold text-blue-300 px-2.5 py-1 rounded-full bg-blue-500/15 border border-blue-500/30">
+                      {t.group}
+                    </span>
+                  )}
+                  <span className="text-xs font-bold text-[#F2D69A] px-2.5 py-1 rounded-full bg-[#08111F] border border-[#D8AD55]/30">
+                    {t.squadCount} Players
+                  </span>
+                </div>
               </div>
 
               <div>
                 <h3 className="font-display font-black text-xl text-white">{t.name}</h3>
                 <div className="text-xs text-[#8793A5] mt-0.5">
-                  Owner: <span className="text-gray-200 font-semibold">{t.owner}</span>
+                  {tournamentConfig?.tournamentType === 'direct_groups' ? 'Manager / Captain:' : 'Owner:'}{' '}
+                  <span className="text-gray-200 font-semibold">{t.owner}</span>
                 </div>
               </div>
 
@@ -697,14 +720,29 @@ export default function TournamentDetailPage() {
                   <span className="text-[#8793A5]">Captain:</span>
                   <span className="font-bold text-white truncate max-w-[150px]">{t.captain}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#8793A5]">Spent in Auction:</span>
-                  <span className="font-semibold text-rose-300">₹{t.spent?.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[#8793A5]">Remaining Purse:</span>
-                  <span className="font-black text-[#D8AD55] text-sm">{t.left}</span>
-                </div>
+                {tournamentConfig?.tournamentType === 'direct_groups' ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#8793A5]">Division:</span>
+                      <span className="font-semibold text-emerald-400">{t.group || 'Group A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[#8793A5]">Status:</span>
+                      <span className="font-bold text-[#D8AD55] text-xs">Squad Ready</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#8793A5]">Spent in Auction:</span>
+                      <span className="font-semibold text-rose-300">₹{t.spent?.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[#8793A5]">Remaining Purse:</span>
+                      <span className="font-black text-[#D8AD55] text-sm">{t.left}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ))}

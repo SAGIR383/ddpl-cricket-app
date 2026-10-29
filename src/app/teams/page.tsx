@@ -8,6 +8,7 @@ interface TeamRosterItem {
   id: string;
   name: string;
   short: string;
+  group?: string;
   owner: string;
   captain: string;
   viceCaptain: string;
@@ -67,27 +68,34 @@ export default function TeamsPage() {
 
           const mapped: TeamRosterItem[] = auctionTeams.map((t: any, idx: number) => {
             const teamPurchases = soldTransactions.filter((tx: any) => tx.team === t.name);
-            const remaining = t.allocated - t.spent;
+            const remaining = (t.allocated || 10000) - (t.spent || 0);
 
-            const rosterPlayers = teamPurchases.map((tx: any) => ({
-              name: tx.player,
-              role: tx.role,
-              price: `₹${tx.price.toLocaleString('en-IN')}`,
-            }));
+            const rosterPlayers = teamPurchases.length > 0
+              ? teamPurchases.map((tx: any) => ({
+                  name: tx.player,
+                  role: tx.role,
+                  price: `₹${(tx.price || 0).toLocaleString('en-IN')}`,
+                }))
+              : (t.players || []).map((p: any) => ({
+                  name: p.name,
+                  role: p.role || 'Player',
+                  price: p.price ? `₹${p.price.toLocaleString('en-IN')}` : 'Squad Roster',
+                }));
 
             const captainName = t.captain || (t.owner ? `${t.owner} (C)` : `${t.name} (C)`);
-            const viceCaptainName = t.viceCaptain || (teamPurchases.length > 1 ? `${teamPurchases[0].player} (VC)` : 'To be appointed');
+            const viceCaptainName = t.viceCaptain || (rosterPlayers.length > 1 ? `${rosterPlayers[1]?.name} (VC)` : 'To be appointed');
 
             return {
               id: t.id || `team-${idx}`,
               name: t.name,
               short: t.short,
-              owner: t.owner || 'Franchise Owner',
+              group: t.group || undefined,
+              owner: t.owner || 'Team Manager',
               captain: captainName,
               viceCaptain: viceCaptainName,
               squadSize: rosterPlayers.length || t.playersBought || 1,
-              budgetAllocated: `₹${t.allocated.toLocaleString('en-IN')}`,
-              budgetSpent: `₹${t.spent.toLocaleString('en-IN')}`,
+              budgetAllocated: `₹${(t.allocated || 10000).toLocaleString('en-IN')}`,
+              budgetSpent: `₹${(t.spent || 0).toLocaleString('en-IN')}`,
               budgetLeft: `₹${remaining.toLocaleString('en-IN')}`,
               color: colors[idx % colors.length],
               players: rosterPlayers,
@@ -162,12 +170,19 @@ export default function TeamsPage() {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="w-12 h-12 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 flex items-center justify-center font-display font-black text-lg text-[#F2D69A] mb-2 shadow-inner">
-                      {t.short}
-                    </span>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-12 h-12 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 flex items-center justify-center font-display font-black text-lg text-[#F2D69A] shadow-inner">
+                        {t.short}
+                      </span>
+                      {t.group && (
+                        <span className="px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-300 border border-blue-400/30 text-xs font-bold">
+                          {t.group}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="font-display font-black text-2xl text-white tracking-tight">{t.name}</h3>
                     <div className="text-xs text-[#8793A5] mt-1">
-                      Franchise Owner: <span className="text-[#F2D69A] font-semibold">{t.owner}</span>
+                      Manager / Owner: <span className="text-[#F2D69A] font-semibold">{t.owner}</span>
                     </div>
                   </div>
                   <div className="text-right">

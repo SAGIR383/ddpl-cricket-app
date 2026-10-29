@@ -132,7 +132,10 @@ export default function AdminDashboardPage() {
     fullName: '',
     tagline: '',
     season: '2027',
-    format: 'ddpl' as 'ddpl' | 'game-of-run',
+    tournamentType: 'direct_groups' as 'direct_groups' | 'auction_league',
+    groupsCount: 2,
+    groupNames: ['Group A', 'Group B'] as string[],
+    format: 'group-stage-playoffs' as any,
     overs: 10,
     pursePerTeam: 10000,
     ownerBasePrice: 500,
@@ -190,7 +193,10 @@ export default function AdminDashboardPage() {
           fullName: '',
           tagline: '',
           season: '2027',
-          format: 'ddpl',
+          tournamentType: 'direct_groups',
+          groupsCount: 2,
+          groupNames: ['Group A', 'Group B'],
+          format: 'group-stage-playoffs',
           overs: 10,
           pursePerTeam: 10000,
           ownerBasePrice: 500,
@@ -4142,6 +4148,110 @@ export default function AdminDashboardPage() {
             </div>
 
             <form onSubmit={handleCreateTournament} className="space-y-4">
+              {/* Tournament System Mode */}
+              <div>
+                <label className="block text-xs font-bold text-gray-300 mb-1.5">
+                  Tournament System &amp; Format
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div
+                    onClick={() => {
+                      const count = newTournamentForm.groupsCount || 2;
+                      const names = Array.from({ length: count }, (_, i) => `Group ${String.fromCharCode(65 + i)}`);
+                      setNewTournamentForm({
+                        ...newTournamentForm,
+                        tournamentType: 'direct_groups',
+                        format: count > 1 ? 'group-stage-playoffs' : 'round-robin-playoffs',
+                        groupNames: names,
+                      });
+                    }}
+                    className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
+                      newTournamentForm.tournamentType === 'direct_groups'
+                        ? 'border-emerald-400 bg-emerald-500/15 text-white shadow-lg'
+                        : 'border-white/10 bg-cricket-dark text-gray-400 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="font-bold text-xs text-white">Direct Teams &amp; Multi-Groups</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Fixed squads for companies &amp; clubs. Group A to H divisions. No auction purse.
+                    </p>
+                  </div>
+
+                  <div
+                    onClick={() =>
+                      setNewTournamentForm({
+                        ...newTournamentForm,
+                        tournamentType: 'auction_league',
+                        format: 'ddpl',
+                      })
+                    }
+                    className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
+                      newTournamentForm.tournamentType === 'auction_league'
+                        ? 'border-amber-400 bg-amber-500/15 text-white shadow-lg'
+                        : 'border-white/10 bg-cricket-dark text-gray-400 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Gavel className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span className="font-bold text-xs text-white">Franchise Auction League</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      IPL style live player bidding, franchise owners, purse budgets &amp; projector mode.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group Count Selector if Direct Groups */}
+              {newTournamentForm.tournamentType === 'direct_groups' && (
+                <div className="p-3.5 rounded-2xl bg-cricket-dark border border-emerald-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-emerald-300">
+                      Select Number of Groups:
+                    </label>
+                    <span className="text-[10px] text-gray-400">
+                      {newTournamentForm.groupsCount === 1 ? '1 Pool' : `${newTournamentForm.groupsCount} Groups: ${(newTournamentForm.groupNames || []).join(', ')}`}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {[
+                      { count: 1, label: '1 Pool' },
+                      { count: 2, label: '2 Groups' },
+                      { count: 3, label: '3 Groups' },
+                      { count: 4, label: '4 Groups' },
+                      { count: 6, label: '6 Groups' },
+                      { count: 8, label: '8 Groups' },
+                    ].map((g) => (
+                      <button
+                        key={g.count}
+                        type="button"
+                        onClick={() => {
+                          const names = g.count === 1
+                            ? ['Single Pool']
+                            : Array.from({ length: g.count }, (_, i) => `Group ${String.fromCharCode(65 + i)}`);
+                          setNewTournamentForm({
+                            ...newTournamentForm,
+                            groupsCount: g.count,
+                            groupNames: names,
+                            format: g.count > 1 ? 'group-stage-playoffs' : 'round-robin-playoffs',
+                          });
+                        }}
+                        className={`py-1.5 px-2 rounded-xl text-center text-xs font-bold transition-all cursor-pointer ${
+                          newTournamentForm.groupsCount === g.count
+                            ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400'
+                            : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'
+                        }`}
+                      >
+                        {g.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-300 mb-1">
@@ -4150,7 +4260,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. DDPL 2027 or DDPL 2027 2.0"
+                    placeholder="e.g. DDPL 2027 or Corporate Trophy 2026"
                     value={newTournamentForm.name}
                     onChange={(e) => setNewTournamentForm({ ...newTournamentForm, name: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
@@ -4213,19 +4323,7 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">Tournament Format</label>
-                  <select
-                    value={newTournamentForm.format}
-                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, format: e.target.value as any })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
-                  >
-                    <option value="ddpl">DDPL (Single League + Top 4 Playoffs)</option>
-                    <option value="game-of-run">Game of RUN (Group Stage + Playoffs)</option>
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-300 mb-1">Match Overs</label>
                   <input
@@ -4253,29 +4351,40 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">Team Purse (₹ / Pts)</label>
-                  <input
-                    type="number"
-                    step={500}
-                    value={newTournamentForm.pursePerTeam}
-                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, pursePerTeam: Number(e.target.value) || 10000 })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
-                  />
-                </div>
+              {/* Conditional Purse Inputs: Only if Auction League */}
+              {newTournamentForm.tournamentType === 'auction_league' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">Team Purse (₹ / Pts)</label>
+                    <input
+                      type="number"
+                      step={500}
+                      value={newTournamentForm.pursePerTeam}
+                      onChange={(e) => setNewTournamentForm({ ...newTournamentForm, pursePerTeam: Number(e.target.value) || 10000 })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">Owner Blocked Price</label>
-                  <input
-                    type="number"
-                    step={100}
-                    value={newTournamentForm.ownerBasePrice}
-                    onChange={(e) => setNewTournamentForm({ ...newTournamentForm, ownerBasePrice: Number(e.target.value) || 500 })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
-                  />
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">Owner Blocked Price</label>
+                    <input
+                      type="number"
+                      step={100}
+                      value={newTournamentForm.ownerBasePrice}
+                      onChange={(e) => setNewTournamentForm({ ...newTournamentForm, ownerBasePrice: Number(e.target.value) || 500 })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-semibold focus:outline-none focus:border-cricket-teal"
+                    />
+                  </div>
                 </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Auction purse &amp; bidding bypassed. Teams will enter directly and be assigned to their group.</span>
+                </div>
+              )}
 
+              {/* Squad Range */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-300 mb-1">Squad Range (Min - Max)</label>
                   <div className="flex items-center gap-2">

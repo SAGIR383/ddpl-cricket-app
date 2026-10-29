@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
+import { generateMultiGroupFixtures } from '@/app/api/matches/route';
 
 export interface TournamentPlayerRegistration {
   id: string;
@@ -27,6 +28,9 @@ export interface TournamentConfig {
   totalSeasons?: number;
   overs?: number;
   format?: 'ddpl' | 'game-of-run' | 'round-robin-playoffs' | 'group-stage-playoffs';
+  tournamentType?: 'direct_groups' | 'auction_league';
+  groupsCount?: number;
+  groupNames?: string[];
   bannerColor?: string;
   badgeColor?: string;
   logo?: string;
@@ -713,7 +717,16 @@ export async function POST(req: Request) {
       );
 
       const resolvedShort = (shortName || name.split(' ').map((w: string) => w[0]).join('').slice(0, 4)).toUpperCase();
-      const resolvedFormat = format === 'game-of-run' ? 'game-of-run' : 'ddpl';
+      const tournamentType = body.tournamentType === 'direct_groups' ? 'direct_groups' : 'auction_league';
+      const rawGroupsCount = Number(body.groupsCount) || (Array.isArray(body.groupNames) ? body.groupNames.length : 2);
+      const groupsCount = Math.min(Math.max(rawGroupsCount, 1), 8);
+      const groupNames: string[] = Array.isArray(body.groupNames) && body.groupNames.length > 0
+        ? body.groupNames
+        : Array.from({ length: groupsCount }, (_, i) => `Group ${String.fromCharCode(65 + i)}`);
+
+      const resolvedFormat = tournamentType === 'direct_groups'
+        ? (groupsCount > 1 ? 'group-stage-playoffs' : 'round-robin-playoffs')
+        : (format === 'game-of-run' ? 'game-of-run' : 'ddpl');
       const resolvedOvers = Number(overs) || (resolvedFormat === 'game-of-run' ? 12 : 10);
       const resolvedBanner = bannerColor || (resolvedFormat === 'game-of-run' ? 'from-amber-950 via-orange-950 to-cricket-dark' : 'from-blue-900 via-indigo-950 to-cricket-dark');
       const resolvedLogo = logo || '/images/default-tournament.svg';
@@ -756,6 +769,9 @@ export async function POST(req: Request) {
         totalSeasons: 1,
         overs: resolvedOvers,
         format: resolvedFormat,
+        tournamentType,
+        groupsCount,
+        groupNames,
         bannerColor: resolvedBanner,
         badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-lg shadow-emerald-500/20 animate-pulse',
         logo: resolvedLogo,
@@ -905,24 +921,52 @@ export async function POST(req: Request) {
         }
       }
 
-      // 1. Initialize Auction State for this tournament
+      // 1. Initialize Auction / Teams State for this tournament
       const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
       if (!allAuction.tournaments) allAuction.tournaments = {};
-      if (!allAuction.tournaments[generatedSlug]) {
+
+      let initialTeams: any[] = [];
+      if (Array.isArray(body.directTeams) && body.directTeams.length > 0) {
+        initialTeams = body.directTeams.map((t: any, idx: number) => {
+          const short = (t.short || t.shortName || t.name.slice(0, 3)).toUpperCase();
+          const group = t.group || groupNames[idx % groupNames.length];
+          const captain = t.captain || '';
+          const players = Array.isArray(t.players) && t.players.length > 0
+            ? t.players
+            : (captain ? [{ name: captain, role: 'Captain / All Rounder' }] : []);
+
+          return {
+            id: `t-${Date.now()}-${idx + 1}`,
+            name: t.name,
+            short,
+            group,
+            captain,
+            owner: captain || `${t.name} Captain`,
+            players,
+            allocated: 10000,
+            spent: 0,
+            remaining: 10000,
+            playersBought: players.length,
+            maxSquad: newTournamentConfig.maxSquad,
+          };
+        });
+      }
+
+      if (!allAuction.tournaments[generatedSlug] || initialTeams.length > 0) {
         allAuction.tournaments[generatedSlug] = {
-          teams: [],
+          teams: initialTeams,
           playerPool: [],
           soldTransactions: [],
           unsoldPlayers: [],
           currentLotIndex: 0,
           lastUpdated: new Date().toISOString(),
-          auctionStatus: 'live',
-          biddingAccessEnabled: true,
+          auctionStatus: tournamentType === 'direct_groups' ? 'completed' : 'live',
+          biddingAccessEnabled: tournamentType !== 'direct_groups',
           teamBiddingAccess: {},
           timerSeconds: 30,
-          timerRunning: true,
+          timerRunning: false,
           timerLastReset: new Date().toISOString(),
-          autoBoardingEnabled: true,
+          autoBoardingEnabled: tournamentType !== 'direct_groups',
           currentLot: null,
         };
         await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
@@ -945,13 +989,18 @@ export async function POST(req: Request) {
       };
       await setStoreData(`tournament_rules_${generatedSlug}`, rules, `rules_${generatedSlug}.json`);
 
-      // 3. Initialize Tournament Schedule
+      // 3. Initialize Tournament Schedule (Auto-generate if direct teams provided)
+      let initialMatches: any[] = [];
+      if (initialTeams.length >= 2) {
+        initialMatches = generateMultiGroupFixtures(initialTeams, groupNames, resolvedOvers, generatedSlug);
+      }
+
       const schedule = {
         tournament: generatedSlug,
         startDate: newTournamentConfig.startDate,
         endDate: newTournamentConfig.endDate,
-        format: resolvedFormat === 'game-of-run' ? 'group-stage-playoffs' : 'round-robin-playoffs',
-        matches: [],
+        format: groupsCount > 1 || resolvedFormat === 'game-of-run' ? 'group-stage-playoffs' : 'round-robin-playoffs',
+        matches: initialMatches,
         lastUpdated: new Date().toISOString(),
       };
       await setStoreData(`tournament_schedule_${generatedSlug}`, schedule, `schedule_${generatedSlug}.json`);
@@ -1078,6 +1127,92 @@ export async function POST(req: Request) {
         message: 'All test tournaments and data have been wiped clean. Ready for clean testing!',
         allConfigs: {},
         tournamentsList: [],
+      });
+    }
+
+    // 8. ADD DIRECT TEAM (For Direct Groups & Non-Auction Tournaments)
+    if (action === 'add_direct_team') {
+      const { teamName, shortName, group, captain, players } = body;
+      if (!teamName || !teamName.trim()) {
+        return NextResponse.json({ success: false, error: 'Team name is required' }, { status: 400 });
+      }
+
+      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      if (!allAuction.tournaments) allAuction.tournaments = {};
+      const currentTourneyData = allAuction.tournaments[tSlug] || { teams: [] };
+      const existingTeams = currentTourneyData.teams || [];
+
+      const teamId = `t-${Date.now()}`;
+      const short = (shortName || teamName.split(' ').map((w: string) => w[0]).join('').slice(0, 3)).toUpperCase();
+      const resolvedGroup = group || 'Group A';
+      const resolvedCaptain = captain?.trim() || '';
+      const resolvedPlayers = Array.isArray(players) && players.length > 0
+        ? players
+        : (resolvedCaptain ? [{ name: resolvedCaptain, role: 'Captain / All Rounder' }] : []);
+
+      const newTeam = {
+        id: teamId,
+        name: teamName.trim(),
+        short,
+        group: resolvedGroup,
+        captain: resolvedCaptain,
+        owner: resolvedCaptain || `${teamName.trim()} Captain`,
+        players: resolvedPlayers,
+        allocated: 10000,
+        spent: 0,
+        remaining: 10000,
+        playersBought: resolvedPlayers.length,
+        maxSquad: 15,
+      };
+
+      const updatedTeams = [...existingTeams.filter((t: any) => t.name.toLowerCase() !== teamName.trim().toLowerCase()), newTeam];
+      currentTourneyData.teams = updatedTeams;
+      currentTourneyData.lastUpdated = new Date().toISOString();
+      allAuction.tournaments[tSlug] = currentTourneyData;
+      await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+
+      invalidateStoreCache();
+
+      return NextResponse.json({
+        success: true,
+        message: `Team "${teamName}" added successfully to ${resolvedGroup}!`,
+        team: newTeam,
+        teams: updatedTeams,
+      });
+    }
+
+    // 9. AUTO GENERATE SCHEDULE FIXTURES (For Direct Multi-Group League)
+    if (action === 'auto_generate_schedule') {
+      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      const currentTourneyData = allAuction.tournaments?.[tSlug] || { teams: [] };
+      const teams = currentTourneyData.teams || [];
+
+      if (teams.length < 2) {
+        return NextResponse.json({ success: false, error: 'At least 2 teams are required to generate schedule fixtures.' }, { status: 400 });
+      }
+
+      const configs = await getStoreData<Record<string, TournamentConfig>>('tournament_configs', 'tournament_configs.json', {});
+      const currentConfig = configs[tSlug];
+      const overs = currentConfig?.overs || 10;
+      const groupNames = currentConfig?.groupNames || ['Group A', 'Group B'];
+
+      const matches = generateMultiGroupFixtures(teams, groupNames, overs, tSlug);
+      const schedule = {
+        tournament: tSlug,
+        startDate: currentConfig?.startDate || null,
+        endDate: currentConfig?.endDate || null,
+        format: groupNames.length > 1 ? 'group-stage-playoffs' : 'round-robin-playoffs',
+        matches,
+        lastUpdated: new Date().toISOString(),
+      };
+      await setStoreData(`tournament_schedule_${tSlug}`, schedule, `schedule_${tSlug}.json`);
+
+      invalidateStoreCache();
+
+      return NextResponse.json({
+        success: true,
+        message: `Generated ${matches.length} fixtures across ${groupNames.length} groups!`,
+        schedule,
       });
     }
 
