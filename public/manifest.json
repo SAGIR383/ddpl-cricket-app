@@ -11,19 +11,19 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icons/cricplus-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/cricplus-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-maskable-512.png",
+      "src": "/icons/cricplus-icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -32,7 +32,7 @@
   "screenshots": [
     {
       "src": "/images/cricket-hero.jpg",
-      "sizes": "1376x768",
+      "sizes": "1024x458",
       "type": "image/jpeg",
       "form_factor": "wide",
       "label": "CricPlus24 Tournament Hub"
