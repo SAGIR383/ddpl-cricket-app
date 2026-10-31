@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       let article: any = null;
       let dbError: any = null;
       let dataCount = 0;
+      let rawDbContent: any = null;
       try {
         const { data, error } = await supabase
           .from('cricket_news')
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
         if (data) dataCount = data.length;
         if (!error && data && data.length > 0) {
           article = data[0];
+          rawDbContent = data[0].content;
         }
       } catch (err: any) {
         dbError = err?.message || 'DB catch error';
@@ -90,6 +92,8 @@ export async function GET(req: NextRequest) {
             _debug: {
               fromDb,
               dataCount,
+              rawDbContentLen: rawDbContent ? rawDbContent.length : 0,
+              rawDbContentPreview: rawDbContent ? rawDbContent.slice(0, 50) : null,
               dbError,
               keyPrefix: SUPABASE_KEY ? SUPABASE_KEY.slice(0, 10) : 'none',
               supabaseUrl: SUPABASE_URL,
