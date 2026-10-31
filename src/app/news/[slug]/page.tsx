@@ -75,7 +75,9 @@ export default function ArticleDetailPage() {
           });
         } else {
           // 2. If not an editorial blog, fetch from Global Cricket News (scrapes full content if not cached)
-          const newsRes = await fetch(`/api/news?slug=${encodeURIComponent(slug)}`);
+          const newsRes = await fetch(`/api/news?slug=${encodeURIComponent(slug)}`, {
+            cache: 'no-store',
+          });
           const newsData = await newsRes.json();
 
           if (newsData.success && newsData.article) {

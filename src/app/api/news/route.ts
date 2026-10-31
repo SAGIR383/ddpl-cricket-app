@@ -4,6 +4,8 @@ import { fetchLiveCricketNews, extractArticleContent, CricketNewsItem } from '@/
 import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
 const SUPABASE_KEY =
@@ -26,7 +28,12 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '30', 10);
     const refresh = searchParams.get('refresh') === 'true';
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false },
+      global: {
+        fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' }),
+      },
+    });
 
     // 1. Single article lookup by slug (stays 100% inside CricPlus24)
     if (slug) {
@@ -89,15 +96,6 @@ export async function GET(req: NextRequest) {
           {
             success: true,
             article,
-            _debug: {
-              fromDb,
-              dataCount,
-              rawDbContentLen: rawDbContent ? rawDbContent.length : 0,
-              rawDbContentPreview: rawDbContent ? rawDbContent.slice(0, 50) : null,
-              dbError,
-              keyPrefix: SUPABASE_KEY ? SUPABASE_KEY.slice(0, 10) : 'none',
-              supabaseUrl: SUPABASE_URL,
-            },
           },
           {
             headers: {
