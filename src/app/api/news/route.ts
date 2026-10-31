@@ -1,31 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { fetchLiveCricketNews, CricketNewsItem } from '@/lib/cricketNewsFetcher';
+import { fetchLiveCricketNews, extractArticleContent, CricketNewsItem } from '@/lib/cricketNewsFetcher';
 import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
 
 export const dynamic = 'force-dynamic';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
-const SUPABASE_SERVICE_KEY = getServiceRoleKey();
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  getServiceRoleKey() ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  'sb_publishable_OTwkrFMSeuzq_QbWS6htWQ_FicJF8Tf';
 
-// Cache memory fallback for ultra-fast response
+// In-memory cache fallback for instant rendering
 let cachedNews: CricketNewsItem[] = [];
 let lastSyncTime = 0;
-const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 mins
-
-function cleanHtmlEntities(str: string): string {
-  return str
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&bull;/g, '•')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&#x27;/g, "'")
-    .replace(/&rsquo;|&lsquo;/g, "'")
-    .replace(/&rdquo;|&ldquo;/g, '"')
-    .replace(/&mdash;|&ndash;/g, '—')
-    .trim();
-}
+const SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes live auto-sync
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,7 +26,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '30', 10);
     const refresh = searchParams.get('refresh') === 'true';
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // 1. Single article lookup by slug (stays 100% inside CricPlus24)
     if (slug) {
@@ -46,9 +36,13 @@ export async function GET(req: NextRequest) {
           .from('cricket_news')
           .select('*')
           .eq('slug', slug)
-          .single();
-        if (!error && data) article = data;
-      } catch (err) {}
+          .limit(1);
+        if (!error && data && data.length > 0) {
+          article = data[0];
+        }
+      } catch (err: any) {
+        console.warn('[NewsAPI] Supabase single fetch error:', err?.message);
+      }
 
       if (!article) {
         article = cachedNews.find((c) => c.slug === slug);
@@ -61,61 +55,16 @@ export async function GET(req: NextRequest) {
         }
 
         // If content is empty or short, fetch full story paragraphs from source_url
-        if ((!article.content || article.content.length < 150) && article.source_url) {
+        if ((!article.content || article.content.length < 250) && article.source_url) {
           try {
-            const pageRes = await fetch(article.source_url, {
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              },
-              signal: AbortSignal.timeout(6000),
-            });
-            if (pageRes.ok) {
-              const html = await pageRes.text();
-              const extractedParas: string[] = [];
-
-              // Method 1: Check Next.js data (used by modern ESPN Cricinfo)
-              const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-              if (nextDataMatch) {
-                try {
-                  const nextData = JSON.parse(nextDataMatch[1]);
-                  const items = nextData?.props?.appPageProps?.data?.data?.content?.content?.items || [];
-                  for (const it of items) {
-                    const raw = it.html || it.text || '';
-                    const clean = cleanHtmlEntities(raw);
-                    if (clean.length > 30) {
-                      extractedParas.push(clean);
-                    }
-                  }
-                } catch (jsonErr) {}
-              }
-
-              // Method 2: Fallback to HTML <p> tags
-              if (extractedParas.length === 0) {
-                const pMatches = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
-                for (const p of pMatches) {
-                  const clean = cleanHtmlEntities(p);
-                  if (
-                    clean.length > 45 &&
-                    !clean.toLowerCase().includes('cookie') &&
-                    !clean.toLowerCase().includes('terms of') &&
-                    !clean.toLowerCase().includes('privacy policy') &&
-                    !clean.toLowerCase().includes('all rights reserved')
-                  ) {
-                    extractedParas.push(clean);
-                  }
-                }
-              }
-
-              if (extractedParas.length > 0) {
-                article.content = extractedParas.join('\n\n');
-                if (article.id) {
-                  supabase
-                    .from('cricket_news')
-                    .update({ content: article.content })
-                    .eq('id', article.id)
-                    .then();
-                }
+            const extracted = await extractArticleContent(article.source_url);
+            if (extracted && extracted.length > 100) {
+              article.content = extracted;
+              if (article.id) {
+                await supabase
+                  .from('cricket_news')
+                  .update({ content: article.content })
+                  .eq('id', article.id);
               }
             }
           } catch (scrapeErr) {
@@ -123,12 +72,19 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        // Guaranteed fallback content
+        // Guaranteed fallback content only if no content could be found
         if (!article.content || article.content.length < 50) {
           article.content = `${article.summary}\n\nStay tuned with CricPlus24 for full ball-by-ball tournament scorecards, win probability metrics, and ongoing international match reports.`;
         }
 
-        return NextResponse.json({ success: true, article });
+        return NextResponse.json(
+          { success: true, article },
+          {
+            headers: {
+              'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+            },
+          }
+        );
       }
 
       return NextResponse.json({ success: false, error: 'Article not found' }, { status: 404 });
@@ -149,6 +105,7 @@ export async function GET(req: NextRequest) {
             title: item.title,
             slug: item.slug,
             summary: item.summary,
+            content: item.content || null,
             image_url: item.image_url,
             source: item.source,
             source_url: item.source_url,
@@ -159,7 +116,7 @@ export async function GET(req: NextRequest) {
           // Upsert in background without blocking API response
           supabase
             .from('cricket_news')
-            .upsert(upsertRows, { onConflict: 'slug', ignoreDuplicates: true })
+            .upsert(upsertRows, { onConflict: 'slug' })
             .then(({ error }) => {
               if (error) console.warn('[NewsAPI] Supabase archive sync error:', error.message);
             });
@@ -206,14 +163,24 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      total: allNews.length,
-      lastUpdated: new Date(lastSyncTime || Date.now()).toISOString(),
-      articles: allNews.slice(0, limit),
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        total: allNews.length,
+        lastUpdated: new Date(lastSyncTime || Date.now()).toISOString(),
+        articles: allNews.slice(0, limit),
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('[NewsAPI] General error:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to fetch news', articles: [] }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to fetch news', articles: [] },
+      { status: 500 }
+    );
   }
 }

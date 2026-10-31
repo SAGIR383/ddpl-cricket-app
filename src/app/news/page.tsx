@@ -104,6 +104,13 @@ export default function CricketNewsPage() {
 
   useEffect(() => {
     loadContent();
+
+    // Auto-sync every 60s so newly broken international news streams live into CricPlus24
+    const interval = setInterval(() => {
+      loadContent(true);
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, []);
 
   function handleShare(article: Article, e: React.MouseEvent) {

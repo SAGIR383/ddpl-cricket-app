@@ -1,6 +1,7 @@
 /**
  * CricPlus24 Real-time Global Cricket News Fetcher & Aggregator
- * Ingests live stories from ESPN Cricinfo, ICC, and cricket feeds.
+ * Ingests live stories from ESPN Cricinfo, Cricbuzz, and cricket feeds.
+ * Automatically parses full in-depth article paragraphs and updates Supabase.
  */
 
 export interface CricketNewsItem {
@@ -14,6 +15,21 @@ export interface CricketNewsItem {
   source_url: string;
   category: string;
   published_at: string;
+}
+
+export function cleanHtmlEntities(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&bull;/g, '•')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/&rsquo;|&lsquo;/g, "'")
+    .replace(/&rdquo;|&ldquo;/g, '"')
+    .replace(/&mdash;|&ndash;/g, '—')
+    .trim();
 }
 
 function cleanCdata(text: string): string {
@@ -43,6 +59,71 @@ const FALLBACK_CRICKET_IMAGES = [
   'https://images.unsplash.com/photo-1624526267942-ab0ff8a3e972?auto=format&fit=crop&w=1200&q=80',
 ];
 
+/**
+ * Extracts complete, in-depth article paragraphs from ESPN Cricinfo or other cricket URLs.
+ */
+export async function extractArticleContent(url: string): Promise<string | null> {
+  if (!url) return null;
+  // Ignore non-story links (player profiles, fixtures, series tables)
+  if (url.includes('/player/') || url.includes('/fixtures') || url.includes('/series/')) {
+    return null;
+  }
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const extractedParas: string[] = [];
+
+    // 1. Next.js JSON state (ESPN Cricinfo modern story pages)
+    const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (nextDataMatch) {
+      try {
+        const nextData = JSON.parse(nextDataMatch[1]);
+        const items = nextData?.props?.appPageProps?.data?.data?.content?.content?.items || [];
+        for (const it of items) {
+          const raw = it.html || it.text || '';
+          const clean = cleanHtmlEntities(raw);
+          if (clean.length > 30) {
+            extractedParas.push(clean);
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. HTML paragraph tags fallback (Cricbuzz, news blogs, standard pages)
+    if (extractedParas.length === 0) {
+      const pMatches = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+      for (const p of pMatches) {
+        const clean = cleanHtmlEntities(p);
+        if (
+          clean.length > 40 &&
+          !clean.toLowerCase().includes('cookie') &&
+          !clean.toLowerCase().includes('terms of') &&
+          !clean.toLowerCase().includes('privacy policy') &&
+          !clean.toLowerCase().includes('all rights reserved') &&
+          !clean.toLowerCase().includes('subscribe to') &&
+          !clean.toLowerCase().includes('follow us')
+        ) {
+          extractedParas.push(clean);
+        }
+      }
+    }
+
+    return extractedParas.length > 0 ? extractedParas.join('\n\n') : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
   const newsItems: CricketNewsItem[] = [];
 
@@ -71,7 +152,7 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'application/rss+xml, application/xml, text/xml, */*',
         },
-        next: { revalidate: 900 }, // 15 mins cache in Next.js
+        next: { revalidate: 180 }, // 3 mins cache in Next.js
       });
 
       if (!res.ok) continue;
@@ -90,6 +171,11 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
         // Link
         const linkMatch = itemXml.match(/<link>([\s\S]*?)<\/link>/i);
         const link = cleanCdata(linkMatch ? linkMatch[1] : '');
+
+        // Skip non-story pages (player profiles, fixtures)
+        if (link.includes('/player/') || link.includes('/fixtures') || link.includes('/series/')) {
+          continue;
+        }
 
         // Description / Summary
         const descMatch = itemXml.match(/<description>([\s\S]*?)<\/description>/i);
@@ -158,6 +244,18 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
       console.warn(`[CricketNewsFetcher] Error fetching ${feed.source}:`, err);
     }
   }
+
+  // Pre-fetch full rich article content concurrently for top stories
+  await Promise.allSettled(
+    newsItems.slice(0, 15).map(async (item) => {
+      if (!item.content && item.source_url) {
+        const fullContent = await extractArticleContent(item.source_url);
+        if (fullContent && fullContent.length > 100) {
+          item.content = fullContent;
+        }
+      }
+    })
+  );
 
   // Sort descending by published_at
   newsItems.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
