@@ -120,6 +120,9 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
         // Fallback image if none discovered
         if (!imageUrl) {
           imageUrl = FALLBACK_CRICKET_IMAGES[newsItems.length % FALLBACK_CRICKET_IMAGES.length];
+        } else {
+          // Always upgrade insecure http to https for modern SSL browsers
+          imageUrl = imageUrl.replace(/^http:\/\//i, 'https://');
         }
 
         // Categorize based on title keywords if generic

@@ -268,13 +268,18 @@ export default function CricketNewsPage() {
               {/* Featured Spotlight Card */}
               {heroStory && (
                 <div className="group relative rounded-2xl overflow-hidden border border-[#D8AD55]/30 bg-[#08111F] shadow-xl hover:border-[#D8AD55]/60 transition-all duration-300">
-                  <div className="relative h-64 sm:h-80 w-full overflow-hidden">
+                  <div className="relative h-64 sm:h-80 w-full overflow-hidden bg-black">
                     <Image
-                      src={heroStory.image_url}
+                      src={heroStory.image_url?.replace(/^http:\/\//i, 'https://') || '/images/cricket-hero.jpg'}
                       alt={heroStory.title}
                       fill
+                      unoptimized
                       priority
                       className="object-cover group-hover:scale-105 transition-transform duration-500 brightness-90"
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        target.src = '/images/cricket-hero.jpg';
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#08111F] via-[#08111F]/60 to-transparent" />
                     
@@ -362,10 +367,15 @@ export default function CricketNewsPage() {
                       {/* Image Thumbnail */}
                       <div className="relative w-full sm:w-44 h-40 sm:h-28 rounded-xl overflow-hidden bg-black shrink-0 border border-gray-800 group-hover:border-[#D8AD55]/40 transition-colors">
                         <Image
-                          src={item.image_url}
+                          src={item.image_url?.replace(/^http:\/\//i, 'https://') || '/images/cricket-ball-blast.jpg'}
                           alt={item.title}
                           fill
+                          unoptimized
                           className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const target = e.currentTarget as HTMLImageElement;
+                            target.src = '/images/cricplus-stadium-4k.jpg';
+                          }}
                         />
                         {item.isBlog && (
                           <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-[#D8AD55] text-black text-[9px] font-black uppercase">

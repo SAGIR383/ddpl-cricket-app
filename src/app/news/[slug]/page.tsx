@@ -272,13 +272,18 @@ export default function ArticleDetailPage() {
 
         {/* Cover Image */}
         {post.cover_image_url && (
-          <div className="relative w-full h-64 sm:h-96 rounded-2xl overflow-hidden border border-gray-800 shadow-2xl mb-8">
+          <div className="relative w-full h-64 sm:h-96 rounded-2xl overflow-hidden border border-gray-800 shadow-2xl mb-8 bg-black">
             <Image
-              src={post.cover_image_url}
+              src={post.cover_image_url?.replace(/^http:\/\//i, 'https://') || '/images/cricket-hero.jpg'}
               alt={post.title}
               fill
+              unoptimized
               priority
               className="object-cover"
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                target.src = '/images/cricket-hero.jpg';
+              }}
             />
           </div>
         )}
@@ -330,10 +335,15 @@ export default function ArticleDetailPage() {
                 >
                   <div className="relative h-28 w-full rounded-lg overflow-hidden bg-black">
                     <Image
-                      src={item.cover_image_url || '/images/cricket-hero.jpg'}
+                      src={item.cover_image_url?.replace(/^http:\/\//i, 'https://') || '/images/cricket-hero.jpg'}
                       alt={item.title}
                       fill
+                      unoptimized
                       className="object-cover group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        target.src = '/images/cricket-hero.jpg';
+                      }}
                     />
                   </div>
                   <span className="text-[9px] uppercase font-bold text-[#D8AD55] block">
