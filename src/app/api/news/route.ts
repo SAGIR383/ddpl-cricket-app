@@ -13,6 +13,20 @@ let cachedNews: CricketNewsItem[] = [];
 let lastSyncTime = 0;
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 mins
 
+function cleanHtmlEntities(str: string): string {
+  return str
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&bull;/g, '•')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/&rsquo;|&lsquo;/g, "'")
+    .replace(/&rdquo;|&ldquo;/g, '"')
+    .replace(/&mdash;|&ndash;/g, '—')
+    .trim();
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -54,32 +68,47 @@ export async function GET(req: NextRequest) {
                 'User-Agent':
                   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
               },
-              signal: AbortSignal.timeout(4000),
+              signal: AbortSignal.timeout(6000),
             });
             if (pageRes.ok) {
               const html = await pageRes.text();
-              const pMatches = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
-              const cleanParas = pMatches
-                .map((p) =>
-                  p
-                    .replace(/<[^>]+>/g, '')
-                    .replace(/&nbsp;/g, ' ')
-                    .replace(/&bull;/g, '•')
-                    .replace(/&amp;/g, '&')
-                    .replace(/&quot;/g, '"')
-                    .trim()
-                )
-                .filter(
-                  (p) =>
-                    p.length > 45 &&
-                    !p.toLowerCase().includes('cookie') &&
-                    !p.toLowerCase().includes('terms of') &&
-                    !p.toLowerCase().includes('privacy policy') &&
-                    !p.toLowerCase().includes('all rights reserved')
-                );
+              const extractedParas: string[] = [];
 
-              if (cleanParas.length > 0) {
-                article.content = cleanParas.join('\n\n');
+              // Method 1: Check Next.js data (used by modern ESPN Cricinfo)
+              const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+              if (nextDataMatch) {
+                try {
+                  const nextData = JSON.parse(nextDataMatch[1]);
+                  const items = nextData?.props?.appPageProps?.data?.data?.content?.content?.items || [];
+                  for (const it of items) {
+                    const raw = it.html || it.text || '';
+                    const clean = cleanHtmlEntities(raw);
+                    if (clean.length > 30) {
+                      extractedParas.push(clean);
+                    }
+                  }
+                } catch (jsonErr) {}
+              }
+
+              // Method 2: Fallback to HTML <p> tags
+              if (extractedParas.length === 0) {
+                const pMatches = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+                for (const p of pMatches) {
+                  const clean = cleanHtmlEntities(p);
+                  if (
+                    clean.length > 45 &&
+                    !clean.toLowerCase().includes('cookie') &&
+                    !clean.toLowerCase().includes('terms of') &&
+                    !clean.toLowerCase().includes('privacy policy') &&
+                    !clean.toLowerCase().includes('all rights reserved')
+                  ) {
+                    extractedParas.push(clean);
+                  }
+                }
+              }
+
+              if (extractedParas.length > 0) {
+                article.content = extractedParas.join('\n\n');
                 if (article.id) {
                   supabase
                     .from('cricket_news')
