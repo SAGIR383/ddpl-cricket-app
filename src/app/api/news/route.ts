@@ -72,9 +72,9 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        // Guaranteed fallback content only if no content could be found
+        // Fallback to summary only if no content could be retrieved
         if (!article.content || article.content.length < 50) {
-          article.content = `${article.summary}\n\nStay tuned with CricPlus24 for full ball-by-ball tournament scorecards, win probability metrics, and ongoing international match reports.`;
+          article.content = article.summary || '';
         }
 
         return NextResponse.json(
@@ -101,17 +101,23 @@ export async function GET(req: NextRequest) {
           lastSyncTime = now;
 
           // Asynchronously upsert into Supabase for permanent archiving
-          const upsertRows = liveItems.map((item) => ({
-            title: item.title,
-            slug: item.slug,
-            summary: item.summary,
-            content: item.content || null,
-            image_url: item.image_url,
-            source: item.source,
-            source_url: item.source_url,
-            category: item.category,
-            published_at: item.published_at,
-          }));
+          // CRITICAL: Only include 'content' if it is non-empty, NEVER overwrite existing rich content with null!
+          const upsertRows = liveItems.map((item) => {
+            const row: any = {
+              title: item.title,
+              slug: item.slug,
+              summary: item.summary,
+              image_url: item.image_url,
+              source: item.source,
+              source_url: item.source_url,
+              category: item.category,
+              published_at: item.published_at,
+            };
+            if (item.content && item.content.length > 50) {
+              row.content = item.content;
+            }
+            return row;
+          });
 
           // Upsert in background without blocking API response
           supabase

@@ -65,19 +65,33 @@ const FALLBACK_CRICKET_IMAGES = [
 export async function extractArticleContent(url: string): Promise<string | null> {
   if (!url) return null;
   // Ignore non-story links (player profiles, fixtures, series tables)
-  if (url.includes('/player/') || url.includes('/fixtures') || url.includes('/series/')) {
+  const lowerUrl = url.toLowerCase();
+  if (
+    lowerUrl.includes('/player/') ||
+    lowerUrl.includes('/fixtures') ||
+    lowerUrl.includes('/series/') ||
+    lowerUrl.includes('career-stats')
+  ) {
     return null;
   }
   try {
     const res = await fetch(url, {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
       },
       redirect: 'follow',
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
     const html = await res.text();
@@ -92,7 +106,7 @@ export async function extractArticleContent(url: string): Promise<string | null>
         for (const it of items) {
           const raw = it.html || it.text || '';
           const clean = cleanHtmlEntities(raw);
-          if (clean.length > 30) {
+          if (clean.length > 25) {
             extractedParas.push(clean);
           }
         }
@@ -105,7 +119,7 @@ export async function extractArticleContent(url: string): Promise<string | null>
       for (const p of pMatches) {
         const clean = cleanHtmlEntities(p);
         if (
-          clean.length > 40 &&
+          clean.length > 35 &&
           !clean.toLowerCase().includes('cookie') &&
           !clean.toLowerCase().includes('terms of') &&
           !clean.toLowerCase().includes('privacy policy') &&

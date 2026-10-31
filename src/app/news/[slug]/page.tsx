@@ -194,6 +194,17 @@ export default function ArticleDetailPage() {
         );
       }
 
+      if (trimmed.startsWith('"') || trimmed.startsWith('“')) {
+        return (
+          <p
+            key={idx}
+            className="border-l-2 border-[#D8AD55]/60 pl-4 py-1.5 text-gray-200 text-sm sm:text-base italic leading-relaxed my-4 bg-[#0D1B2A]/40 rounded-r-lg"
+          >
+            {trimmed}
+          </p>
+        );
+      }
+
       return (
         <p key={idx} className="text-gray-300 text-sm sm:text-base leading-relaxed my-4 font-normal">
           {trimmed}
