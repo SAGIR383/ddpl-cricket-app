@@ -98,11 +98,12 @@ interface UserAccount {
 }
 
 import { useAuth } from '@/contexts/AuthContext';
+import { BlogStudio } from '@/components/admin/BlogStudio';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { isOrganizer, isSuperAdmin, role, signOut, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement' | 'reports'>('teams');
+  const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement' | 'reports' | 'blogs'>('teams');
   const [selectedTournament, setSelectedTournament] = useState<string>('');
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
 
@@ -1696,6 +1697,20 @@ export default function AdminDashboardPage() {
           <Award className="w-5 h-5 text-[#D8AD55]" />
           <span>Certificates &amp; Dossiers</span>
         </button>
+
+        {isSuperAdmin && (
+          <button
+            onClick={() => setActiveTab('blogs')}
+            className={`flex items-center gap-2 px-6 py-4 border-b-2 font-display text-base sm:text-lg tracking-wide transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'blogs'
+                ? 'border-[#D8AD55] text-[#F2D69A] shadow-[0_2px_0_0_#D8AD55]'
+                : 'border-transparent text-[#8793A5] hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-5 h-5 text-[#D8AD55]" />
+            <span>✍️ Editorial &amp; Blog Studio</span>
+          </button>
+        )}
       </div>
 
       {/* ========================================================================= */}
@@ -4121,6 +4136,15 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 9: CRICPLUS EDITORIAL & BLOG STUDIO (MASTER SUPER ADMIN ONLY) */}
+      {/* ========================================================================= */}
+      {activeTab === 'blogs' && isSuperAdmin && (
+        <div className="animate-fade-in">
+          <BlogStudio />
         </div>
       )}
 

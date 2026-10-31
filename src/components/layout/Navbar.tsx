@@ -34,6 +34,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: '/', label: t.navHome, icon: Sparkles, exact: true },
+    { href: '/news', label: 'News', icon: Globe },
     { href: '/tournaments', label: t.navTournaments, icon: Trophy },
     { href: '/matches', label: t.navMatches, icon: Calendar },
     { href: '/auction', label: t.navAuction, icon: Gavel },

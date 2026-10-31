@@ -82,6 +82,9 @@ export function Footer() {
             <div className="space-y-2">
               <div className="text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">Platform</div>
               <div className="flex flex-col space-y-1.5">
+                <Link href="/news" className="hover:text-white transition-colors">
+                  Cricket News &amp; Editorials
+                </Link>
                 <Link href="/admin" className="hover:text-[#F2D69A] transition-colors flex items-center gap-1">
                   <Shield className="w-3 h-3 text-[#D8AD55]" />
                   <span>Super Admin</span>
