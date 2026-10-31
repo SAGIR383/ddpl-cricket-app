@@ -40,7 +40,7 @@ export function downloadIcsCalendar(tournamentName: string, matches: MatchFixtur
     const formatIcsDate = (d: Date) =>
       d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
-    const uid = `${m.id || `match-${idx + 1}`}@ddpl-cricket-app.vercel.app`;
+    const uid = `${m.id || `match-${idx + 1}`}@cricplus24.in`;
     const summary = `${m.teamA.name} vs ${m.teamB.name} (${m.stage || 'Corporate League'})`;
     const description = `Corporate Cricket Match #${m.matchNumber}. Follow live scores on CricPlus24!`;
     const location = m.venue || 'Corporate Arena Ground';

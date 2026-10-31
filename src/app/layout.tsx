@@ -10,6 +10,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://cricplus24.in'),
   title: 'CricPlus24 — Corporate Cricket Tournament Management Platform',
   description: 'CricPlus24 Enterprise Cricket Tournament Platform: DDPL, Game of RUN, live scoring, player auctions, and historical tournament archive.',
   manifest: '/manifest.json',

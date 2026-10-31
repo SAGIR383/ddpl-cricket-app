@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Request OTP / Reset Email
     if (action === 'request_otp') {
-      const origin = req.nextUrl.origin || 'https://ddpl-cricket-app.vercel.app';
+      const origin = req.nextUrl.origin || 'https://cricplus24.in';
       const redirectUrl = `${origin}/auth/callback?next=/auth/reset-password`;
 
       const { error: resetErr } = await adminClient.auth.resetPasswordForEmail(cleanEmail, {

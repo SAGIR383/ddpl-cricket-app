@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     // 1. If admin wants a 1-click bypass link to send to the player
     if (generateLinkOnly) {
-      const origin = req.nextUrl.origin || 'https://ddpl-cricket-app.vercel.app';
+      const origin = req.nextUrl.origin || 'https://cricplus24.in';
       const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email: user.email!,
