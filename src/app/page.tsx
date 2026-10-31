@@ -431,7 +431,7 @@ export default function HomePage() {
         <div className="absolute inset-0 z-0">
           <Image
             src="/images/cricplus-stadium-4k.jpg"
-            alt="CricPlus 4K Cricket Stadium Lights"
+            alt="CricPlus24 4K Cricket Stadium Lights"
             fill
             priority
             unoptimized
@@ -1019,7 +1019,7 @@ export default function HomePage() {
           </h2>
 
           <p className="text-sm sm:text-base text-[#8793A5] leading-relaxed">
-            Built for passionate athletes, franchise managers, and supporters. CricPlus bridges professional tournament administration with high-octane fan engagement.
+            Built for passionate athletes, franchise managers, and supporters. CricPlus24 bridges professional tournament administration with high-octane fan engagement.
           </p>
 
           <div className="pt-4 flex flex-wrap gap-4">

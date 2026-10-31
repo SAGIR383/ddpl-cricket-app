@@ -9,10 +9,10 @@ export function ServiceWorkerRegister() {
         navigator.serviceWorker
           .register('/sw.js')
           .then((reg) => {
-            console.log('CricPlus Service Worker registered with scope:', reg.scope);
+            console.log('CricPlus24 Service Worker registered with scope:', reg.scope);
           })
           .catch((err) => {
-            console.warn('CricPlus Service Worker registration failed:', err);
+            console.warn('CricPlus24 Service Worker registration failed:', err);
           });
       });
     }

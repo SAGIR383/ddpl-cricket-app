@@ -1,5 +1,5 @@
-// CricPlus Service Worker - 4K Stadium Live Sync Version
-const CACHE_NAME = 'cricplus-cache-v4-live';
+// CricPlus24 Service Worker - 4K Stadium Live Sync Version
+const CACHE_NAME = 'cricplus24-cache-v4-live';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon-192.png',

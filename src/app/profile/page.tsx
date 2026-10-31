@@ -279,7 +279,7 @@ export default function ProfilePage() {
               Official Tournament Participation Certificate
             </h3>
             <p className="text-xs text-[#8793A5]">
-              Download your verified CricPlus athlete certificate with gold seal and digital authenticity hash.
+              Download your verified CricPlus24 athlete certificate with gold seal and digital authenticity hash.
             </p>
           </div>
         </div>

@@ -77,7 +77,7 @@ export function MatchHero({
   };
 
   const handleShare = () => {
-    const text = `🏏 *${state.title}* (${state.tournament.toUpperCase()})\n*${currentInnings.battingTeam}: ${currentInnings.totalRuns}/${currentInnings.wickets}* (${calculateOversString(currentInnings.legalBalls)} ov)\nCRR: ${currentRunRate}${isSecondInnings ? ` | Target: ${target} (Need ${neededRuns} off ${ballsRemaining}b, RRR: ${requiredRunRate})` : ''}\n\nFollow live on CricPlus!`;
+    const text = `🏏 *${state.title}* (${state.tournament.toUpperCase()})\n*${currentInnings.battingTeam}: ${currentInnings.totalRuns}/${currentInnings.wickets}* (${calculateOversString(currentInnings.legalBalls)} ov)\nCRR: ${currentRunRate}${isSecondInnings ? ` | Target: ${target} (Need ${neededRuns} off ${ballsRemaining}b, RRR: ${requiredRunRate})` : ''}\n\nFollow live on CricPlus24!`;
 
     if (navigator.share) {
       navigator.share({ title: state.title, text, url: window.location.href }).catch(() => {});

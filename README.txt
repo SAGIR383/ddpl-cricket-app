@@ -1,4 +1,4 @@
-CricPlus - setup
+CricPlus24 - setup
 
 FILES
   index.html    the website (the only file you upload to Netlify)

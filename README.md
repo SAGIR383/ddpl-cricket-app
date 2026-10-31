@@ -1,6 +1,6 @@
-# CricPlus — Enterprise Cricket Tournament Management Platform
+# CricPlus24 — Enterprise Cricket Tournament Management Platform
 
-**CricPlus** is a premier cricket tournament management platform engineered for **TEOCO**, built to manage corporate competitions including **DDPL** (Dynamic Daredevils Premier League), **Game of RUN** (Official TEOCO Cricket Championship), and future company tournaments.
+**CricPlus24** is a premier cricket tournament management platform engineered for **TEOCO**, built to manage corporate competitions including **DDPL** (Dynamic Daredevils Premier League), **Game of RUN** (Official TEOCO Cricket Championship), and future company tournaments.
 
 ---
 

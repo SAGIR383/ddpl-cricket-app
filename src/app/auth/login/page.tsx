@@ -122,7 +122,7 @@ export default function LoginPage() {
         // Refresh global AuthContext
         await refreshProfile();
 
-        setSuccessMsg('Signed in successfully! Launching CricPlus…');
+        setSuccessMsg('Signed in successfully! Launching CricPlus24…');
 
         setTimeout(() => {
           if (result.role === 'super_admin') {
@@ -270,7 +270,7 @@ export default function LoginPage() {
             {authMode === 'forgot_password'
               ? 'Reset Password'
               : authMode === 'register'
-              ? 'Join CricPlus'
+              ? 'Join CricPlus24'
               : 'Welcome Back'}
           </h2>
           <p className="text-xs text-[#8793A5] max-w-xs mx-auto">
@@ -385,7 +385,7 @@ export default function LoginPage() {
                   <p className="font-mono text-sm text-[#F2D69A] font-bold">{resetEmail}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-xs text-gray-300 leading-relaxed text-left">
-                  👉 Open your email app (Gmail, Apple Mail, etc.) and tap the <strong className="text-white">"Reset password"</strong> button. It will open CricPlus directly to set your new password.
+                  👉 Open your email app (Gmail, Apple Mail, etc.) and tap the <strong className="text-white">"Reset password"</strong> button. It will open CricPlus24 directly to set your new password.
                 </div>
               </div>
 
@@ -492,7 +492,7 @@ export default function LoginPage() {
               disabled={loading}
               className="btn-press shimmer-btn w-full py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
             >
-              {loading ? 'Please wait…' : authMode === 'register' ? 'Create My Account' : 'Sign In to CricPlus'}
+              {loading ? 'Please wait…' : authMode === 'register' ? 'Create My Account' : 'Sign In to CricPlus24'}
             </button>
           </form>
         )}

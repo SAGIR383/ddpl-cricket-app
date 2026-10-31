@@ -290,7 +290,7 @@ export default function TournamentsPage() {
             Tournaments Directory
           </h1>
           <p className="text-sm text-[#8793A5] mt-1.5 max-w-2xl">
-            Browse all corporate cricket tournaments, inter-tech championships, and corporate sporting leagues powered by CricPlus.
+            Browse all corporate cricket tournaments, inter-tech championships, and corporate sporting leagues powered by CricPlus24.
           </p>
         </div>
 

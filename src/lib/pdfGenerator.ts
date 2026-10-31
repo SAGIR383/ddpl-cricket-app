@@ -65,7 +65,7 @@ export function generateMatchScorecardPDF(match: MatchLiveState | any, tournamen
     format: 'a4',
   });
 
-  const title = tournamentName || 'CricPlus Enterprise League';
+  const title = tournamentName || 'CricPlus24 Enterprise League';
   const subtitle = `${match.title || 'Official Match Fixture'} • Venue: ${match.venue || 'Corporate Sports Complex'} • Date: ${match.matchDate || new Date().toLocaleDateString()}`;
 
   drawHeaderBanner(doc, title, subtitle);
@@ -206,7 +206,7 @@ export function generateMatchScorecardPDF(match: MatchLiveState | any, tournamen
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(194, 203, 216);
-  doc.text('Verified by CricPlus Enterprise Scorer System • Digitally Signed & Archived', 105, pageHeight - 9, { align: 'center' });
+  doc.text('Verified by CricPlus24 Enterprise Scorer System • Digitally Signed & Archived', 105, pageHeight - 9, { align: 'center' });
   doc.text(`Official Match Document ID: ${match.id || 'M-MATCH'} • Generated ${new Date().toLocaleString()}`, 105, pageHeight - 5, { align: 'center' });
 
   // Save the PDF
@@ -400,7 +400,7 @@ export function generateCertificatePDF(options: CertificateOptions) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(130, 140, 155);
-  doc.text(`Digital Verification Hash: CP-CERT-${Date.now().toString(36).toUpperCase()} • Authenticated via CricPlus Platform`, width / 2, height - 13, { align: 'center' });
+  doc.text(`Digital Verification Hash: CP-CERT-${Date.now().toString(36).toUpperCase()} • Authenticated via CricPlus24 Platform`, width / 2, height - 13, { align: 'center' });
 
   const cleanName = options.recipientName.replace(/[^a-zA-Z0-9]/g, '_');
   doc.save(`Certificate_${cleanName}_${options.type}.pdf`);
@@ -487,7 +487,7 @@ export function generateExecutiveTournamentDossierPDF(data: TournamentDossierDat
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(210, 215, 225);
-  const overviewText = `This document provides the verified administrative summary, official league table standings, player auction ledger, and individual award honors for the ${tourneyName}. All data has been computed and authenticated through the CricPlus digital match and live auction engine.`;
+  const overviewText = `This document provides the verified administrative summary, official league table standings, player auction ledger, and individual award honors for the ${tourneyName}. All data has been computed and authenticated through the CricPlus24 digital match and live auction engine.`;
   const splitOverview = doc.splitTextToSize(overviewText, 170);
   doc.text(splitOverview, 20, y, { lineHeightFactor: 1.4 });
 
@@ -495,7 +495,7 @@ export function generateExecutiveTournamentDossierPDF(data: TournamentDossierDat
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(160, 170, 185);
-  doc.text(`Generated on ${new Date().toLocaleDateString()} • CricPlus Sports Platform`, 105, 275, { align: 'center' });
+  doc.text(`Generated on ${new Date().toLocaleDateString()} • CricPlus24 Sports Platform`, 105, 275, { align: 'center' });
 
   // PAGE 2: STANDINGS & POINTS TABLE
   doc.addPage();

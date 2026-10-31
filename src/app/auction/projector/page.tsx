@@ -251,7 +251,7 @@ function AuctionProjectorContent() {
               <div className="text-center space-y-2">
                 <Users className="w-20 h-20 text-[#D8AD55]/70 mx-auto" />
                 <span className="text-[11px] font-bold text-[#8793A5] uppercase tracking-widest block">
-                  CricPlus Pro
+                  CricPlus24
                 </span>
               </div>
             )}

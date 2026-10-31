@@ -4084,7 +4084,7 @@ export default function AdminDashboardPage() {
               <div className="rounded-2xl p-6 bg-[#08111F] border border-[#D8AD55]/30 flex flex-col justify-between space-y-4">
                 <div className="border border-[#D8AD55]/40 rounded-xl p-5 text-center space-y-2 relative overflow-hidden bg-gradient-to-b from-[#0D1B2A] to-[#08111F]">
                   <div className="text-[10px] font-black tracking-widest text-[#D8AD55] uppercase">
-                    CricPlus Certified Credential Preview
+                    CricPlus24 Certified Credential Preview
                   </div>
                   <div className="font-display font-black text-lg text-[#F2D69A] uppercase tracking-wider">
                     {certType === 'winner'

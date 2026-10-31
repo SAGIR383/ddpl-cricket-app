@@ -13,14 +13,17 @@ export function Footer() {
             <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-[#D8AD55]/40 p-0.5 bg-[#0D1B2A] shrink-0">
               <Image
                 src="/images/cricplus-logo.jpg"
-                alt="CricPlus Logo"
+                alt="CricPlus24 Logo"
                 fill
                 className="object-cover object-center"
               />
             </div>
             <div>
-              <div className="font-display font-black text-xl text-white tracking-wide">
-                Cric<span className="text-[#D8AD55]">Plus</span>
+              <div className="font-display font-black text-xl text-white tracking-wide flex items-center gap-1.5">
+                <span>Cric<span className="text-[#D8AD55]">Plus</span></span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D8AD55]/20 border border-[#D8AD55]/40 text-[#F2D69A] font-black uppercase tracking-wider">
+                  24
+                </span>
               </div>
               <div className="text-[10px] text-[#D8AD55] font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5">
                 <Sparkles className="w-2.5 h-2.5 text-[#D8AD55]" />
@@ -94,7 +97,7 @@ export function Footer() {
         {/* Bottom Rights Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[#8793A5]">
           <div>
-            © {new Date().getFullYear()} CricPlus. All rights reserved. Professional Corporate Cricket League Infrastructure.
+            © {new Date().getFullYear()} CricPlus24. All rights reserved. Professional Corporate Cricket League Infrastructure.
           </div>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1 text-[#D8AD55] font-bold">

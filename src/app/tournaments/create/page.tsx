@@ -1531,7 +1531,7 @@ export default function CreateTournamentPage() {
                 Tournament Successfully Launched!
               </h3>
               <p className="text-xs sm:text-sm text-[#8793A5]">
-                <b className="text-[#F2D69A]">{createdResult.name}</b> is now live on CricPlus with its dedicated auction room, public player registration, and fixtures schedule.
+                <b className="text-[#F2D69A]">{createdResult.name}</b> is now live on CricPlus24 with its dedicated auction room, public player registration, and fixtures schedule.
               </p>
             </div>
 

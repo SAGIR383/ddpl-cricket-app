@@ -60,7 +60,7 @@ export function Navbar() {
               <div className="w-full h-full bg-[#08111F] rounded-[10px] overflow-hidden relative">
                 <Image
                   src="/images/cricplus-logo.jpg"
-                  alt="CricPlus Logo"
+                  alt="CricPlus24 Logo"
                   fill
                   className="object-cover object-center"
                   priority
@@ -72,8 +72,8 @@ export function Navbar() {
                 <span className="font-display font-extrabold text-2xl tracking-tight text-white group-hover:text-[#F2D69A] transition-colors leading-none">
                   Cric<span className="text-[#D8AD55] drop-shadow-[0_0_12px_rgba(216,173,85,0.4)]">Plus</span>
                 </span>
-                <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#F2D69A] font-bold uppercase tracking-wider">
-                  Pro
+                <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-[#D8AD55]/20 border border-[#D8AD55]/40 text-[#F2D69A] font-black uppercase tracking-wider shadow-sm">
+                  24
                 </span>
               </div>
               <span className="text-[9px] sm:text-[10px] font-bold text-[#D8AD55] uppercase tracking-widest mt-0.5 flex items-center gap-1">

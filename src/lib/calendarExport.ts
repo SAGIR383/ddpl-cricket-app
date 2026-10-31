@@ -9,7 +9,7 @@ export function downloadIcsCalendar(tournamentName: string, matches: MatchFixtur
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//CricPlus Enterprise//Corporate Cricket Fixtures//EN',
+    'PRODID:-//CricPlus24 Enterprise//Corporate Cricket Fixtures//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${sanitize(tournamentName)} Cricket League`,
@@ -42,7 +42,7 @@ export function downloadIcsCalendar(tournamentName: string, matches: MatchFixtur
 
     const uid = `${m.id || `match-${idx + 1}`}@ddpl-cricket-app.vercel.app`;
     const summary = `${m.teamA.name} vs ${m.teamB.name} (${m.stage || 'Corporate League'})`;
-    const description = `Corporate Cricket Match #${m.matchNumber}. Follow live scores on CricPlus!`;
+    const description = `Corporate Cricket Match #${m.matchNumber}. Follow live scores on CricPlus24!`;
     const location = m.venue || 'Corporate Arena Ground';
 
     lines.push(

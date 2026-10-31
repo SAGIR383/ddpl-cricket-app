@@ -18,7 +18,7 @@ export interface LiveAnnouncementData {
 const DEFAULT_ANNOUNCEMENT: LiveAnnouncementData = {
   id: 'ann-default',
   tournamentName: 'Global Platform',
-  message: '🏏 Welcome to CricPlus! Global Corporate & Club Cricket Platform with Live Multiplayer Auctions & Ball-by-Ball Scoring.',
+  message: '🏏 Welcome to CricPlus24! Global Corporate & Club Cricket Platform with Live Multiplayer Auctions & Ball-by-Ball Scoring.',
   type: 'championship',
   isActive: true,
   linkText: 'Explore Tournaments',

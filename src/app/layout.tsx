@@ -10,13 +10,13 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
-  title: 'CricPlus — Corporate Cricket Tournament Management Platform',
-  description: 'Enterprise Cricket Tournament Platform: DDPL, Game of RUN, live scoring, player auctions, and historical tournament archive.',
+  title: 'CricPlus24 — Corporate Cricket Tournament Management Platform',
+  description: 'CricPlus24 Enterprise Cricket Tournament Platform: DDPL, Game of RUN, live scoring, player auctions, and historical tournament archive.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black',
-    title: 'CricPlus',
+    title: 'CricPlus24',
   },
 };
 
