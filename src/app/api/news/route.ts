@@ -31,18 +31,24 @@ export async function GET(req: NextRequest) {
     // 1. Single article lookup by slug (stays 100% inside CricPlus24)
     if (slug) {
       let article: any = null;
+      let dbError: any = null;
+      let dataCount = 0;
       try {
         const { data, error } = await supabase
           .from('cricket_news')
           .select('*')
           .eq('slug', slug)
           .limit(1);
+        if (error) dbError = error.message;
+        if (data) dataCount = data.length;
         if (!error && data && data.length > 0) {
           article = data[0];
         }
       } catch (err: any) {
-        console.warn('[NewsAPI] Supabase single fetch error:', err?.message);
+        dbError = err?.message || 'DB catch error';
       }
+
+      const fromDb = Boolean(article);
 
       if (!article) {
         article = cachedNews.find((c) => c.slug === slug);
@@ -78,10 +84,20 @@ export async function GET(req: NextRequest) {
         }
 
         return NextResponse.json(
-          { success: true, article },
+          {
+            success: true,
+            article,
+            _debug: {
+              fromDb,
+              dataCount,
+              dbError,
+              keyPrefix: SUPABASE_KEY ? SUPABASE_KEY.slice(0, 10) : 'none',
+              supabaseUrl: SUPABASE_URL,
+            },
+          },
           {
             headers: {
-              'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+              'Cache-Control': 'no-store, max-age=0',
             },
           }
         );
