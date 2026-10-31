@@ -22,40 +22,30 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('cricplus_lang') as SupportedLanguage;
-      if (saved && translations[saved]) {
-        setLanguageState(saved);
-        if (saved === 'ar') {
-          document.documentElement.dir = 'rtl';
-          document.documentElement.lang = 'ar';
-        } else {
-          document.documentElement.dir = 'ltr';
-          document.documentElement.lang = saved;
-        }
-      }
+      // Always enforce English and reset any legacy language preference
+      localStorage.setItem('cricplus_lang', 'en');
+      document.documentElement.dir = 'ltr';
+      document.documentElement.lang = 'en';
+      setLanguageState('en');
     } catch {
       // ignore
     }
   }, []);
 
-  const setLanguage = (lang: SupportedLanguage) => {
-    setLanguageState(lang);
+  const setLanguage = (_lang: SupportedLanguage) => {
+    // English only platform standard
+    setLanguageState('en');
     try {
-      localStorage.setItem('cricplus_lang', lang);
-      if (lang === 'ar') {
-        document.documentElement.dir = 'rtl';
-        document.documentElement.lang = 'ar';
-      } else {
-        document.documentElement.dir = 'ltr';
-        document.documentElement.lang = lang;
-      }
+      localStorage.setItem('cricplus_lang', 'en');
+      document.documentElement.dir = 'ltr';
+      document.documentElement.lang = 'en';
     } catch {
       // ignore
     }
   };
 
-  const isRtl = language === 'ar';
-  const t = translations[language] || translations.en;
+  const isRtl = false;
+  const t = translations.en;
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t, isRtl }}>

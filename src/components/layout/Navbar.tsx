@@ -261,28 +261,11 @@ export function Navbar() {
           </div>
 
           <div className="pt-2 border-t border-[#D8AD55]/15 space-y-2">
-            {/* Mobile Language and Palette Controls */}
+            {/* Mobile Language (English Only) & Palette Controls */}
             <div className="flex items-center justify-between px-2 py-1">
-              <div className="flex items-center rounded-xl bg-[#08111F] border border-white/10 p-0.5 text-xs font-bold">
-                {[
-                  { code: 'en', label: 'EN' },
-                  { code: 'hi', label: 'HI' },
-                  { code: 'ar', label: 'AR' },
-                  { code: 'es', label: 'ES' },
-                ].map((lang) => (
-                  <button
-                    key={lang.code}
-                    type="button"
-                    onClick={() => setLanguage(lang.code as any)}
-                    className={`px-2.5 py-1 rounded-lg transition-all ${
-                      language === lang.code
-                        ? 'bg-[#D8AD55] text-[#08111F] font-black'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {lang.label}
-                  </button>
-                ))}
+              <div className="flex items-center rounded-xl bg-[#08111F] border border-[#D8AD55]/30 px-3 py-1.5 text-xs font-bold text-[#F2D69A]">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2 inline-block animate-pulse" />
+                <span>English (EN)</span>
               </div>
 
               <button
