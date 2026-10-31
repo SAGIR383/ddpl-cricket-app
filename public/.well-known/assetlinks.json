@@ -1,8 +1,8 @@
 [{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "app.vercel.ddpl_cricket_app.twa",
-    "sha256_cert_fingerprints": ["0E:DC:6C:E2:90:64:CF:FB:08:B3:74:4A:01:98:C7:91:EE:E3:AB:FF:E6:FD:A5:F9:26:6A:AB:12:A9:CD:53:AD"]
-  }
-}]
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "in.cricplus24.www.twa",
+        "sha256_cert_fingerprints": ["00:44:B6:1D:5F:FB:A6:24:43:7F:B5:65:CE:3E:36:9E:BD:9D:D0:37:ED:5B:9E:98:0D:38:E8:0E:0B:18:82:2C"]
+      }
+    }]
