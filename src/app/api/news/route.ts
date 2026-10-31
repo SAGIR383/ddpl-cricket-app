@@ -16,15 +16,97 @@ const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 mins
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const slug = searchParams.get('slug');
     const category = searchParams.get('category');
     const search = searchParams.get('search');
     const limit = parseInt(searchParams.get('limit') || '30', 10);
     const refresh = searchParams.get('refresh') === 'true';
 
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    // 1. Single article lookup by slug (stays 100% inside CricPlus24)
+    if (slug) {
+      let article: any = null;
+      try {
+        const { data, error } = await supabase
+          .from('cricket_news')
+          .select('*')
+          .eq('slug', slug)
+          .single();
+        if (!error && data) article = data;
+      } catch (err) {}
+
+      if (!article) {
+        article = cachedNews.find((c) => c.slug === slug);
+      }
+
+      if (article) {
+        // Upgrade image URL to https
+        if (article.image_url) {
+          article.image_url = article.image_url.replace(/^http:\/\//i, 'https://');
+        }
+
+        // If content is empty or short, fetch full story paragraphs from source_url
+        if ((!article.content || article.content.length < 150) && article.source_url) {
+          try {
+            const pageRes = await fetch(article.source_url, {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              },
+              signal: AbortSignal.timeout(4000),
+            });
+            if (pageRes.ok) {
+              const html = await pageRes.text();
+              const pMatches = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+              const cleanParas = pMatches
+                .map((p) =>
+                  p
+                    .replace(/<[^>]+>/g, '')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/&bull;/g, '•')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&quot;/g, '"')
+                    .trim()
+                )
+                .filter(
+                  (p) =>
+                    p.length > 45 &&
+                    !p.toLowerCase().includes('cookie') &&
+                    !p.toLowerCase().includes('terms of') &&
+                    !p.toLowerCase().includes('privacy policy') &&
+                    !p.toLowerCase().includes('all rights reserved')
+                );
+
+              if (cleanParas.length > 0) {
+                article.content = cleanParas.join('\n\n');
+                if (article.id) {
+                  supabase
+                    .from('cricket_news')
+                    .update({ content: article.content })
+                    .eq('id', article.id)
+                    .then();
+                }
+              }
+            }
+          } catch (scrapeErr) {
+            console.warn('[NewsAPI] Scrape full article error:', scrapeErr);
+          }
+        }
+
+        // Guaranteed fallback content
+        if (!article.content || article.content.length < 50) {
+          article.content = `${article.summary}\n\nStay tuned with CricPlus24 for full ball-by-ball tournament scorecards, win probability metrics, and ongoing international match reports.`;
+        }
+
+        return NextResponse.json({ success: true, article });
+      }
+
+      return NextResponse.json({ success: false, error: 'Article not found' }, { status: 404 });
+    }
+
     const now = Date.now();
     const shouldSync = refresh || now - lastSyncTime > SYNC_INTERVAL_MS || cachedNews.length === 0;
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
     if (shouldSync) {
       try {

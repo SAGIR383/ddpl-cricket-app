@@ -1,25 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
   ArrowLeft,
   Clock,
-  User,
   Share2,
-  Bookmark,
   Check,
-  Globe,
   Sparkles,
   BookOpen,
   MessageCircle,
   Eye,
-  ExternalLink,
 } from 'lucide-react';
 
-interface BlogPost {
+interface ArticleData {
   id: string;
   title: string;
   subtitle?: string;
@@ -31,20 +27,21 @@ interface BlogPost {
   author_name: string;
   published_at: string;
   views_count?: number;
+  source?: string;
+  isEditorial?: boolean;
 }
 
 function calculateReadingTime(text: string): string {
-  const words = text.trim().split(/\s+/).length;
-  const minutes = Math.ceil(words / 200);
+  const words = text ? text.trim().split(/\s+/).length : 0;
+  const minutes = Math.max(1, Math.ceil(words / 200));
   return `${minutes} min read`;
 }
 
 export default function ArticleDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const slug = params?.slug as string;
 
-  const [post, setPost] = useState<BlogPost | null>(null);
+  const [post, setPost] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [related, setRelated] = useState<any[]>([]);
@@ -55,17 +52,66 @@ export default function ArticleDetailPage() {
     async function loadArticle() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/blogs?slug=${encodeURIComponent(slug)}`);
-        const data = await res.json();
-        if (data.success && data.post) {
-          setPost(data.post);
+        // 1. Try fetching from CricPlus blogs/editorials first
+        const blogRes = await fetch(`/api/blogs?slug=${encodeURIComponent(slug)}`);
+        const blogData = await blogRes.json();
+
+        if (blogData.success && blogData.post) {
+          const bp = blogData.post;
+          setPost({
+            id: bp.id,
+            title: bp.title,
+            subtitle: bp.subtitle,
+            slug: bp.slug,
+            summary: bp.summary,
+            content: bp.content || bp.summary || '',
+            cover_image_url: bp.cover_image_url,
+            category: bp.category,
+            author_name: bp.author_name || 'CricPlus Editorial',
+            published_at: bp.published_at,
+            views_count: bp.views_count,
+            source: 'CricPlus',
+            isEditorial: true,
+          });
+        } else {
+          // 2. If not an editorial blog, fetch from Global Cricket News (scrapes full content if not cached)
+          const newsRes = await fetch(`/api/news?slug=${encodeURIComponent(slug)}`);
+          const newsData = await newsRes.json();
+
+          if (newsData.success && newsData.article) {
+            const art = newsData.article;
+            setPost({
+              id: art.id,
+              title: art.title,
+              subtitle: art.summary !== art.content ? art.summary : undefined,
+              slug: art.slug,
+              summary: art.summary,
+              content: art.content || art.summary || '',
+              cover_image_url: art.image_url,
+              category: art.category || 'Global Cricket',
+              author_name: art.author || art.source || 'CricPlus News Desk',
+              published_at: art.published_at,
+              source: art.source || 'Global News',
+              isEditorial: false,
+            });
+          }
         }
 
-        // Also fetch other blogs as related stories
-        const relRes = await fetch('/api/blogs?limit=4');
+        // 3. Fetch related stories (editorials + news)
+        const relRes = await fetch('/api/news?limit=4');
         const relData = await relRes.json();
-        if (relData.success && relData.posts) {
-          setRelated(relData.posts.filter((p: any) => p.slug !== slug).slice(0, 3));
+        if (relData.articles) {
+          setRelated(
+            relData.articles
+              .filter((a: any) => a.slug !== slug)
+              .slice(0, 3)
+              .map((a: any) => ({
+                slug: a.slug,
+                title: a.title,
+                category: a.category || 'News',
+                cover_image_url: a.image_url,
+              }))
+          );
         }
       } catch (err) {
         console.error('Failed to load article:', err);
@@ -80,7 +126,7 @@ export default function ArticleDetailPage() {
   function handleShare(platform?: 'whatsapp' | 'twitter') {
     if (!post) return;
     const url = typeof window !== 'undefined' ? window.location.href : '';
-    const text = `${post.title} | CricPlus24 Cricket Editorial`;
+    const text = `${post.title} | CricPlus24`;
 
     if (platform === 'whatsapp') {
       window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text + '\n' + url)}`, '_blank');
@@ -101,11 +147,14 @@ export default function ArticleDetailPage() {
     }
   }
 
-  // Simple Markdown Renderer for Article Body
+  // Clean Renderer for Article Body
   function renderContent(rawText: string) {
-    const lines = rawText.split('\n');
-    return lines.map((line, idx) => {
-      const trimmed = line.trim();
+    if (!rawText) return null;
+    const paragraphs = rawText.split(/\n+/).filter(Boolean);
+
+    return paragraphs.map((para, idx) => {
+      const trimmed = para.trim();
+      if (!trimmed) return null;
 
       if (trimmed.startsWith('### ')) {
         return (
@@ -131,7 +180,13 @@ export default function ArticleDetailPage() {
         );
       }
 
-      if (trimmed.startsWith('1. ') || trimmed.startsWith('2. ') || trimmed.startsWith('3. ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      if (
+        trimmed.startsWith('1. ') ||
+        trimmed.startsWith('2. ') ||
+        trimmed.startsWith('3. ') ||
+        trimmed.startsWith('- ') ||
+        trimmed.startsWith('* ')
+      ) {
         return (
           <li key={idx} className="ml-5 list-disc text-gray-300 text-sm sm:text-base leading-relaxed my-1">
             {trimmed.replace(/^(\d+\.|\-|\*)\s+/, '')}
@@ -139,12 +194,8 @@ export default function ArticleDetailPage() {
         );
       }
 
-      if (!trimmed) {
-        return <div key={idx} className="h-3" />;
-      }
-
       return (
-        <p key={idx} className="text-gray-300 text-sm sm:text-base leading-relaxed my-3 font-normal">
+        <p key={idx} className="text-gray-300 text-sm sm:text-base leading-relaxed my-4 font-normal">
           {trimmed}
         </p>
       );
@@ -164,7 +215,7 @@ export default function ArticleDetailPage() {
     return (
       <div className="min-h-screen bg-[#040814] flex flex-col items-center justify-center text-center px-4">
         <BookOpen className="w-12 h-12 text-[#D8AD55] mb-4 opacity-50" />
-        <h2 className="text-xl font-bold text-white">Editorial Not Found</h2>
+        <h2 className="text-xl font-bold text-white">Article Not Found</h2>
         <p className="text-xs text-gray-400 mt-2 max-w-sm">
           This article might have been moved or removed by the editorial desk.
         </p>
@@ -180,7 +231,6 @@ export default function ArticleDetailPage() {
 
   return (
     <article className="min-h-screen bg-[#040814] text-gray-100 pb-24">
-      
       {/* Top Breadcrumbs & Back */}
       <div className="border-b border-gray-800 bg-[#08111F]/80 backdrop-blur-md sticky top-[60px] z-30 py-3">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 flex items-center justify-between">
@@ -213,11 +263,10 @@ export default function ArticleDetailPage() {
 
       {/* Main Reading Container */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 mt-8">
-        
         {/* Category Pill */}
         <div className="flex items-center gap-2 mb-4">
           <span className="px-2.5 py-1 rounded bg-[#D8AD55] text-black text-[11px] font-black uppercase tracking-wider">
-            ✍️ CricPlus Editorial
+            {post.isEditorial ? '✍️ CricPlus Editorial' : `🏏 ${post.source || 'Cricket News'}`}
           </span>
           <span className="px-2.5 py-1 rounded bg-[#0D1B2A] border border-[#D8AD55]/40 text-[#F2D69A] text-[10px] font-bold uppercase tracking-wider">
             {post.category}
@@ -229,7 +278,7 @@ export default function ArticleDetailPage() {
           {post.title}
         </h1>
 
-        {/* Subtitle */}
+        {/* Subtitle / Teaser */}
         {post.subtitle && (
           <p className="text-sm sm:text-lg text-gray-300 mt-3 font-medium leading-relaxed">
             {post.subtitle}
@@ -240,11 +289,13 @@ export default function ArticleDetailPage() {
         <div className="flex flex-wrap items-center gap-4 py-4 my-6 border-y border-gray-800 text-xs text-gray-400">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full bg-[#D8AD55] text-black font-black flex items-center justify-center text-xs">
-              CP
+              {post.isEditorial ? 'CP' : '🏏'}
             </div>
             <div>
               <span className="text-white font-bold block">{post.author_name}</span>
-              <span className="text-[10px] text-[#D8AD55] uppercase font-bold tracking-wider">Master Desk</span>
+              <span className="text-[10px] text-[#D8AD55] uppercase font-bold tracking-wider">
+                {post.isEditorial ? 'Master Desk' : (post.source || 'Global Coverage')}
+              </span>
             </div>
           </div>
 
@@ -252,7 +303,13 @@ export default function ArticleDetailPage() {
 
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-[#D8AD55]" />
-            <span>{new Date(post.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            <span>
+              {new Date(post.published_at).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
           </div>
 
           <span className="text-gray-600">•</span>
@@ -296,8 +353,8 @@ export default function ArticleDetailPage() {
         {/* Share Footer */}
         <div className="mt-12 pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#08111F] p-6 rounded-2xl border border-gray-800">
           <div>
-            <h4 className="font-display font-bold text-white text-base">Enjoyed this analysis?</h4>
-            <p className="text-xs text-gray-400 mt-0.5">Share with your cricket group or colleagues</p>
+            <h4 className="font-display font-bold text-white text-base">Enjoyed this coverage?</h4>
+            <p className="text-xs text-gray-400 mt-0.5">Share with your cricket group or friends</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -323,7 +380,7 @@ export default function ArticleDetailPage() {
           <div className="mt-16 space-y-4">
             <h3 className="font-display font-black text-lg text-white tracking-wide border-b border-gray-800 pb-2 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#D8AD55]" />
-              <span>More From CricPlus Editorial</span>
+              <span>Related Cricket Stories</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -357,9 +414,7 @@ export default function ArticleDetailPage() {
             </div>
           </div>
         )}
-
       </div>
-
     </article>
   );
 }

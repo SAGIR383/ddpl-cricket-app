@@ -110,9 +110,7 @@ export default function CricketNewsPage() {
     e.preventDefault();
     e.stopPropagation();
 
-    const url = article.isBlog
-      ? `${window.location.origin}/news/${article.slug}`
-      : article.source_url || `${window.location.origin}/news`;
+    const url = `${window.location.origin}/news/${article.slug}`;
 
     if (navigator.share) {
       navigator.share({
@@ -317,9 +315,7 @@ export default function CricketNewsPage() {
                     </div>
 
                     <Link
-                      href={heroStory.isBlog ? `/news/${heroStory.slug}` : (heroStory.source_url || '#')}
-                      target={heroStory.isBlog ? '_self' : '_blank'}
-                      rel="noopener noreferrer"
+                      href={`/news/${heroStory.slug}`}
                       className="block group/title"
                     >
                       <h2 className="font-display font-extrabold text-xl sm:text-2xl text-white group-hover/title:text-[#D8AD55] transition-colors leading-snug">
@@ -333,13 +329,11 @@ export default function CricketNewsPage() {
 
                     <div className="pt-2 flex items-center justify-between border-t border-gray-800">
                       <Link
-                        href={heroStory.isBlog ? `/news/${heroStory.slug}` : (heroStory.source_url || '#')}
-                        target={heroStory.isBlog ? '_self' : '_blank'}
-                        rel="noopener noreferrer"
+                        href={`/news/${heroStory.slug}`}
                         className="inline-flex items-center gap-1.5 text-xs font-bold text-[#D8AD55] hover:text-[#F2D69A] transition-colors"
                       >
-                        <span>{heroStory.isBlog ? 'Read Complete Editorial' : 'Read Full Coverage on ' + heroStory.source}</span>
-                        {heroStory.isBlog ? <ArrowRight className="w-3.5 h-3.5" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                        <span>{heroStory.isBlog ? 'Read Complete Editorial' : 'Read Full Story'}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </div>
                   </div>
@@ -365,7 +359,10 @@ export default function CricketNewsPage() {
                       className="p-4 sm:p-5 hover:bg-[#0D1B2A]/60 transition-colors flex flex-col sm:flex-row gap-4 items-start group"
                     >
                       {/* Image Thumbnail */}
-                      <div className="relative w-full sm:w-44 h-40 sm:h-28 rounded-xl overflow-hidden bg-black shrink-0 border border-gray-800 group-hover:border-[#D8AD55]/40 transition-colors">
+                      <Link
+                        href={`/news/${item.slug}`}
+                        className="relative w-full sm:w-44 h-40 sm:h-28 rounded-xl overflow-hidden bg-black shrink-0 border border-gray-800 group-hover:border-[#D8AD55]/40 transition-colors block"
+                      >
                         <Image
                           src={item.image_url?.replace(/^http:\/\//i, 'https://') || '/images/cricket-ball-blast.jpg'}
                           alt={item.title}
@@ -382,7 +379,7 @@ export default function CricketNewsPage() {
                             Editorial
                           </span>
                         )}
-                      </div>
+                      </Link>
 
                       {/* Text Content */}
                       <div className="flex-1 min-w-0 space-y-1.5">
@@ -395,9 +392,7 @@ export default function CricketNewsPage() {
                         </div>
 
                         <Link
-                          href={item.isBlog ? `/news/${item.slug}` : (item.source_url || '#')}
-                          target={item.isBlog ? '_self' : '_blank'}
-                          rel="noopener noreferrer"
+                          href={`/news/${item.slug}`}
                           className="block"
                         >
                           <h4 className="font-display font-bold text-sm sm:text-base text-white group-hover:text-[#D8AD55] transition-colors line-clamp-2 leading-snug">
@@ -411,13 +406,11 @@ export default function CricketNewsPage() {
 
                         <div className="pt-1 flex items-center justify-between text-xs">
                           <Link
-                            href={item.isBlog ? `/news/${item.slug}` : (item.source_url || '#')}
-                            target={item.isBlog ? '_self' : '_blank'}
-                            rel="noopener noreferrer"
+                            href={`/news/${item.slug}`}
                             className="inline-flex items-center gap-1 text-[11px] font-bold text-[#D8AD55] hover:text-[#F2D69A]"
                           >
-                            <span>{item.isBlog ? 'Read Post' : 'View on ' + item.source}</span>
-                            {item.isBlog ? <ArrowRight className="w-3 h-3" /> : <ExternalLink className="w-3 h-3" />}
+                            <span>Read Full Story</span>
+                            <ArrowRight className="w-3 h-3" />
                           </Link>
 
                           <button
@@ -495,9 +488,7 @@ export default function CricketNewsPage() {
                   {trendingStories.map((trend, idx) => (
                     <Link
                       key={trend.slug || idx}
-                      href={trend.isBlog ? `/news/${trend.slug}` : (trend.source_url || '#')}
-                      target={trend.isBlog ? '_self' : '_blank'}
-                      rel="noopener noreferrer"
+                      href={`/news/${trend.slug}`}
                       className="flex items-start gap-3 group/trend hover:bg-[#0D1B2A]/50 p-1.5 rounded-lg transition-colors"
                     >
                       <span className="font-display font-black text-xl text-[#D8AD55]/70 w-5 shrink-0 text-center leading-none">
