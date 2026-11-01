@@ -2450,7 +2450,7 @@ export default function AdminDashboardPage() {
                   Official Tournament Schedule Timeline
                 </span>
                 <h3 className="font-display font-extrabold text-2xl text-white">
-                  {selectedTournament === 'ddpl' ? 'DDPL 2026' : 'Game of RUN 2026'} — Dates Management
+                  {(tournamentsList.find((t: any) => t.slug === selectedTournament)?.name) || selectedTournament.toUpperCase() || 'Tournament'} — Dates Management
                 </h3>
                 <p className="text-xs text-cricket-muted mt-1">
                   Set, unset, or reschedule the tournament starting date and closing date. These dates directly reflect across the public tournament cards and match fixtures.
@@ -2516,12 +2516,10 @@ export default function AdminDashboardPage() {
                   Smart Tournament Format Generator
                 </span>
                 <h3 className="font-display font-bold text-2xl text-white">
-                  {selectedTournament === 'ddpl' ? 'DDPL Format Auto-Scheduler' : 'Game of RUN Format Auto-Scheduler'}
+                  {(tournamentsList.find((t: any) => t.slug === selectedTournament)?.name) || 'Tournament'} Auto-Scheduler
                 </h3>
                 <p className="text-xs text-cricket-muted leading-relaxed">
-                  {selectedTournament === 'ddpl'
-                    ? `Generates Round-Robin league matches between all ${teams.length} franchise teams + Top 4 Playoffs (Qualifier 1, Eliminator, Qualifier 2, and Grand Final).`
-                    : `Splits ${teams.length} teams into Group A & Group B, generating group round-robin clashes followed by Semi-Final 1, Semi-Final 2, and the Grand Final.`}
+                  Generates round-robin fixtures, group stages, and playoff brackets according to your tournament structure for all {teams.length} franchise teams.
                 </p>
               </div>
 

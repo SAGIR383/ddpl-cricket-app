@@ -32,8 +32,14 @@ import { generateTournamentExcelReport } from '@/lib/excelGenerator';
 
 export default function TournamentDetailPage() {
   const params = useParams();
-  const slug = (params.slug as string) || 'ddpl';
-  const isDDPL = slug === 'ddpl';
+  const slug = (params.slug as string) || '';
+  const formattedSlugName = slug
+    ? slug
+        .split('-')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')
+    : 'Tournament Hub';
+
   const { user, profile, isSuperAdmin, isOrganizer } = useAuth();
   const hasAdminRights = isSuperAdmin || isOrganizer;
   const supabase = createClient();
@@ -41,8 +47,9 @@ export default function TournamentDetailPage() {
   const [selectedSeason, setSelectedSeason] = useState('2026');
   const [teams, setTeams] = useState<any[]>([]);
   const [tournamentConfig, setTournamentConfig] = useState<any>({
-    status: isDDPL ? 'open' : 'upcoming',
-    name: isDDPL ? 'Desk to Dugout Premier League (DDPL)' : 'Game of RUN',
+    status: 'upcoming',
+    name: formattedSlugName,
+    fullName: formattedSlugName,
     pursePerTeam: 10000,
     ownerBasePrice: 500,
   });
@@ -280,10 +287,10 @@ export default function TournamentDetailPage() {
     (r) => r.email?.toLowerCase() === user?.email?.toLowerCase()
   );
 
-  const matchOvers = rules.matchOvers || tournamentConfig.overs || (isDDPL ? 10 : 12);
+  const matchOvers = rules?.matchOvers || tournamentConfig?.overs || 10;
 
   // Derive live status faithfully from tournamentConfig set by Super Admin
-  const currentStatus: string = tournamentConfig.status || 'open';
+  const currentStatus: string = tournamentConfig?.status || 'upcoming';
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -342,14 +349,13 @@ export default function TournamentDetailPage() {
   const statusInfo = getStatusBadge(currentStatus);
 
   const tournament = {
-    name: tournamentConfig.name || (isDDPL ? 'DDPL' : 'Game of RUN'),
-    fullName: tournamentConfig.fullName || (isDDPL ? 'Desk to Dugout Premier League (DDPL)' : 'Game of RUN Corporate Championship'),
-    description: tournamentConfig.tagline || tournamentConfig.description || (
-      isDDPL
-        ? `Desk to Dugout Premier League for corporate cricket enthusiasts, featuring ${matchOvers}-over innings, live player auctions, and ${teams.length} premier franchises.`
-        : `The official annual corporate cricket championship, featuring ${matchOvers}-over innings, full team purse allocations, and corporate department rivalry.`
-    ),
-    seasons: [tournamentConfig.season || selectedSeason || '2027'],
+    name: tournamentConfig?.name || formattedSlugName,
+    fullName: tournamentConfig?.fullName || tournamentConfig?.name || formattedSlugName,
+    description:
+      tournamentConfig?.tagline ||
+      tournamentConfig?.description ||
+      `Official championship hub for ${tournamentConfig?.name || formattedSlugName}. Features live player auctions, match fixtures, team rosters, and digital scorecards.`,
+    seasons: [tournamentConfig?.season || selectedSeason || '2026'],
     overs: matchOvers,
   };
 

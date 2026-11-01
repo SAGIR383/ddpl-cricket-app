@@ -297,7 +297,7 @@ export default function HomePage() {
           const cfg = allConfigs[slug] || t;
           const tAuction = allAuctionTourneys[slug] || (slug === 'ddpl' ? aData?.data : null);
           const tRules = allRulesTourneys[slug] || (slug === 'ddpl' ? rulesData?.rules : null);
-          const overs = tRules?.matchOvers || cfg.overs || t.overs || (slug === 'game-of-run' ? 12 : 10);
+          const overs = tRules?.matchOvers || cfg.overs || t.overs || 10;
           const tTeams = tAuction?.teams || [];
           const teamsCount = tTeams.length;
           const status = cfg.status || t.status || 'upcoming';
@@ -308,7 +308,7 @@ export default function HomePage() {
             name: t.name || cfg.name || slug.toUpperCase(),
             shortName: t.shortName || cfg.shortName || slug.toUpperCase(),
             fullName: t.fullName || cfg.fullName || `${t.name || slug} Cricket Tournament`,
-            tagline: t.tagline || cfg.tagline || (slug === 'ddpl' ? 'High-intensity 10-over matches, powerplay restrictions, and intra-department corporate pride.' : 'The flagship corporate championship. Features 12-over matches, group stage showdowns, and playoffs.'),
+            tagline: t.tagline || cfg.tagline || 'Official corporate cricket championship featuring live auctions, group stages, and grand finals.',
             status,
             overs,
             teamsCount: teamsCount > 0 ? teamsCount : 0,
