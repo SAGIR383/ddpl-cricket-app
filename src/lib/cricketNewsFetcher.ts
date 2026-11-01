@@ -351,9 +351,9 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
     }
   }
 
-  // Pre-fetch full rich article content concurrently for top stories
-  await Promise.allSettled(
-    newsItems.slice(0, 15).map(async (item) => {
+  // Non-blocking background pre-fetch for top 3 stories (does not block list API)
+  Promise.allSettled(
+    newsItems.slice(0, 3).map(async (item) => {
       if (!item.content && item.source_url) {
         const fullContent = await extractArticleContent(item.source_url);
         if (fullContent && fullContent.length > 100) {
@@ -361,7 +361,7 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
         }
       }
     })
-  );
+  ).catch(() => {});
 
   // Sort descending by published_at
   newsItems.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());

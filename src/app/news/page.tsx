@@ -66,49 +66,67 @@ export default function CricketNewsPage() {
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   async function loadContent(isBackground = false) {
-    if (!isBackground) setLoading(true);
+    // Only show full-page loading spinner if we have no articles yet and it's not a background sync
+    if (!isBackground && articles.length === 0) {
+      setLoading(true);
+    }
 
     try {
       const timestamp = Date.now();
-      // 1. Fetch live global news (ESPN Cricinfo & Cricbuzz) with cache busting
-      const newsRes = await fetch(`/api/news?refresh=true&_t=${timestamp}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' },
-      });
-      const newsData = await newsRes.json();
-      const newsList: Article[] = newsData.articles || [];
+      // On initial load, fetch fast stored news; on background sync, force live external refresh
+      const url = isBackground
+        ? `/api/news?refresh=true&_t=${timestamp}`
+        : `/api/news?_t=${timestamp}`;
 
-      // 2. Fetch CricPlus Editorials & Blogs
-      const blogRes = await fetch(`/api/blogs?_t=${timestamp}`, {
-        cache: 'no-store',
-      });
-      const blogData = await blogRes.json();
-      const blogList: Article[] = (blogData.posts || []).map((b: any) => ({
-        id: b.id,
-        title: b.title,
-        slug: b.slug,
-        summary: b.summary || b.subtitle || '',
-        image_url: b.cover_image_url || '/images/cricplus-stadium-4k.jpg',
-        source: 'CricPlus Editorial',
-        category: b.category || 'Editorial',
-        published_at: b.published_at,
-        author_name: b.author_name || 'CricPlus Chief Editor',
-        isBlog: true,
-      }));
+      const [newsRes, blogRes] = await Promise.allSettled([
+        fetch(url, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        }),
+        fetch(`/api/blogs?_t=${timestamp}`, {
+          cache: 'no-store',
+        }),
+      ]);
 
-      setBlogs(blogList);
-      setArticles(newsList);
+      if (newsRes.status === 'fulfilled' && newsRes.value.ok) {
+        const newsData = await newsRes.value.json();
+        if (newsData.articles && newsData.articles.length > 0) {
+          setArticles(newsData.articles);
+        }
+      }
+
+      if (blogRes.status === 'fulfilled' && blogRes.value.ok) {
+        const blogData = await blogRes.value.json();
+        const blogList: Article[] = (blogData.posts || []).map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          slug: b.slug,
+          summary: b.summary || b.subtitle || '',
+          image_url: b.cover_image_url || '/images/cricplus-stadium-4k.jpg',
+          source: 'CricPlus Editorial',
+          category: b.category || 'Editorial',
+          published_at: b.published_at,
+          author_name: b.author_name || 'CricPlus Chief Editor',
+          isBlog: true,
+        }));
+        setBlogs(blogList);
+      }
     } catch (err) {
       console.error('Failed to load news:', err);
     } finally {
-      if (!isBackground) setLoading(false);
+      setLoading(false);
     }
   }
 
-  // Initial load & silent background auto-refresh every 25 seconds
+  // Initial fast load, followed immediately by silent live background sync
   useEffect(() => {
-    loadContent(false);
+    // 1. Instant load from database/cache (< 100ms)
+    loadContent(false).then(() => {
+      // 2. Immediate live background sync for newest Cricbuzz + Cricinfo stories
+      loadContent(true);
+    });
 
+    // 3. Keep silently refreshing in the background every 25 seconds
     const interval = setInterval(() => {
       loadContent(true);
     }, 25000);

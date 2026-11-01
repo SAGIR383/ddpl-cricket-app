@@ -137,15 +137,18 @@ export async function GET(req: NextRequest) {
             return row;
           });
 
-          // Await upsert so Supabase has the latest records BEFORE querying
-          try {
-            const { error: upsertErr } = await supabase
+          // Upsert asynchronously in background so client response is instant
+          Promise.resolve(
+            supabase
               .from('cricket_news')
-              .upsert(upsertRows, { onConflict: 'slug' });
-            if (upsertErr) console.warn('[NewsAPI] Supabase archive sync error:', upsertErr.message);
-          } catch (e: any) {
-            console.warn('[NewsAPI] Supabase upsert exception:', e?.message);
-          }
+              .upsert(upsertRows, { onConflict: 'slug' })
+          )
+            .then(({ error: upsertErr }) => {
+              if (upsertErr) console.warn('[NewsAPI] Supabase archive sync error:', upsertErr.message);
+            })
+            .catch((e: any) => {
+              console.warn('[NewsAPI] Supabase upsert exception:', e?.message);
+            });
         }
       } catch (syncErr) {
         console.warn('[NewsAPI] Sync live news error:', syncErr);
