@@ -1192,6 +1192,7 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        invalidateClientCache();
         showNotification(`Rules & Playing Conditions for "${selectedTournament.toUpperCase()}" saved successfully!`);
       } else {
         alert(data.error || 'Failed to save rules');

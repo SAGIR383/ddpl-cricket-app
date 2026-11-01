@@ -234,11 +234,11 @@ export default function HomePage() {
     async function loadLiveData() {
       try {
         const [regData, aData, rulesData, matchesData, annData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 3000 }),
-          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 3000 }),
-          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 5000 }),
-          fetchWithCache<any>('/api/matches?tournament=ddpl', { ttlMs: 3000 }),
-          fetchWithCache<any>('/api/announcement', { ttlMs: 3000 }),
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 1000 }),
+          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 1000 }),
+          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 1000 }),
+          fetchWithCache<any>('/api/matches?tournament=ddpl', { ttlMs: 1000 }),
+          fetchWithCache<any>('/api/announcement', { ttlMs: 1000 }),
         ]);
 
         if (!isMounted) return;
@@ -290,17 +290,18 @@ export default function HomePage() {
 
         const allConfigs = regData?.allConfigs || {};
         const allAuctionTourneys = aData?.allTournaments || {};
-        const allRulesTourneys = rulesData?.tournaments || {};
+        const allRulesTourneys = rulesData?.tournaments || regData?.rulesMap || {};
 
         const resolvedTourneys: TournamentCardItem[] = baseList.map((t: any) => {
           const slug = t.slug || 'ddpl';
           const cfg = allConfigs[slug] || t;
           const tAuction = allAuctionTourneys[slug] || (slug === 'ddpl' ? aData?.data : null);
           const tRules = allRulesTourneys[slug] || (slug === 'ddpl' ? rulesData?.rules : null);
-          const overs = tRules?.matchOvers || cfg.overs || t.overs || 10;
+          const overs = Number(tRules?.matchOvers) || Number(cfg.overs) || Number(t.overs) || 10;
           const tTeams = tAuction?.teams || [];
           const teamsCount = tTeams.length;
           const status = cfg.status || t.status || 'upcoming';
+          const pursePerTeam = Number(tRules?.basePurse) || Number(cfg.pursePerTeam) || Number(t.pursePerTeam) || 10000;
 
           return {
             id: slug,
@@ -312,7 +313,7 @@ export default function HomePage() {
             status,
             overs,
             teamsCount: teamsCount > 0 ? teamsCount : 0,
-            pursePerTeam: cfg.pursePerTeam || t.pursePerTeam || 10000,
+            pursePerTeam,
             logo: t.logo || cfg.logo || '/images/default-tournament.svg',
             bannerColor: t.bannerColor || cfg.bannerColor,
           };

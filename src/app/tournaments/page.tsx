@@ -178,9 +178,9 @@ export default function TournamentsPage() {
       if (tournaments.length === 0) setLoading(true);
       try {
         const [regData, aData, rulesData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 3000 }),
-          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 3000 }),
-          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 3000 }),
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 1000 }),
+          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 1000 }),
+          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 1000 }),
         ]);
 
         if (!isMounted) return;
@@ -191,14 +191,14 @@ export default function TournamentsPage() {
         }
 
         const allAuctionTourneys = aData?.allTournaments || {};
-        const allRulesTourneys = rulesData?.tournaments || {};
+        const allRulesTourneys = rulesData?.tournaments || regData?.rulesMap || {};
 
         const populatedTournaments: TournamentMeta[] = configsList.map((cfg: any) => {
           const slug = cfg.slug || 'ddpl';
           const tourneyAuctionData = allAuctionTourneys[slug] || (slug === 'ddpl' ? aData?.data : null);
           const teamsCount = tourneyAuctionData?.teams?.length || 0;
           const tourneyRules = allRulesTourneys[slug];
-          const overs = tourneyRules?.matchOvers || cfg.overs || 10;
+          const overs = Number(tourneyRules?.matchOvers) || Number(cfg.overs) || 10;
           const startDate = cfg.startDate || null;
           const endDate = cfg.endDate || null;
 

@@ -67,11 +67,29 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
 
-  const configs = await getStoreData<Record<string, TournamentConfig>>(
-    'tournament_configs',
-    'tournament_configs.json',
-    {}
-  );
+  const [configs, rulesContainer] = await Promise.all([
+    getStoreData<Record<string, TournamentConfig>>(
+      'tournament_configs',
+      'tournament_configs.json',
+      {}
+    ),
+    getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+  ]);
+
+  const rulesMap = rulesContainer?.tournaments || rulesContainer || {};
+
+  // Cross-synchronize rules and configs so overs, purse, squad size are 100% consistent across all views
+  Object.keys(configs).forEach((key) => {
+    const cfg = configs[key];
+    const r = rulesMap[key];
+    if (r) {
+      if (r.matchOvers !== undefined) cfg.overs = Number(r.matchOvers);
+      if (r.basePurse !== undefined) cfg.pursePerTeam = Number(r.basePurse);
+      if (r.ownerBlockedPrice !== undefined) cfg.ownerBasePrice = Number(r.ownerBlockedPrice);
+      if (r.maxSquadSize !== undefined) cfg.maxSquad = Number(r.maxSquadSize);
+      if (r.minSquadSize !== undefined) cfg.minSquad = Number(r.minSquadSize);
+    }
+  });
 
   const config = configs[tournament] || (Object.keys(configs).length > 0 ? Object.values(configs)[0] : {
     slug: tournament,
@@ -81,16 +99,16 @@ export async function GET(req: Request) {
     tagline: `${tournament.toUpperCase()} Cricket Tournament`,
     season: '2027',
     totalSeasons: 1,
-    overs: 10,
+    overs: rulesMap[tournament]?.matchOvers ? Number(rulesMap[tournament].matchOvers) : 10,
     format: 'ddpl',
     bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
     logo: '/images/default-tournament.svg',
     status: 'upcoming',
-    pursePerTeam: 10000,
-    ownerBasePrice: 500,
-    maxSquad: 11,
-    minSquad: 7,
+    pursePerTeam: rulesMap[tournament]?.basePurse ? Number(rulesMap[tournament].basePurse) : 10000,
+    ownerBasePrice: rulesMap[tournament]?.ownerBlockedPrice ? Number(rulesMap[tournament].ownerBlockedPrice) : 500,
+    maxSquad: rulesMap[tournament]?.maxSquadSize ? Number(rulesMap[tournament].maxSquadSize) : 11,
+    minSquad: rulesMap[tournament]?.minSquadSize ? Number(rulesMap[tournament].minSquadSize) : 7,
     startDate: null,
     endDate: null,
     createdAt: new Date().toISOString(),
@@ -112,12 +130,13 @@ export async function GET(req: Request) {
       config,
       allConfigs: configs,
       tournamentsList,
+      rulesMap,
       registrations,
       count: registrations.length,
     },
     {
       headers: {
-        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=20',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     }
   );
@@ -720,12 +739,14 @@ export async function POST(req: Request) {
         orgs,
         roles,
         allAuction,
+        rulesContainer,
       ] = await Promise.all([
         getStoreData<Record<string, TournamentConfig>>('tournament_configs', 'tournament_configs.json', DEFAULT_CONFIGS),
         getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}),
         getStoreData<Record<string, any>>('corporate_organizations', 'organizations.json', {}),
         getStoreData<Record<string, string>>('user_roles', 'roles.json', {}),
         getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }),
+        getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
       ]);
 
       const resolvedShort = (shortName || name.split(' ').map((w: string) => w[0]).join('').slice(0, 4)).toUpperCase();
@@ -925,9 +946,14 @@ export async function POST(req: Request) {
         lastUpdated: new Date().toISOString(),
       };
 
+      // Update global tournament_rules container so rules are immediately synced everywhere
+      if (!rulesContainer.tournaments) rulesContainer.tournaments = {};
+      rulesContainer.tournaments[generatedSlug] = rules;
+
       // FAST PARALLEL WRITE: Persist all tournament stores simultaneously (< 1.5s total)
       await Promise.all([
         setStoreData('tournament_configs', configs, 'tournament_configs.json'),
+        setStoreData('tournament_rules', rulesContainer, 'rules.json'),
         setStoreData('auction_data_ddpl', allAuction, 'auction_data.json'),
         setStoreData(`tournament_rules_${generatedSlug}`, rules, `rules_${generatedSlug}.json`),
         setStoreData(`tournament_schedule_${generatedSlug}`, schedule, `schedule_${generatedSlug}.json`),
@@ -935,6 +961,12 @@ export async function POST(req: Request) {
         creatorEmail ? setStoreData('user_roles', roles, 'roles.json') : Promise.resolve(),
         creatorEmail ? setStoreData('super_admin_accounts', adminAccounts, 'super_admin_accounts.json') : Promise.resolve(),
       ]);
+
+      // Invalidate memory cache across all stores
+      invalidateStoreCache('tournament_configs');
+      invalidateStoreCache('tournament_rules');
+      invalidateStoreCache(`tournament_rules_${generatedSlug}`);
+      invalidateStoreCache('auction_data_ddpl');
 
       // Non-blocking background Supabase Auth user & profile provisioning
       if (creatorEmail) {
