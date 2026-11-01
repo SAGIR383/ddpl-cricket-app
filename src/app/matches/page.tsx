@@ -23,7 +23,7 @@ interface MatchDisplay {
 }
 
 export default function MatchesPage() {
-  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [matches, setMatches] = useState<MatchDisplay[]>([]);
   const [tournamentStartDate, setTournamentStartDate] = useState<string | null>(null);
@@ -37,11 +37,12 @@ export default function MatchesPage() {
     async function loadMatchesFromApi() {
       if (matches.length === 0) setLoading(true);
       try {
+        const activeSlug = selectedTournament || 'ddpl';
         const [regData, mData, rulesData, aData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 3000 }),
-          fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 3000 }),
-          fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 3000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 3000 }),
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 20000 }),
+          fetchWithCache<any>(`/api/matches?tournament=${activeSlug}`, { ttlMs: 20000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${activeSlug}`, { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 20000 }),
         ]);
 
         if (!isMounted) return;

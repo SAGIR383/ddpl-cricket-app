@@ -21,13 +21,16 @@ interface CacheEntry<T> {
 const memoryCache = new Map<string, CacheEntry<any>>();
 const inFlightRequests = new Map<string, Promise<any>>();
 
-// Helper to determine optimal TTL based on key type
+// Helper to determine optimal TTL based on key type (extended for high-traffic bandwidth efficiency)
 function getOptimalTtlMs(key: string): number {
-  if (key.startsWith('auction_data_')) return 4000; // 4s for live auction
-  if (key.startsWith('tournament_schedule_')) return 6000; // 6s for match schedule
-  if (key === 'tournament_rules') return 30000; // 30s for rules
-  if (key.startsWith('tournament_registrations_')) return 6000; // 6s for registrations
-  return 5000; // 5s default
+  if (key.startsWith('auction_data_')) return 6000; // 6s for live auction
+  if (key.startsWith('tournament_schedule_')) return 30000; // 30s for match schedule
+  if (key === 'tournament_rules' || key.startsWith('tournament_rules_')) return 120000; // 2 mins for rules
+  if (key === 'tournament_configs') return 120000; // 2 mins for tournament configs
+  if (key === 'user_roles' || key === 'super_admin_accounts') return 300000; // 5 mins for accounts/roles
+  if (key.startsWith('tournament_registrations_')) return 20000; // 20s for registrations
+  if (key === 'cricplus_articles' || key.startsWith('blog_')) return 180000; // 3 mins for articles
+  return 30000; // 30s default
 }
 
 export function invalidateStoreCache(key?: string) {

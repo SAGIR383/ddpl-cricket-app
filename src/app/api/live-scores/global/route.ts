@@ -54,10 +54,10 @@ export interface GlobalLiveMatch {
   lastUpdated: string;
 }
 
-// In-memory cache with ultra-short 3s TTL for genuine real-time ball-by-ball precision
+// In-memory cache with 10s TTL to protect against external rate limits and reduce egress
 let cachedMatches: GlobalLiveMatch[] = [];
 let lastFetchTime = 0;
-const CACHE_TTL_MS = 3000;
+const CACHE_TTL_MS = 10000;
 
 // Individual match details cache (2s TTL)
 const matchDetailsCache = new Map<string, { data: Partial<GlobalLiveMatch>; time: number }>();
@@ -488,7 +488,7 @@ export async function GET(req: Request) {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=2, stale-while-revalidate=5',
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
         },
       }
     );

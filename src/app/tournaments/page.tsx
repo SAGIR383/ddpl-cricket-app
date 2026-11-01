@@ -178,9 +178,9 @@ export default function TournamentsPage() {
       if (tournaments.length === 0) setLoading(true);
       try {
         const [regData, aData, rulesData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 1000 }),
-          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 1000 }),
-          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 1000 }),
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 15000 }),
+          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 15000 }),
+          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 20000 }),
         ]);
 
         if (!isMounted) return;
@@ -239,8 +239,11 @@ export default function TournamentsPage() {
 
     loadTournamentsData();
 
-    // Live auto-refresh every 5s & re-sync on window focus
-    const interval = setInterval(loadTournamentsData, 5000);
+    // Visibility-aware auto-refresh: poll every 20s when active (reduces Supabase egress)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadTournamentsData();
+    }, 20000);
     const handleFocus = () => loadTournamentsData();
     window.addEventListener('focus', handleFocus);
 

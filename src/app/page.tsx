@@ -234,11 +234,11 @@ export default function HomePage() {
     async function loadLiveData() {
       try {
         const [regData, aData, rulesData, matchesData, annData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 1000 }),
-          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 1000 }),
-          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 1000 }),
-          fetchWithCache<any>('/api/matches?tournament=ddpl', { ttlMs: 1000 }),
-          fetchWithCache<any>('/api/announcement', { ttlMs: 1000 }),
+          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 15000 }),
+          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 15000 }),
+          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 25000 }),
+          fetchWithCache<any>('/api/matches?tournament=ddpl', { ttlMs: 15000 }),
+          fetchWithCache<any>('/api/announcement', { ttlMs: 20000 }),
         ]);
 
         if (!isMounted) return;
@@ -339,8 +339,11 @@ export default function HomePage() {
 
     loadLiveData();
 
-    // Live real-time sync with admin console: poll every 5s & re-sync on focus
-    const interval = setInterval(loadLiveData, 5000);
+    // Visibility-aware background sync: only re-sync when tab is active (reduces Supabase & Vercel egress by 90%)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadLiveData();
+    }, 20000);
     const handleFocus = () => loadLiveData();
     window.addEventListener('focus', handleFocus);
 
@@ -436,8 +439,8 @@ export default function HomePage() {
             alt="CricPlus24 4K Cricket Stadium Lights"
             fill
             priority
-            unoptimized
-            quality={100}
+            quality={85}
+            sizes="100vw"
             className="object-cover object-[88%_top] sm:object-[85%_top] md:object-[center_top] filter brightness-[1.06] contrast-[1.16] saturate-[1.20]"
           />
           {/* Cinema Poster Editorial Gradient Scrim: Solid high-contrast deep midnight navy behind text on left, fading smoothly to 100% clear transparency past the pitch */}

@@ -135,55 +135,49 @@ export default function TournamentDetailPage() {
 
     async function loadTournamentData() {
       try {
-        const timestamp = Date.now();
         const [rulesRes, auctionRes, regRes] = await Promise.all([
-          fetch(`/api/admin/rules?tournament=${slug}&_t=${timestamp}`, { cache: 'no-store' }),
-          fetch(`/api/auction/data?tournament=${slug}&_t=${timestamp}`, { cache: 'no-store' }),
-          fetch(`/api/tournaments/register?tournament=${slug}&_t=${timestamp}`, { cache: 'no-store' }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${slug}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${slug}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/tournaments/register?tournament=${slug}`, { ttlMs: 15000 }),
         ]);
 
         if (!isMounted) return;
 
-        if (rulesRes.ok) {
-          const rData = await rulesRes.json();
-          if (rData.rules) setRules(rData.rules);
+        if (rulesRes?.rules) {
+          setRules(rulesRes.rules);
         }
 
-        if (regRes.ok) {
-          const regData = await regRes.json();
-          if (regData.config) {
-            setTournamentConfig(regData.config);
-            if (regData.config.season) {
-              setSelectedSeason(regData.config.season);
+        if (regRes) {
+          if (regRes.config) {
+            setTournamentConfig(regRes.config);
+            if (regRes.config.season) {
+              setSelectedSeason(regRes.config.season);
             }
           }
-          if (regData.registrations) setRegistrations(regData.registrations);
+          if (regRes.registrations) setRegistrations(regRes.registrations);
         }
 
-        if (auctionRes.ok) {
-          const aData = await auctionRes.json();
-          if (aData.data && aData.data.teams) {
-            const soldTransactions = aData.data.soldTransactions || [];
-            const mappedTeams = aData.data.teams.map((t: any) => {
-              const teamSold = soldTransactions.filter((tx: any) => tx.team === t.name);
-              const remainingPurse = t.allocated - t.spent;
-              const cap = t.captain || (t.owner ? `${t.owner} (C)` : `${t.name} (C)`);
-              return {
-                name: t.name,
-                short: t.short,
-                group: t.group || undefined,
-                owner: t.owner || 'Franchise Owner',
-                captain: cap,
-                viceCaptain: t.viceCaptain || 'To be assigned',
-                squadCount: teamSold.length || t.playersBought || 1,
-                allocated: t.allocated,
-                spent: t.spent,
-                left: `₹${remainingPurse.toLocaleString('en-IN')}`,
-                players: teamSold,
-              };
-            });
-            setTeams(mappedTeams);
-          }
+        if (auctionRes?.data && auctionRes.data.teams) {
+          const soldTransactions = auctionRes.data.soldTransactions || [];
+          const mappedTeams = auctionRes.data.teams.map((t: any) => {
+            const teamSold = soldTransactions.filter((tx: any) => tx.team === t.name);
+            const remainingPurse = t.allocated - t.spent;
+            const cap = t.captain || (t.owner ? `${t.owner} (C)` : `${t.name} (C)`);
+            return {
+              name: t.name,
+              short: t.short,
+              group: t.group || undefined,
+              owner: t.owner || 'Franchise Owner',
+              captain: cap,
+              viceCaptain: t.viceCaptain || 'To be assigned',
+              squadCount: teamSold.length || t.playersBought || 1,
+              allocated: t.allocated,
+              spent: t.spent,
+              left: `₹${remainingPurse.toLocaleString('en-IN')}`,
+              players: teamSold,
+            };
+          });
+          setTeams(mappedTeams);
         }
       } catch (err) {
         console.error('Failed to load tournament data:', err);
@@ -192,8 +186,11 @@ export default function TournamentDetailPage() {
 
     loadTournamentData();
 
-    // Live real-time polling every 5s & re-sync upon window focus
-    const interval = setInterval(loadTournamentData, 5000);
+    // Visibility-aware background sync: poll every 20s when tab is active
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadTournamentData();
+    }, 20000);
     const handleFocus = () => loadTournamentData();
     window.addEventListener('focus', handleFocus);
 

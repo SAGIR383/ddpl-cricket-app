@@ -294,9 +294,10 @@ export default function AuctionPage() {
     };
   }, [activeTournament]);
 
-  // Background fallback polling for 100% sync reliability across all devices
+  // Background fallback sync: runs every 25s as a safety heartbeat (realtime broadcast handles instant bids)
   useEffect(() => {
     const pollInterval = setInterval(async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const res = await fetch(`/api/auction/data?tournament=${activeTournament}`);
         if (!res.ok) return;
@@ -310,7 +311,7 @@ export default function AuctionPage() {
       } catch (e) {
         // quiet
       }
-    }, 4000);
+    }, 25000);
 
     return () => clearInterval(pollInterval);
   }, [activeTournament, auctionStatus]);

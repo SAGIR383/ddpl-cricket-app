@@ -23,7 +23,7 @@ interface TeamRosterItem {
 import { fetchWithCache } from '@/lib/clientCache';
 
 export default function TeamsPage() {
-  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [teams, setTeams] = useState<TeamRosterItem[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
@@ -36,9 +36,10 @@ export default function TeamsPage() {
     async function loadTeamsData() {
       if (teams.length === 0) setLoading(true);
       try {
+        const activeSlug = selectedTournament || 'ddpl';
         const [regData, data] = await Promise.all([
           fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 25000 }),
         ]);
 
         if (!isMounted) return;

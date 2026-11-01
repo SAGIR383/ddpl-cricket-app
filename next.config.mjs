@@ -5,7 +5,7 @@ const nextConfig = {
   compress: true,
   images: {
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 86400,
     remotePatterns: [
       {
         protocol: "https",
@@ -33,6 +33,33 @@ const nextConfig = {
             key: 'Content-Disposition',
             value: 'attachment; filename="CricPlus24.apk"',
           },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/models/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/images/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=2592000, stale-while-revalidate=86400',
+          },
+        ],
+      },
+      {
+        source: '/icons/:path*',
+        headers: [
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',

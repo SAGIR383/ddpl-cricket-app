@@ -84,6 +84,8 @@ async function triggerBackgroundRevalidation<T>(
   url: string,
   onRevalidate?: (freshData: T) => void
 ) {
+  // If the browser tab is hidden/minimized, avoid firing background revalidations to conserve user and server egress
+  if (typeof document !== 'undefined' && document.hidden) return;
   if (inFlightClientRequests.has(url)) return;
 
   const fetchPromise = (async () => {

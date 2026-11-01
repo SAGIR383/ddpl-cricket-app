@@ -713,7 +713,7 @@ export async function GET(req: Request) {
     },
     {
       headers: {
-        'Cache-Control': 'public, s-maxage=3, stale-while-revalidate=12',
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
       },
     }
   );

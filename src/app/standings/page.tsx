@@ -24,7 +24,7 @@ import { generateExecutiveTournamentDossierPDF, TournamentDossierData } from '@/
 import { generateTournamentExcelReport } from '@/lib/excelGenerator';
 
 export default function StandingsPage() {
-  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [selectedSeason, setSelectedSeason] = useState('2027');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [standings, setStandings] = useState<TeamStandingRow[]>([]);
@@ -103,10 +103,11 @@ export default function StandingsPage() {
     async function loadTournamentStandings() {
       if (standings.length === 0) setLoading(true);
       try {
+        const activeSlug = selectedTournament || 'ddpl';
         const [regData, analyticsData, auctionData] = await Promise.all([
           fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/analytics/tournament?tournament=${selectedTournament}`, { ttlMs: 5000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
+          fetchWithCache<any>(`/api/analytics/tournament?tournament=${activeSlug}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 20000 }),
         ]);
 
         if (!isMounted) return;

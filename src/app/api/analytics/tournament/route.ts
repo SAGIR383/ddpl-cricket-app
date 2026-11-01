@@ -29,18 +29,22 @@ export async function GET(req: Request) {
     );
     const fixtures: MatchFixture[] = schedule?.matches || [];
 
-    // 3. Fetch match states for all fixtures
+    // 3. Fetch match states for all fixtures in parallel (single concurrent batch)
     const matchStates: Record<string, MatchLiveState> = {};
-    for (const fix of fixtures) {
-      const state = await getStoreData<MatchLiveState | null>(
-        `match_state_${fix.id}`,
-        `match_state_${fix.id}.json`,
-        null
-      );
-      if (state) {
-        matchStates[fix.id] = state;
-      }
-    }
+    const stateResults = await Promise.all(
+      fixtures.map(async (fix) => {
+        const state = await getStoreData<MatchLiveState | null>(
+          `match_state_${fix.id}`,
+          `match_state_${fix.id}.json`,
+          null
+        );
+        return { id: fix.id, state };
+      })
+    );
+
+    stateResults.forEach(({ id, state }) => {
+      if (state) matchStates[id] = state;
+    });
 
     // 4. Compute Dynamic Standings & Leaderboards
     const standings = calculateTournamentStandings(teams, fixtures, matchStates);
@@ -50,16 +54,23 @@ export async function GET(req: Request) {
       (f) => f.status === 'completed' || matchStates[f.id]?.status === 'completed'
     ).length;
 
-    return NextResponse.json({
-      success: true,
-      tournament,
-      totalTeams: teams.length,
-      totalMatches: fixtures.length,
-      completedMatches,
-      standings,
-      leaderboards,
-      lastCalculated: new Date().toISOString(),
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        tournament,
+        totalTeams: teams.length,
+        totalMatches: fixtures.length,
+        completedMatches,
+        standings,
+        leaderboards,
+        lastCalculated: new Date().toISOString(),
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        },
+      }
+    );
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

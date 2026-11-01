@@ -80,13 +80,6 @@ export default function AuctionMascotOverlay({
   const walkProgressRef = useRef(0);
   const isWalkingRef = useRef(false);
 
-  // Preload FBX model in browser background
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      loadFbxMascotData().catch(() => {});
-    }
-  }, []);
-
   // --------------------------------------------------------------------------
   // TASTEFUL PARTICLES ON SOLD
   // --------------------------------------------------------------------------

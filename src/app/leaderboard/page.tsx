@@ -25,7 +25,7 @@ import {
 
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<'mvp' | 'batting' | 'bowling' | 'sixes'>('mvp');
-  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
 
   const [orangeCap, setOrangeCap] = useState<OrangeCapBatter[]>([]);
@@ -42,10 +42,11 @@ export default function LeaderboardPage() {
     async function loadLeaderboards() {
       setLoading(true);
       try {
+        const activeSlug = selectedTournament || 'ddpl';
         const [regData, analyticsData, auctionData] = await Promise.all([
           fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/analytics/tournament?tournament=${selectedTournament}`, { ttlMs: 5000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 10000 }),
+          fetchWithCache<any>(`/api/analytics/tournament?tournament=${activeSlug}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 20000 }),
         ]);
 
         if (!isMounted) return;

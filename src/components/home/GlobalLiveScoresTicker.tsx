@@ -29,7 +29,7 @@ export function GlobalLiveScoresTicker() {
 
     async function loadGlobalScores() {
       try {
-        const res = await fetchWithCache<any>('/api/live-scores/global?category=all', { ttlMs: 3000 });
+        const res = await fetchWithCache<any>('/api/live-scores/global?category=all', { ttlMs: 12000 });
         if (!isMounted) return;
         if (res?.success && Array.isArray(res.matches)) {
           setMatches(res.matches);
@@ -45,8 +45,11 @@ export function GlobalLiveScoresTicker() {
 
     loadGlobalScores();
 
-    // Auto-refresh feed every 5s for genuine real-time ball-by-ball precision
-    const interval = setInterval(loadGlobalScores, 5000);
+    // Visibility-aware auto-refresh feed every 15s (pauses when browser tab is inactive)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadGlobalScores();
+    }, 15000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -84,8 +87,11 @@ export function GlobalLiveScoresTicker() {
 
     loadMatchDetails();
 
-    // Poll live ball-by-ball details for this specific match every 3.5 seconds
-    const interval = setInterval(loadMatchDetails, 3500);
+    // Poll live ball-by-ball details for this specific match every 8s when modal is visible
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadMatchDetails();
+    }, 8000);
     return () => {
       isMounted = false;
       clearInterval(interval);
