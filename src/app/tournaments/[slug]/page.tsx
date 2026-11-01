@@ -53,6 +53,15 @@ export default function TournamentDetailPage() {
     pursePerTeam: 10000,
     ownerBasePrice: 500,
   });
+
+  const isTournamentSuperAdmin = Boolean(
+    isSuperAdmin ||
+    hasAdminRights ||
+    (user?.email && (
+      tournamentConfig?.creatorEmail?.toLowerCase() === user.email.toLowerCase() ||
+      tournamentConfig?.adminEmails?.map((e: string) => e.toLowerCase()).includes(user.email.toLowerCase())
+    ))
+  );
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
   const [regForm, setRegForm] = useState<any>({
@@ -78,6 +87,10 @@ export default function TournamentDetailPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportDossier = async (format: 'pdf' | 'excel') => {
+    if (!isTournamentSuperAdmin) {
+      alert('Access restricted: Exporting executive dossiers is exclusively reserved for the Tournament Super Admin.');
+      return;
+    }
     setIsExporting(true);
     try {
       const [matchesData, analyticsData, auctionData] = await Promise.all([
@@ -422,31 +435,35 @@ export default function TournamentDetailPage() {
           {/* Season / Edition Badge */}
           <div className="flex flex-col sm:items-end gap-2 shrink-0">
             <span className="text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
-              Edition &amp; Official Dossier
+              {isTournamentSuperAdmin ? 'Edition & Official Dossier' : 'Tournament Season'}
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                disabled={isExporting}
-                onClick={() => handleExportDossier('pdf')}
-                className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold shadow-md hover:brightness-110 cursor-pointer disabled:opacity-50"
-                title="Download Executive PDF Dossier"
-              >
-                <FileDown className="w-3.5 h-3.5 text-[#08111F]" />
-                <span>PDF Dossier</span>
-              </button>
-              <button
-                type="button"
-                disabled={isExporting}
-                onClick={() => handleExportDossier('excel')}
-                className="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
-                title="Download Full Excel Ledger (.xlsx)"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Excel</span>
-              </button>
+              {isTournamentSuperAdmin && (
+                <>
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => handleExportDossier('pdf')}
+                    className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] text-xs font-bold shadow-md hover:brightness-110 cursor-pointer disabled:opacity-50"
+                    title="Download Executive PDF Dossier (Super Admin Only)"
+                  >
+                    <FileDown className="w-3.5 h-3.5 text-[#08111F]" />
+                    <span>PDF Dossier</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => handleExportDossier('excel')}
+                    className="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                    title="Download Full Excel Ledger (Super Admin Only)"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Excel</span>
+                  </button>
+                </>
+              )}
               <div className="px-3 py-1.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/30 text-white font-bold text-xs shadow-md">
-                Season {tournamentConfig.season || selectedSeason || '2027'}
+                Season {tournamentConfig?.season || selectedSeason || '2026'}
               </div>
             </div>
           </div>
