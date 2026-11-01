@@ -35,16 +35,10 @@ export default function SuperAdminLoginPage() {
       }
 
       setSuccessMsg(`Authenticated as ${data.user?.name || 'Super Admin'}! Launching Command Center…`);
-      await refreshProfile();
 
-      setTimeout(() => {
-        if (data.tournamentSlug) {
-          router.push(`/admin?tournament=${data.tournamentSlug}`);
-        } else {
-          router.push('/admin');
-        }
-        router.refresh();
-      }, 700);
+      // Instant redirect with zero delay - cookies are already set by HTTP response
+      const targetUrl = data.tournamentSlug ? `/admin?tournament=${data.tournamentSlug}` : '/admin';
+      window.location.href = targetUrl;
     } catch (err: any) {
       const msg = err.message || '';
       if (msg.includes('Load failed') || msg.includes('Failed to fetch')) {

@@ -52,12 +52,12 @@ export function Navbar() {
           : 'bg-transparent border-b border-transparent py-3 sm:py-4'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
+      <div className="max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6">
+        <div className="flex items-center justify-between gap-2">
           
           {/* Brand Logo & Platform Title */}
-          <Link href="/" className="flex items-center gap-3 group btn-press">
-            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden bg-gradient-to-tr from-[#D8AD55] via-[#F2D69A] to-[#0D1B2A] p-[1.5px] shadow-lg shadow-[#D8AD55]/15 group-hover:scale-105 transition-transform shrink-0">
+          <Link href="/" className="flex items-center gap-2.5 group btn-press shrink-0">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl overflow-hidden bg-gradient-to-tr from-[#D8AD55] via-[#F2D69A] to-[#0D1B2A] p-[1.5px] shadow-lg shadow-[#D8AD55]/15 group-hover:scale-105 transition-transform shrink-0">
               <div className="w-full h-full bg-[#08111F] rounded-[10px] overflow-hidden relative">
                 <Image
                   src="/images/cricplus-logo.jpg"
@@ -70,7 +70,7 @@ export function Navbar() {
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="font-display font-extrabold text-2xl tracking-tight text-white group-hover:text-[#F2D69A] transition-colors leading-none">
+                <span className="font-display font-extrabold text-xl sm:text-2xl tracking-tight text-white group-hover:text-[#F2D69A] transition-colors leading-none">
                   Cric<span className="text-[#D8AD55] drop-shadow-[0_0_12px_rgba(216,173,85,0.4)]">Plus</span>
                 </span>
                 <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-[#D8AD55]/20 border border-[#D8AD55]/40 text-[#F2D69A] font-black uppercase tracking-wider shadow-sm">
@@ -85,7 +85,7 @@ export function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links (Floating League Glass Pill Strip - Premium Highlighting) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-gradient-to-r from-[#0D1B2A]/95 via-[#111D2D]/90 to-[#0D1B2A]/95 backdrop-blur-2xl px-2 py-1 rounded-full border border-[#D8AD55]/35 shadow-[0_8px_32px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(242,214,154,0.3),0_0_24px_rgba(216,173,85,0.15)] ring-1 ring-[#D8AD55]/20 shrink-0">
+          <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 bg-gradient-to-r from-[#0D1B2A]/95 via-[#111D2D]/90 to-[#0D1B2A]/95 backdrop-blur-2xl px-1.5 xl:px-2 py-1 rounded-full border border-[#D8AD55]/35 shadow-[0_8px_32px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(242,214,154,0.3),0_0_24px_rgba(216,173,85,0.15)] ring-1 ring-[#D8AD55]/20 shrink-0">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = link.exact ? pathname === link.href : (link.href !== '/' && pathname.startsWith(link.href));
@@ -93,7 +93,7 @@ export function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`nav-item-press group relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-xs font-bold tracking-wide transition-all whitespace-nowrap ${
+                  className={`nav-item-press group relative flex items-center gap-1 xl:gap-1.5 px-2 xl:px-2.5 py-1 rounded-full text-[11px] xl:text-xs font-bold tracking-wide transition-all whitespace-nowrap ${
                     isActive
                       ? 'bg-gradient-to-r from-[#D8AD55]/30 via-[#F2D69A]/20 to-[#D8AD55]/30 text-[#F2D69A] border border-[#D8AD55]/60 shadow-[0_0_18px_rgba(216,173,85,0.35),inset_0_1px_1px_rgba(255,255,255,0.25)] font-extrabold'
                       : 'text-[#C2CBD8] hover:text-white hover:bg-white/[0.08] hover:border-[#D8AD55]/30 border border-transparent hover:shadow-[0_0_12px_rgba(216,173,85,0.15)]'
@@ -114,10 +114,10 @@ export function Navbar() {
           </nav>
 
           {/* Desktop User Controls */}
-          <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <div className="hidden sm:flex items-center gap-1.5 xl:gap-2 shrink-0">
             {/* Language Selector: English Only */}
-            <div className="flex items-center rounded-full bg-[#0D1B2A] border border-[#D8AD55]/20 px-2.5 py-1 text-[11px] font-black text-[#F2D69A] shadow-inner" title="Language: English (Default)">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 inline-block" />
+            <div className="flex items-center rounded-full bg-[#0D1B2A] border border-[#D8AD55]/20 px-2 py-0.5 text-[10px] font-black text-[#F2D69A] shadow-inner shrink-0" title="Language: English (Default)">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 inline-block" />
               <span>EN</span>
             </div>
 
@@ -128,51 +128,30 @@ export function Navbar() {
               className="p-1.5 rounded-full bg-[#0D1B2A] hover:bg-[#111D2D] border border-white/10 text-gray-300 hover:text-white transition-all cursor-pointer shrink-0"
               title="Corporate Brand & Color Palette"
             >
-              <Palette className="w-4 h-4 text-[#D8AD55]" />
+              <Palette className="w-3.5 h-3.5 text-[#D8AD55]" />
             </button>
 
             {/* Host Tournament CTA */}
             <Link
               href="/tournaments/create"
-              className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-md shadow-[#D8AD55]/15 hover:brightness-110 shrink-0 whitespace-nowrap"
+              className="btn-press shimmer-btn flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-[11px] xl:text-xs tracking-wider uppercase shadow-md shadow-[#D8AD55]/15 hover:brightness-110 shrink-0 whitespace-nowrap"
               title="Host Your Corporate Cricket League"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>{t.navHostLeague}</span>
             </Link>
 
-            {/* Super Admin / Organizer Badge */}
-            {isSuperAdmin ? (
-              <Link
-                href="/admin"
-                className="btn-press shimmer-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/40 text-[#F2D69A] font-display font-extrabold text-xs shadow-md"
-                title="Super Admin Master Console"
-              >
-                <Shield className="w-3.5 h-3.5 text-[#D8AD55]" />
-                <span>Super Admin</span>
-              </Link>
-            ) : isOrganizer ? (
-              <Link
-                href="/admin"
-                className="btn-press flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 font-display font-extrabold text-xs shadow-md"
-                title="Organizer Admin Dashboard"
-              >
-                <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Organizer</span>
-              </Link>
-            ) : null}
-
             {user ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <Link
                   href="/profile"
-                  className="btn-press flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#111D2D] hover:bg-[#111D2D]/80 border border-[#D8AD55]/30 text-xs font-bold text-white shadow-sm"
+                  className="btn-press flex items-center gap-2 px-2.5 xl:px-3 py-1 rounded-full bg-[#111D2D] hover:bg-[#111D2D]/80 border border-[#D8AD55]/30 text-xs font-bold text-white shadow-sm shrink-0"
                   title="View Profile"
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-black text-[11px] shadow-sm">
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-black text-[10px] shadow-sm shrink-0">
                     {user.email?.charAt(0).toUpperCase() || 'U'}
                   </div>
-                  <span className="max-w-[110px] truncate text-gray-200">{user.email?.split('@')[0]}</span>
+                  <span className="max-w-[90px] xl:max-w-[120px] truncate text-gray-200 text-xs">{user.email?.split('@')[0]}</span>
                 </Link>
                 <button
                   type="button"
@@ -180,7 +159,7 @@ export function Navbar() {
                     await signOut();
                     window.location.href = '/';
                   }}
-                  className="p-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-colors cursor-pointer shrink-0"
                   title="Sign Out"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -189,7 +168,7 @@ export function Navbar() {
             ) : (
               <Link
                 href="/auth/login"
-                className="btn-press shimmer-btn flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-[#D8AD55]/20 hover:brightness-110"
+                className="btn-press shimmer-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-[#D8AD55]/20 hover:brightness-110 shrink-0"
               >
                 <User className="w-3.5 h-3.5" />
                 <span>Sign In</span>

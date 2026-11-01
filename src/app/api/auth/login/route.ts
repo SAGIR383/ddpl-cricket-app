@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     const normalized = rawIdentifier.toLowerCase();
 
-    // 1. Check Super Admin Credentials (master bypass & auto-sync)
+    // 1. Check Super Admin Credentials (master bypass & instant response)
     const isSuperAdminUser =
       normalized === 'superadmin' ||
       normalized === 'admin' ||
@@ -34,50 +34,17 @@ export async function POST(req: NextRequest) {
       normalized === 'superadmin@cricpluse.com';
 
     if (isSuperAdminUser && password === SUPERADMIN_PASSWORD) {
-      // Cookies to set on response
-      const cookieActions: Array<{ name: string; value: string; options: any }> = [];
-
-      const ssrClient = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        cookies: {
-          get(name: string) {
-            return req.cookies.get(name)?.value;
-          },
-          set(name: string, value: string, options: any) {
-            cookieActions.push({ name, value, options });
-          },
-          remove(name: string, options: any) {
-            cookieActions.push({ name, value: '', options });
-          },
-        },
-      });
-
-      // Also authenticate with Supabase for real session tokens
-      let sessionData: any = null;
-      let userData: any = null;
-
-      try {
-        const { data: authData } = await ssrClient.auth.signInWithPassword({
-          email: 'superadmin@cricplus.com',
-          password: SUPERADMIN_PASSWORD,
-        });
-        sessionData = authData.session;
-        userData = authData.user;
-      } catch (e) {
-        // Fallback gracefully
-      }
-
       const response = NextResponse.json({
         success: true,
-        user: userData || {
+        user: {
           id: 'super-admin-master-id',
           email: 'superadmin@cricplus.com',
           name: 'Master Super Admin',
           role: 'super_admin',
         },
-        session: sessionData,
         role: 'super_admin',
         profile: {
-          id: userData?.id || 'super-admin-master-id',
+          id: 'super-admin-master-id',
           email: 'superadmin@cricplus.com',
           full_name: 'Master Super Admin',
           system_role: 'super_admin',
@@ -99,6 +66,83 @@ export async function POST(req: NextRequest) {
         sameSite: 'lax',
       });
 
+      return response;
+    }
+
+    // 2. Direct Supabase Auth via SSR (Fastest Path for all registered users)
+    const targetEmail = normalized;
+    const cookieActions: Array<{ name: string; value: string; options: any }> = [];
+
+    const ssrClient = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      cookies: {
+        get(name: string) {
+          return req.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          cookieActions.push({ name, value, options });
+        },
+        remove(name: string, options: any) {
+          cookieActions.push({ name, value: '', options });
+        },
+      },
+    });
+
+    const { data: authData, error: authError } = await ssrClient.auth.signInWithPassword({
+      email: targetEmail,
+      password: password,
+    });
+
+    if (!authError && authData?.user) {
+      // 3. Fast parallel fetch of role & profile
+      const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+        auth: { persistSession: false },
+      });
+
+      const [roleRes, profileRes] = await Promise.allSettled([
+        adminClient.from('cricpluse_store').select('data').eq('key', 'user_roles').maybeSingle(),
+        adminClient.from('profiles').select('*').eq('id', authData.user.id).maybeSingle(),
+      ]);
+
+      let assignedRole = 'user';
+      if (roleRes.status === 'fulfilled' && roleRes.value.data?.data?.[targetEmail]) {
+        assignedRole = roleRes.value.data.data[targetEmail];
+      }
+
+      let profileData = null;
+      if (profileRes.status === 'fulfilled' && profileRes.value.data) {
+        profileData = profileRes.value.data;
+      }
+
+      const finalRole = assignedRole || profileData?.system_role || 'user';
+
+      const response = NextResponse.json({
+        success: true,
+        user: authData.user,
+        session: authData.session,
+        role: finalRole,
+        profile: profileData || {
+          id: authData.user.id,
+          email: targetEmail,
+          full_name: authData.user.user_metadata?.full_name || targetEmail.split('@')[0],
+          system_role: finalRole,
+        },
+      });
+
+      if (finalRole === 'super_admin') {
+        response.cookies.set('cricplus_superadmin', 'active_session', {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+        response.cookies.set('cricpluse_superadmin', 'active_session', {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+      }
+
       // Apply Supabase SSR cookies
       for (const c of cookieActions) {
         response.cookies.set(c.name, c.value, { ...c.options, path: '/' });
@@ -107,14 +151,14 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    // 1b. Check Persistent Super Admin Accounts & Tournament Configs
+    // 4. Fallback for custom tournament organizer accounts (only executed if standard auth failed)
     try {
       const { getStoreData } = await import('@/lib/supabase/store');
-      const adminAccounts = await getStoreData<Record<string, any>>(
-        'super_admin_accounts',
-        'super_admin_accounts.json',
-        {}
-      );
+      const [adminAccounts, configs] = await Promise.all([
+        getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+      ]);
+
       const adminAcc = adminAccounts[normalized];
       if (
         adminAcc &&
@@ -159,8 +203,6 @@ export async function POST(req: NextRequest) {
         return response;
       }
 
-      // Check tournament_configs
-      const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
       for (const [slug, cfg] of Object.entries(configs)) {
         if (cfg.creatorEmail && cfg.creatorEmail.trim().toLowerCase() === normalized) {
           const passMatch =
@@ -210,117 +252,12 @@ export async function POST(req: NextRequest) {
       console.warn('Super admin fallback check skipped:', e);
     }
 
-    // 2. Resolve Target Email (if username provided without @)
-    let targetEmail = normalized;
-    if (!targetEmail.includes('@')) {
-      const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-        auth: { persistSession: false },
-      });
-      const { data: matchedProfile } = await adminClient
-        .from('profiles')
-        .select('email')
-        .ilike('email', `${targetEmail}@%`)
-        .maybeSingle();
+    const message =
+      authError?.message === 'Invalid login credentials'
+        ? 'Invalid email or password. Please verify your credentials and try again.'
+        : authError?.message || 'Authentication failed. Please check your credentials.';
 
-      if (matchedProfile?.email) {
-        targetEmail = matchedProfile.email.toLowerCase();
-      }
-    }
-
-    // 3. Authenticate with Supabase Auth via SSR (First-Party Server-Side)
-    const cookieActions: Array<{ name: string; value: string; options: any }> = [];
-
-    const ssrClient = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          cookieActions.push({ name, value, options });
-        },
-        remove(name: string, options: any) {
-          cookieActions.push({ name, value: '', options });
-        },
-      },
-    });
-
-    const { data: authData, error: authError } = await ssrClient.auth.signInWithPassword({
-      email: targetEmail,
-      password: password,
-    });
-
-    if (authError || !authData.user) {
-      const message =
-        authError?.message === 'Invalid login credentials'
-          ? 'Invalid email or password. Please verify your credentials and try again.'
-          : authError?.message || 'Authentication failed. Please check your credentials.';
-
-      return NextResponse.json({ success: false, error: message }, { status: 401 });
-    }
-
-    // 4. Fetch Role from cricpluse_store or profiles
-    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-      auth: { persistSession: false },
-    });
-
-    let assignedRole = 'user';
-    try {
-      const { data: storeData } = await adminClient
-        .from('cricpluse_store')
-        .select('data')
-        .eq('key', 'user_roles')
-        .maybeSingle();
-
-      if (storeData?.data?.[targetEmail]) {
-        assignedRole = storeData.data[targetEmail];
-      }
-    } catch {
-      // Ignore
-    }
-
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('*')
-      .eq('id', authData.user.id)
-      .maybeSingle();
-
-    const finalRole = assignedRole || profile?.system_role || 'user';
-
-    const response = NextResponse.json({
-      success: true,
-      user: authData.user,
-      session: authData.session,
-      role: finalRole,
-      profile: profile || {
-        id: authData.user.id,
-        email: targetEmail,
-        full_name: authData.user.user_metadata?.full_name || targetEmail.split('@')[0],
-        system_role: finalRole,
-      },
-    });
-
-    // If assigned role is super_admin, also set super admin cookies
-    if (finalRole === 'super_admin') {
-      response.cookies.set('cricplus_superadmin', 'active_session', {
-        path: '/',
-        httpOnly: false,
-        maxAge: 60 * 60 * 24 * 7,
-        sameSite: 'lax',
-      });
-      response.cookies.set('cricpluse_superadmin', 'active_session', {
-        path: '/',
-        httpOnly: false,
-        maxAge: 60 * 60 * 24 * 7,
-        sameSite: 'lax',
-      });
-    }
-
-    // Apply Supabase SSR cookies to the HTTP response
-    for (const c of cookieActions) {
-      response.cookies.set(c.name, c.value, { ...c.options, path: '/' });
-    }
-
-    return response;
+    return NextResponse.json({ success: false, error: message }, { status: 401 });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || 'An unexpected error occurred during login.' },

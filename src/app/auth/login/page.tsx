@@ -110,28 +110,16 @@ export default function LoginPage() {
           throw new Error(result.error || 'Authentication failed. Please verify credentials.');
         }
 
-        // Synchronize client-side Supabase auth state if session returned
+        // Synchronize client-side Supabase auth state if session returned in background
         if (result.session) {
-          try {
-            await supabase.auth.setSession(result.session);
-          } catch (e) {
-            console.warn('Local session sync skipped:', e);
-          }
+          supabase.auth.setSession(result.session).catch(() => {});
         }
-
-        // Refresh global AuthContext
-        await refreshProfile();
 
         setSuccessMsg('Signed in successfully! Launching CricPlus24…');
 
-        setTimeout(() => {
-          if (result.role === 'super_admin') {
-            router.push('/admin');
-          } else {
-            router.push('/');
-          }
-          router.refresh();
-        }, 500);
+        // Instant redirect with zero delay - cookies are already set by HTTP response
+        const targetUrl = result.role === 'super_admin' ? '/admin' : '/';
+        window.location.href = targetUrl;
       }
     } catch (err: any) {
       const msg = err.message || '';
