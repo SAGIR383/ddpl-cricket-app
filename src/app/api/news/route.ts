@@ -1,24 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { fetchLiveCricketNews, extractArticleContent, CricketNewsItem } from '@/lib/cricketNewsFetcher';
-import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
+import { getAllArticles, getArticleBySlug } from '@/lib/articles';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  getServiceRoleKey() ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  'sb_publishable_OTwkrFMSeuzq_QbWS6htWQ_FicJF8Tf';
-
-// In-memory cache fallback for instant rendering
-let cachedNews: CricketNewsItem[] = [];
-let lastSyncTime = 0;
-const SYNC_INTERVAL_MS = 45 * 1000; // 45 seconds live auto-sync threshold
-
+/**
+ * GET /api/news
+ * Cleanly serves ONLY original CricPlus24 editorial articles and news.
+ * Third-party news aggregation (ESPN Cricinfo, Cricbuzz, scrapers) has been completely discontinued.
+ */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -26,76 +17,39 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get('category');
     const search = searchParams.get('search');
     const limit = parseInt(searchParams.get('limit') || '30', 10);
-    const refresh = searchParams.get('refresh') === 'true';
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: { persistSession: false },
-      global: {
-        fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' }),
-      },
-    });
-
-    // 1. Single article lookup by slug (stays 100% inside CricPlus24)
+    // 1. Single article lookup by slug (Original CricPlus24 article only)
     if (slug) {
-      let article: any = null;
-      let dbError: any = null;
-      let dataCount = 0;
-      let rawDbContent: any = null;
-      try {
-        const { data, error } = await supabase
-          .from('cricket_news')
-          .select('*')
-          .eq('slug', slug)
-          .limit(1);
-        if (error) dbError = error.message;
-        if (data) dataCount = data.length;
-        if (!error && data && data.length > 0) {
-          article = data[0];
-          rawDbContent = data[0].content;
-        }
-      } catch (err: any) {
-        dbError = err?.message || 'DB catch error';
-      }
+      const article = await getArticleBySlug(slug, false);
 
-      const fromDb = Boolean(article);
-
-      if (!article) {
-        article = cachedNews.find((c) => c.slug === slug);
-      }
-
-      if (article) {
-        // Upgrade image URL to https
-        if (article.image_url) {
-          article.image_url = article.image_url.replace(/^http:\/\//i, 'https://');
-        }
-
-        // If content is empty or short, fetch full story paragraphs from source_url
-        if ((!article.content || article.content.length < 250) && article.source_url) {
-          try {
-            const extracted = await extractArticleContent(article.source_url);
-            if (extracted && extracted.length > 100) {
-              article.content = extracted;
-              if (article.id) {
-                await supabase
-                  .from('cricket_news')
-                  .update({ content: article.content })
-                  .eq('id', article.id);
-              }
-            }
-          } catch (scrapeErr) {
-            console.warn('[NewsAPI] Scrape full article error:', scrapeErr);
-          }
-        }
-
-        // Fallback to summary only if no content could be retrieved
-        if (!article.content || article.content.length < 50) {
-          article.content = article.summary || '';
-        }
-
+      if (article && article.status === 'published') {
         return NextResponse.json(
           {
             success: true,
-            article,
+            article: {
+              id: article.id,
+              title: article.title,
+              subtitle: article.subtitle,
+              slug: article.slug,
+              summary: article.summary,
+              content: article.content,
+              image_url: article.featuredImage?.url || '/images/cricplus-stadium-4k.jpg',
+              image_alt: article.featuredImage?.altText,
+              source: 'CricPlus24',
+              category: article.category,
+              published_at: article.publishedAt,
+              updated_at: article.updatedAt,
+              author_name: article.author?.name || 'CricPlus24 Editorial Team',
+              author_designation: article.author?.designation,
+              author_avatar: article.author?.avatarUrl,
+              author_bio: article.author?.bio,
+              reading_time: article.readingTime,
+              tags: article.tags,
+              seo: article.seo,
+              faqs: article.faqs,
+              related_slugs: article.relatedSlugs,
+              isEditorial: true,
+            },
           },
           {
             headers: {
@@ -105,129 +59,63 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      return NextResponse.json({ success: false, error: 'Article not found' }, { status: 404 });
+      // Return 404 for nonexistent or retired external article slugs
+      return NextResponse.json(
+        { success: false, error: 'Article not found' },
+        { status: 404 }
+      );
     }
 
-    const now = Date.now();
-    const shouldSync = refresh || now - lastSyncTime > SYNC_INTERVAL_MS || cachedNews.length === 0;
+    // 2. Public article listing (Original CricPlus24 articles only)
+    let articles = await getAllArticles(false);
 
-    if (shouldSync) {
-      try {
-        const liveItems = await fetchLiveCricketNews();
-        if (liveItems.length > 0) {
-          cachedNews = liveItems;
-          lastSyncTime = now;
-
-          // Upsert into Supabase for permanent archiving
-          // CRITICAL: Only include 'content' if it is non-empty, NEVER overwrite existing rich content with null!
-          const upsertRows = liveItems.map((item) => {
-            const row: any = {
-              title: item.title,
-              slug: item.slug,
-              summary: item.summary,
-              image_url: item.image_url,
-              source: item.source,
-              source_url: item.source_url,
-              category: item.category,
-              published_at: item.published_at,
-            };
-            if (item.content && item.content.length > 50) {
-              row.content = item.content;
-            }
-            return row;
-          });
-
-          // Upsert asynchronously in background so client response is instant
-          Promise.resolve(
-            supabase
-              .from('cricket_news')
-              .upsert(upsertRows, { onConflict: 'slug' })
-          )
-            .then(({ error: upsertErr }) => {
-              if (upsertErr) console.warn('[NewsAPI] Supabase archive sync error:', upsertErr.message);
-            })
-            .catch((e: any) => {
-              console.warn('[NewsAPI] Supabase upsert exception:', e?.message);
-            });
-        }
-      } catch (syncErr) {
-        console.warn('[NewsAPI] Sync live news error:', syncErr);
-      }
+    if (category && category !== 'All Stories' && category !== 'All Editorials') {
+      const catLower = category.toLowerCase().replace(/[^a-z0-9]/g, '');
+      articles = articles.filter(
+        (a) => a.category.toLowerCase().replace(/[^a-z0-9]/g, '') === catLower
+      );
     }
 
-    // Try fetching combined archive from Supabase
-    let dbNews: CricketNewsItem[] = [];
-    try {
-      let query = supabase
-        .from('cricket_news')
-        .select('*')
-        .order('published_at', { ascending: false })
-        .limit(Math.max(limit * 2, 60));
-
-      if (category && category !== 'All Stories') {
-        query = query.eq('category', category);
-      }
-
-      if (search) {
-        query = query.ilike('title', `%${search}%`);
-      }
-
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        dbNews = data as CricketNewsItem[];
-      }
-    } catch (dbErr) {
-      console.warn('[NewsAPI] Supabase query fallback:', dbErr);
-    }
-
-    // Merge live news and DB items to ensure newest headlines are always immediately visible
-    const mergedMap = new Map<string, CricketNewsItem>();
-
-    // 1. Add cached live items
-    for (const item of cachedNews) {
-      mergedMap.set(item.slug, item);
-    }
-
-    // 2. Merge DB items (preserving any rich scraped content)
-    for (const item of dbNews) {
-      const existing = mergedMap.get(item.slug);
-      if (existing) {
-        mergedMap.set(item.slug, {
-          ...existing,
-          ...item,
-          content: item.content || existing.content,
-        });
-      } else {
-        mergedMap.set(item.slug, item);
-      }
-    }
-
-    let allNews = Array.from(mergedMap.values());
-
-    // Apply category & search filters if needed
-    if (category && category !== 'All Stories') {
-      allNews = allNews.filter((n) => n.category.toLowerCase() === category.toLowerCase());
-    }
     if (search) {
       const s = search.toLowerCase();
-      allNews = allNews.filter((n) => n.title.toLowerCase().includes(s) || (n.summary && n.summary.toLowerCase().includes(s)));
+      articles = articles.filter(
+        (a) =>
+          a.title.toLowerCase().includes(s) ||
+          (a.summary && a.summary.toLowerCase().includes(s)) ||
+          a.tags.some((t) => t.toLowerCase().includes(s))
+      );
     }
 
-    // Sort by publication date descending
-    allNews.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+    const formattedArticles = articles.slice(0, limit).map((a) => ({
+      id: a.id,
+      title: a.title,
+      subtitle: a.subtitle,
+      slug: a.slug,
+      summary: a.summary,
+      content: a.content,
+      image_url: a.featuredImage?.url || '/images/cricplus-stadium-4k.jpg',
+      image_alt: a.featuredImage?.altText,
+      source: 'CricPlus24',
+      category: a.category,
+      published_at: a.publishedAt,
+      author_name: a.author?.name || 'CricPlus24 Editorial Desk',
+      author_avatar: a.author?.avatarUrl,
+      author_designation: a.author?.designation,
+      reading_time: a.readingTime,
+      isEditorial: true,
+      tags: a.tags,
+    }));
 
     return NextResponse.json(
       {
         success: true,
-        total: allNews.length,
-        lastUpdated: new Date(lastSyncTime || Date.now()).toISOString(),
-        articles: allNews.slice(0, limit),
+        total: formattedArticles.length,
+        lastUpdated: new Date().toISOString(),
+        articles: formattedArticles,
       },
       {
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-          'CDN-Cache-Control': 'no-store',
-          'Vercel-CDN-Cache-Control': 'no-store',
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
         },
       }
     );

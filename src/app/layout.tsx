@@ -8,12 +8,17 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
+import { GoogleAnalytics } from '@/components/seo/GoogleAnalytics';
+import { AdSenseScript } from '@/components/ads/AdSlot';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://cricplus24.in'),
-  title: 'CricPlus24 — Corporate Cricket Tournament Management Platform',
-  description: 'CricPlus24 Enterprise Cricket Tournament Platform: DDPL, Game of RUN, live scoring, player auctions, and historical tournament archive.',
+  metadataBase: new URL('https://www.cricplus24.in'),
+  title: 'CricPlus24 — Corporate Cricket Tournament Platform & Sports Analytics',
+  description: 'CricPlus24 Enterprise Cricket Tournament Platform: Live cricket editorials, match reports, calculators, player auctions, and digital scoring.',
   manifest: '/manifest.json',
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+  },
   icons: {
     icon: [
       { url: '/icons/cricplus-icon-192.png', sizes: '192x192', type: 'image/png' },
@@ -68,6 +73,8 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[#040814] text-gray-100 flex flex-col min-h-screen antialiased selection:bg-cricket-teal selection:text-cricket-dark">
+        <GoogleAnalytics />
+        <AdSenseScript />
         <AuthProvider>
           <LanguageProvider>
             <ThemeProvider>

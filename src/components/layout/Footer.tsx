@@ -33,7 +33,7 @@ export function Footer() {
           </div>
 
           {/* Quick Nav Links */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-xs font-semibold">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 text-xs font-semibold">
             <div className="space-y-2">
               <div className="text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">Tournaments</div>
               <div className="flex flex-col space-y-1.5">
@@ -65,16 +65,46 @@ export function Footer() {
             </div>
 
             <div className="space-y-2">
-              <div className="text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">Stats &amp; History</div>
+              <div className="text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">Calculators</div>
               <div className="flex flex-col space-y-1.5">
-                <Link href="/leaderboard" className="hover:text-white transition-colors">
-                  Leaderboards
+                <Link href="/tools" className="hover:text-white transition-colors font-bold text-gray-200">
+                  All Cricket Tools
                 </Link>
-                <Link href="/archive" className="hover:text-white transition-colors">
-                  Championship Vault
+                <Link href="/tools/net-run-rate-calculator" className="hover:text-white transition-colors">
+                  Net Run Rate (NRR)
                 </Link>
-                <Link href="/teams" className="hover:text-white transition-colors">
-                  Franchise Teams
+                <Link href="/tools/batting-average-calculator" className="hover:text-white transition-colors">
+                  Batting Average
+                </Link>
+                <Link href="/tools/bowling-economy-calculator" className="hover:text-white transition-colors">
+                  Bowling Economy
+                </Link>
+                <Link href="/tools/auction-budget-calculator" className="hover:text-white transition-colors">
+                  Auction Budget
+                </Link>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">Editorial &amp; Trust</div>
+              <div className="flex flex-col space-y-1.5">
+                <Link href="/news" className="hover:text-white transition-colors">
+                  News &amp; Editorials
+                </Link>
+                <Link href="/about" className="hover:text-white transition-colors">
+                  About Us
+                </Link>
+                <Link href="/editorial-policy" className="hover:text-white transition-colors">
+                  Editorial Policy
+                </Link>
+                <Link href="/corrections-policy" className="hover:text-white transition-colors">
+                  Corrections Policy
+                </Link>
+                <Link href="/advertising-disclosure" className="hover:text-white transition-colors">
+                  Advertising Policy
+                </Link>
+                <Link href="/contact" className="hover:text-white transition-colors">
+                  Contact Us
                 </Link>
               </div>
             </div>
@@ -86,8 +116,8 @@ export function Footer() {
                   <Smartphone className="w-3 h-3 text-[#D8AD55]" />
                   <span>Download App (.APK)</span>
                 </Link>
-                <Link href="/news" className="hover:text-white transition-colors">
-                  Cricket News &amp; Editorials
+                <Link href="/leaderboard" className="hover:text-white transition-colors">
+                  Leaderboards
                 </Link>
                 <Link href="/admin" className="hover:text-[#F2D69A] transition-colors flex items-center gap-1">
                   <Shield className="w-3 h-3 text-[#D8AD55]" />
@@ -104,9 +134,21 @@ export function Footer() {
         {/* Bottom Rights Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[#8793A5]">
           <div>
-            © {new Date().getFullYear()} CricPlus24. All rights reserved. Professional Corporate Cricket League Infrastructure.
+            © {new Date().getFullYear()} CricPlus24. All rights reserved. Enterprise Sports &amp; Global Cricket Platform.
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <Link href="/privacy" className="hover:text-white transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-white transition-colors">
+              Terms &amp; Conditions
+            </Link>
+            <span>•</span>
+            <Link href="/copyright-policy" className="hover:text-white transition-colors">
+              Copyright
+            </Link>
+            <span>•</span>
             <span className="flex items-center gap-1 text-[#D8AD55] font-bold">
               <Trophy className="w-3.5 h-3.5" />
               <span>Official League Standard</span>

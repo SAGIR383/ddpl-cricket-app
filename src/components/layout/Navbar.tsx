@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle, Globe, Palette, LogOut, Smartphone, Download } from 'lucide-react';
+import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle, Globe, Palette, LogOut, Smartphone, Download, Calculator } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCorporateTheme } from '@/contexts/ThemeContext';
@@ -40,6 +40,7 @@ export function Navbar() {
     { href: '/standings', label: t.navStandings, icon: BarChart3 },
     { href: '/leaderboard', label: t.navLeaderboard, icon: Flame },
     { href: '/news', label: 'News', icon: Globe },
+    { href: '/tools', label: 'Tools', icon: Calculator },
     { href: '/archive', label: t.navArchive, icon: Archive },
     ...(isOrganizer ? [{ href: '/admin', label: isSuperAdmin ? 'Super Admin' : 'Admin', icon: Shield, badge: isSuperAdmin ? 'Master' : 'Organizer' }] : []),
   ];

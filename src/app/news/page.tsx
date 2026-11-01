@@ -4,564 +4,345 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  Flame,
-  Globe,
-  Clock,
-  ExternalLink,
-  Share2,
-  Search,
   Sparkles,
   BookOpen,
-  Filter,
-  RefreshCw,
-  Trophy,
+  Calendar,
+  Clock,
+  Search,
   ArrowRight,
   TrendingUp,
-  Bookmark,
+  Share2,
   Check,
+  ShieldCheck,
+  Filter,
 } from 'lucide-react';
-
-interface Article {
-  id?: string;
-  title: string;
-  slug: string;
-  summary: string;
-  image_url: string;
-  source: string;
-  source_url?: string;
-  category: string;
-  published_at: string;
-  author_name?: string;
-  isBlog?: boolean;
-}
-
-const CATEGORIES = [
-  'All Stories',
-  'CricPlus Editorials',
-  'Test & WTC',
-  'ODIs & Cups',
-  'T20 & Leagues',
-  'Match Reports',
-  'Analysis & Debates',
-];
-
-function getTimeAgo(isoString: string): string {
-  try {
-    const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
-    if (diff < 60) return 'Just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
-  } catch {
-    return 'Recent';
-  }
-}
+import {
+  CricPlusArticle,
+  EDITORIAL_CATEGORIES,
+  slugifyCategory,
+} from '@/lib/articleTypes';
 
 export default function CricketNewsPage() {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [blogs, setBlogs] = useState<Article[]>([]);
+  const [articles, setArticles] = useState<CricPlusArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('All Stories');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All Stories');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
-  async function loadContent(isBackground = false) {
-    // Only show full-page loading spinner if we have no articles yet and it's not a background sync
-    if (!isBackground && articles.length === 0) {
-      setLoading(true);
-    }
-
+  async function loadArticles() {
+    setLoading(true);
     try {
-      const timestamp = Date.now();
-      // On initial load, fetch fast stored news; on background sync, force live external refresh
-      const url = isBackground
-        ? `/api/news?refresh=true&_t=${timestamp}`
-        : `/api/news?_t=${timestamp}`;
-
-      const [newsRes, blogRes] = await Promise.allSettled([
-        fetch(url, {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache' },
-        }),
-        fetch(`/api/blogs?_t=${timestamp}`, {
-          cache: 'no-store',
-        }),
-      ]);
-
-      if (newsRes.status === 'fulfilled' && newsRes.value.ok) {
-        const newsData = await newsRes.value.json();
-        if (newsData.articles && newsData.articles.length > 0) {
-          setArticles(newsData.articles);
-        }
-      }
-
-      if (blogRes.status === 'fulfilled' && blogRes.value.ok) {
-        const blogData = await blogRes.value.json();
-        const blogList: Article[] = (blogData.posts || []).map((b: any) => ({
-          id: b.id,
-          title: b.title,
-          slug: b.slug,
-          summary: b.summary || b.subtitle || '',
-          image_url: b.cover_image_url || '/images/cricplus-stadium-4k.jpg',
-          source: 'CricPlus Editorial',
-          category: b.category || 'Editorial',
-          published_at: b.published_at,
-          author_name: b.author_name || 'CricPlus Chief Editor',
-          isBlog: true,
-        }));
-        setBlogs(blogList);
+      const res = await fetch('/api/blogs', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.success && data.posts) {
+        setArticles(data.posts);
       }
     } catch (err) {
-      console.error('Failed to load news:', err);
+      console.error('Failed to load editorials:', err);
     } finally {
       setLoading(false);
     }
   }
 
-  // Initial fast load, followed immediately by silent live background sync
   useEffect(() => {
-    // 1. Instant load from database/cache (< 100ms)
-    loadContent(false).then(() => {
-      // 2. Immediate live background sync for newest Cricbuzz + Cricinfo stories
-      loadContent(true);
-    });
-
-    // 3. Keep silently refreshing in the background every 25 seconds
-    const interval = setInterval(() => {
-      loadContent(true);
-    }, 25000);
-
-    return () => clearInterval(interval);
+    loadArticles();
   }, []);
 
-  // Silent background re-sync when user returns to this tab
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadContent(true);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
-
-  function handleShare(article: Article, e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const url = `${window.location.origin}/news/${article.slug}`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: article.title,
-        text: article.summary,
-        url: url,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(`${article.title} - ${url}`);
-      setCopiedSlug(article.slug);
+  const handleCopyLink = (slug: string) => {
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.origin}/news/${slug}`;
+      navigator.clipboard.writeText(url);
+      setCopiedSlug(slug);
       setTimeout(() => setCopiedSlug(null), 2000);
     }
-  }
+  };
 
-  // Combine blogs & global news
-  const allStories: Article[] = [...blogs, ...articles];
+  // Filter articles
+  const filteredArticles = articles.filter((art) => {
+    const matchesCategory =
+      selectedCategory === 'All Stories' ||
+      art.category.toLowerCase() === selectedCategory.toLowerCase();
 
-  // Filtering
-  const filteredStories = allStories.filter((item) => {
-    // Category match
-    if (selectedCategory === 'CricPlus Editorials') {
-      if (!item.isBlog) return false;
-    } else if (selectedCategory !== 'All Stories') {
-      if (item.category.toLowerCase() !== selectedCategory.toLowerCase()) return false;
-    }
+    const matchesSearch =
+      !searchQuery ||
+      art.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (art.summary && art.summary.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (art.tags && art.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())));
 
-    // Search query match
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchSummary = item.summary.toLowerCase().includes(q);
-      return matchTitle || matchSummary;
-    }
-
-    return true;
+    return matchesCategory && matchesSearch;
   });
 
-  // Hero Spotlight Story (Prefer featured blog or latest major headline)
-  const heroStory = filteredStories.length > 0 ? filteredStories[0] : null;
-  const feedStories = filteredStories.length > 1 ? filteredStories.slice(1) : [];
-
-  // Top 5 "Most Read / Trending" for Sidebar
-  const trendingStories = [...allStories]
-    .slice(0, 5);
+  const featuredArticle = filteredArticles.find((a) => a.isFeatured) || filteredArticles[0];
+  const regularArticles = featuredArticle
+    ? filteredArticles.filter((a) => a.slug !== featuredArticle.slug)
+    : filteredArticles;
 
   return (
-    <div className="min-h-screen bg-[#040814] text-gray-100 pb-20">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10 relative z-10">
       
-      {/* Top Banner / Ticker Header */}
-      <div className="border-b border-[#D8AD55]/20 bg-[#08111F]/80 backdrop-blur-md sticky top-[60px] z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between py-3 gap-3">
-            
-            {/* Title & Badge */}
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D8AD55] to-[#0D1B2A] p-0.5 shadow-md shadow-[#D8AD55]/15 flex items-center justify-center shrink-0">
-                <Globe className="w-5 h-5 text-black" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="font-display font-extrabold text-xl sm:text-2xl text-white tracking-wide">
-                    Cricket News <span className="text-[#D8AD55]">&amp; Editorials</span>
-                  </h1>
-                  <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded bg-red-600/30 border border-red-500/50 text-red-400 animate-pulse">
-                    LIVE
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-400 hidden sm:block">
-                  Real-time international coverage from ESPN Cricinfo &amp; Cricbuzz
-                </p>
-              </div>
-            </div>
-
-            {/* Clean Search Input */}
-            <div className="flex items-center gap-2">
-              <div className="relative w-full sm:w-72">
-                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search stories, players, series..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#0D1B2A] border border-gray-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#D8AD55]"
-                />
-              </div>
-            </div>
+      {/* 1. HERO EDITORIAL HEADER */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border border-[#D8AD55]/30 p-8 sm:p-12 shadow-2xl">
+        <div className="relative z-10 space-y-4 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/30 text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-[#D8AD55]" />
+            <span>CricPlus24 Original Editorial Desk</span>
           </div>
 
-          {/* Cricinfo & Cricbuzz Style Category Pill Bar */}
-          <div className="flex items-center gap-2 overflow-x-auto py-2.5 no-scrollbar border-t border-gray-800/60">
-            {CATEGORIES.map((cat) => {
-              const isActive = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                    isActive
-                      ? 'bg-[#D8AD55] text-black shadow-md shadow-[#D8AD55]/20 font-black'
-                      : 'bg-[#0D1B2A]/90 text-gray-300 hover:text-white hover:bg-gray-800 border border-gray-800'
-                  }`}
-                >
-                  {cat === 'CricPlus Editorials' && '✍️ '}
-                  {cat}
-                </button>
-              );
-            })}
+          <h1 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight leading-tight">
+            Cricket News &amp; In-Depth Analysis
+          </h1>
+
+          <p className="text-sm sm:text-base text-gray-300 leading-relaxed">
+            Original tactical breakdowns, match reports, tournament guides, player auction analytics, and strategic insights curated exclusively by the CricPlus24 sports editorial team.
+          </p>
+        </div>
+
+        <div className="absolute -right-10 -bottom-10 w-96 h-96 bg-[#D8AD55]/10 rounded-full blur-3xl pointer-events-none" />
+      </div>
+
+      {/* 2. SEARCH & CATEGORY NAVIGATION BAR */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          
+          {/* Search Box */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8793A5]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search cricket analysis, tactics, records..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#0D1B2A] border border-white/10 text-white placeholder-[#8793A5] text-xs focus:border-[#D8AD55] focus:outline-none transition-all shadow-inner"
+            />
           </div>
+
+          <div className="flex items-center gap-2 text-xs text-[#8793A5]">
+            <Filter className="w-4 h-4 text-[#D8AD55]" />
+            <span>Showing {filteredArticles.length} original editorials</span>
+          </div>
+        </div>
+
+        {/* Category Horizontal Scroll */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          <button
+            onClick={() => setSelectedCategory('All Stories')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+              selectedCategory === 'All Stories'
+                ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] border-transparent font-black shadow-lg shadow-[#D8AD55]/20'
+                : 'bg-[#0D1B2A] text-gray-300 hover:text-white border-white/10'
+            }`}
+          >
+            All Stories
+          </button>
+
+          {EDITORIAL_CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+                selectedCategory === cat
+                  ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] border-transparent font-black shadow-lg shadow-[#D8AD55]/20'
+                  : 'bg-[#0D1B2A] text-gray-300 hover:text-white border-white/10'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <RefreshCw className="w-8 h-8 text-[#D8AD55] animate-spin" />
-            <p className="text-sm text-gray-400 font-medium tracking-wide">
-              Fetching global cricket news from ESPN Cricinfo &amp; Cricbuzz…
-            </p>
-          </div>
-        ) : filteredStories.length === 0 ? (
-          <div className="text-center py-20 bg-[#08111F] rounded-2xl border border-gray-800 p-8">
-            <BookOpen className="w-12 h-12 text-[#D8AD55] mx-auto mb-3 opacity-60" />
-            <h3 className="text-lg font-bold text-white">No stories match your filter</h3>
-            <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
-              Try searching with another keyword or selecting "All Stories" to explore everything.
-            </p>
+      {/* 3. ARTICLES FEED */}
+      {loading ? (
+        <div className="py-24 text-center space-y-3">
+          <Clock className="w-8 h-8 animate-spin mx-auto text-[#D8AD55]" />
+          <div className="text-sm font-bold text-white">Loading exclusive editorials...</div>
+          <p className="text-xs text-[#8793A5]">Fetching verified sports analysis and articles.</p>
+        </div>
+      ) : filteredArticles.length === 0 ? (
+        /* Mandatory Professional Empty State */
+        <div className="py-24 px-6 text-center rounded-3xl bg-[#08111F] border border-white/5 space-y-4 shadow-2xl">
+          <BookOpen className="w-14 h-14 mx-auto text-[#D8AD55]/60" />
+          <h2 className="font-display font-black text-2xl text-white">
+            Fresh cricket analysis and exclusive CricPlus24 editorials are coming soon. Stay tuned!
+          </h2>
+          <p className="text-xs text-[#8793A5] max-w-lg mx-auto">
+            Our editorial desk publishes comprehensive, data-driven cricket tactical breakdowns, tournament reviews, and player auction strategies.
+          </p>
+          {selectedCategory !== 'All Stories' && (
             <button
-              onClick={() => {
-                setSelectedCategory('All Stories');
-                setSearchQuery('');
-              }}
-              className="mt-4 px-4 py-2 rounded-lg bg-[#D8AD55] text-black text-xs font-bold hover:bg-[#F2D69A]"
+              onClick={() => setSelectedCategory('All Stories')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/30 text-xs font-bold hover:bg-[#D8AD55]/30 transition-all"
             >
-              Reset Filters
+              <span>View all editorial categories</span>
             </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            {/* Left / Center Column: 8 Cols (Hero + Feed Stream) */}
-            <div className="lg:col-span-8 space-y-6">
-              
-              {/* Featured Spotlight Card */}
-              {heroStory && (
-                <div className="group relative rounded-2xl overflow-hidden border border-[#D8AD55]/30 bg-[#08111F] shadow-xl hover:border-[#D8AD55]/60 transition-all duration-300">
-                  <div className="relative h-64 sm:h-80 w-full overflow-hidden bg-black">
-                    <Image
-                      src={heroStory.image_url?.replace(/^http:\/\//i, 'https://') || '/images/cricket-hero.jpg'}
-                      alt={heroStory.title}
-                      fill
-                      unoptimized
-                      priority
-                      className="object-cover group-hover:scale-105 transition-transform duration-500 brightness-90"
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.src = '/images/cricket-hero.jpg';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#08111F] via-[#08111F]/60 to-transparent" />
-                    
-                    {/* Badges on Top */}
-                    <div className="absolute top-4 left-4 flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-md bg-[#D8AD55] text-black text-[11px] font-black uppercase tracking-wider shadow-md">
-                        {heroStory.isBlog ? '✍️ CricPlus Editorial' : heroStory.source}
-                      </span>
-                      <span className="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md text-[#F2D69A] border border-[#D8AD55]/40 text-[10px] font-bold uppercase tracking-wider">
-                        {heroStory.category}
-                      </span>
-                    </div>
-
-                    {/* Share Button */}
-                    <button
-                      onClick={(e) => handleShare(heroStory, e)}
-                      title="Share Article"
-                      className="absolute top-4 right-4 p-2 rounded-full bg-black/60 backdrop-blur-md border border-gray-700 text-gray-200 hover:text-white hover:bg-black/90 transition-colors"
-                    >
-                      {copiedSlug === heroStory.slug ? (
-                        <Check className="w-4 h-4 text-green-400" />
-                      ) : (
-                        <Share2 className="w-4 h-4" />
-                      )}
-                    </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-10">
+          
+          {/* FEATURED LEAD STORY BANNER */}
+          {featuredArticle && !searchQuery && selectedCategory === 'All Stories' && (
+            <div className="group relative rounded-3xl overflow-hidden bg-[#08111F] border border-[#D8AD55]/40 shadow-2xl transition-all duration-300 hover:border-[#D8AD55]">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
+                
+                {/* Featured Image */}
+                <div className="lg:col-span-7 relative aspect-[16/10] lg:aspect-auto min-h-[300px] sm:min-h-[380px] bg-[#0D1B2A] overflow-hidden">
+                  <img
+                    src={featuredArticle.featuredImage?.url || '/images/cricplus-stadium-4k.jpg'}
+                    alt={featuredArticle.featuredImage?.altText || featuredArticle.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent lg:hidden" />
+                  
+                  <div className="absolute top-4 left-4 flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] shadow-lg">
+                      LEAD EDITORIAL
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-black/80 backdrop-blur-md text-[#F2D69A] border border-white/10">
+                      {featuredArticle.category}
+                    </span>
                   </div>
+                </div>
 
-                  {/* Hero Content */}
-                  <div className="p-5 sm:p-6 space-y-3">
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <Clock className="w-3.5 h-3.5 text-[#D8AD55]" />
-                      <span>{getTimeAgo(heroStory.published_at)}</span>
+                {/* Featured Content Details */}
+                <div className="lg:col-span-5 p-6 sm:p-10 flex flex-col justify-between space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-xs text-[#8793A5]">
+                      <Calendar className="w-3.5 h-3.5 text-[#D8AD55]" />
+                      <time dateTime={featuredArticle.publishedAt}>
+                        {new Date(featuredArticle.publishedAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </time>
                       <span>•</span>
-                      <span>{heroStory.author_name || heroStory.source}</span>
+                      <span>{featuredArticle.readingTime}</span>
                     </div>
 
-                    <Link
-                      href={`/news/${heroStory.slug}`}
-                      className="block group/title"
-                    >
-                      <h2 className="font-display font-extrabold text-xl sm:text-2xl text-white group-hover/title:text-[#D8AD55] transition-colors leading-snug">
-                        {heroStory.title}
-                      </h2>
-                    </Link>
+                    <h2 className="font-display font-black text-2xl sm:text-3xl text-white group-hover:text-[#D8AD55] transition-colors leading-tight">
+                      <Link href={`/news/${featuredArticle.slug}`}>
+                        {featuredArticle.title}
+                      </Link>
+                    </h2>
 
-                    <p className="text-xs sm:text-sm text-gray-300 leading-relaxed line-clamp-3">
-                      {heroStory.summary}
+                    <p className="text-xs sm:text-sm text-gray-300 leading-relaxed line-clamp-4">
+                      {featuredArticle.summary}
                     </p>
+                  </div>
 
-                    <div className="pt-2 flex items-center justify-between border-t border-gray-800">
-                      <Link
-                        href={`/news/${heroStory.slug}`}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#D8AD55] hover:text-[#F2D69A] transition-colors"
+                  <div className="pt-6 border-t border-white/10 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-[#D8AD55]/40 bg-[#0D1B2A] shrink-0">
+                        <img
+                          src={featuredArticle.author?.avatarUrl || '/images/editorial-author.jpg'}
+                          alt={featuredArticle.author?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="text-xs">
+                        <div className="font-bold text-white flex items-center gap-1">
+                          <span>{featuredArticle.author?.name}</span>
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#D8AD55]" />
+                        </div>
+                        <div className="text-[10px] text-[#8793A5]">
+                          {featuredArticle.author?.designation || 'Sports Columnist'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/news/${featuredArticle.slug}`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#D8AD55]/20 hover:bg-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold border border-[#D8AD55]/30 transition-all"
+                    >
+                      <span>Read Story</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* EDITORIAL ARTICLES GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {(selectedCategory === 'All Stories' && !searchQuery ? regularArticles : filteredArticles).map((art) => (
+              <article
+                key={art.slug}
+                className="group flex flex-col rounded-3xl bg-[#08111F] border border-white/5 hover:border-[#D8AD55]/40 overflow-hidden transition-all duration-300 shadow-xl hover:-translate-y-1"
+              >
+                {/* Article Thumbnail */}
+                <Link href={`/news/${art.slug}`} className="relative aspect-[16/10] bg-[#0D1B2A] overflow-hidden block">
+                  <img
+                    src={art.featuredImage?.url || '/images/cricplus-stadium-4k.jpg'}
+                    alt={art.featuredImage?.altText || art.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                  
+                  <span className="absolute top-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold bg-black/70 backdrop-blur-md text-[#F2D69A] border border-white/10">
+                    {art.category}
+                  </span>
+                </Link>
+
+                {/* Content */}
+                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2 text-xs text-[#8793A5]">
+                      <Calendar className="w-3.5 h-3.5 text-[#D8AD55]" />
+                      <time dateTime={art.publishedAt}>
+                        {new Date(art.publishedAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </time>
+                      <span>•</span>
+                      <span>{art.readingTime}</span>
+                    </div>
+
+                    <h3 className="font-display font-bold text-xl text-white group-hover:text-[#D8AD55] transition-colors leading-snug line-clamp-2">
+                      <Link href={`/news/${art.slug}`}>{art.title}</Link>
+                    </h3>
+
+                    <p className="text-xs text-[#8793A5] leading-relaxed line-clamp-3">
+                      {art.summary}
+                    </p>
+                  </div>
+
+                  <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                    <span className="text-[11px] text-gray-400 font-semibold">
+                      By {art.author?.name || 'CricPlus24 Chief Editor'}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleCopyLink(art.slug)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                        title="Copy article link"
                       >
-                        <span>{heroStory.isBlog ? 'Read Complete Editorial' : 'Read Full Story'}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        {copiedSlug === art.slug ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Share2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      <Link
+                        href={`/news/${art.slug}`}
+                        className="text-xs font-bold text-[#D8AD55] group-hover:text-[#F2D69A] flex items-center gap-1 transition-colors"
+                      >
+                        <span>Read</span>
+                        <span>→</span>
                       </Link>
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* Feed Stream Cards (Matching Cricinfo / Cricbuzz Layout) */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-gray-800 pb-2">
-                  <h3 className="font-display font-bold text-base text-white tracking-wide flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-[#D8AD55]" />
-                    <span>Latest Cricket Stories</span>
-                  </h3>
-                  <span className="text-xs text-gray-400">
-                    Showing {filteredStories.length} updates
-                  </span>
-                </div>
-
-                <div className="divide-y divide-gray-800/80 bg-[#08111F] rounded-2xl border border-gray-800/80 overflow-hidden shadow-lg">
-                  {feedStories.map((item, idx) => (
-                    <article
-                      key={item.slug || idx}
-                      className="p-4 sm:p-5 hover:bg-[#0D1B2A]/60 transition-colors flex flex-col sm:flex-row gap-4 items-start group"
-                    >
-                      {/* Image Thumbnail */}
-                      <Link
-                        href={`/news/${item.slug}`}
-                        className="relative w-full sm:w-44 h-40 sm:h-28 rounded-xl overflow-hidden bg-black shrink-0 border border-gray-800 group-hover:border-[#D8AD55]/40 transition-colors block"
-                      >
-                        <Image
-                          src={item.image_url?.replace(/^http:\/\//i, 'https://') || '/images/cricket-ball-blast.jpg'}
-                          alt={item.title}
-                          fill
-                          unoptimized
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            const target = e.currentTarget as HTMLImageElement;
-                            target.src = '/images/cricplus-stadium-4k.jpg';
-                          }}
-                        />
-                        {item.isBlog && (
-                          <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-[#D8AD55] text-black text-[9px] font-black uppercase">
-                            Editorial
-                          </span>
-                        )}
-                      </Link>
-
-                      {/* Text Content */}
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">
-                          <span>{item.source}</span>
-                          <span>•</span>
-                          <span className="text-gray-400">{item.category}</span>
-                          <span>•</span>
-                          <span className="text-gray-400 font-normal">{getTimeAgo(item.published_at)}</span>
-                        </div>
-
-                        <Link
-                          href={`/news/${item.slug}`}
-                          className="block"
-                        >
-                          <h4 className="font-display font-bold text-sm sm:text-base text-white group-hover:text-[#D8AD55] transition-colors line-clamp-2 leading-snug">
-                            {item.title}
-                          </h4>
-                        </Link>
-
-                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                          {item.summary}
-                        </p>
-
-                        <div className="pt-1 flex items-center justify-between text-xs">
-                          <Link
-                            href={`/news/${item.slug}`}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#D8AD55] hover:text-[#F2D69A]"
-                          >
-                            <span>Read Full Story</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </Link>
-
-                          <button
-                            onClick={(e) => handleShare(item, e)}
-                            className="text-gray-400 hover:text-white transition-colors p-1"
-                            title="Share"
-                          >
-                            {copiedSlug === item.slug ? (
-                              <span className="text-[10px] text-green-400 font-bold flex items-center gap-1">
-                                <Check className="w-3 h-3" /> Copied
-                              </span>
-                            ) : (
-                              <Share2 className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: 4 Cols (Sidebar: Most Read & CricPlus Specials) */}
-            <div className="lg:col-span-4 space-y-6">
-              
-              {/* CricPlus Editorial Box */}
-              <div className="rounded-2xl border border-[#D8AD55]/30 bg-gradient-to-b from-[#0D1B2A] to-[#08111F] p-5 shadow-lg space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#D8AD55]" />
-                    <h3 className="font-display font-extrabold text-sm text-white tracking-wide uppercase">
-                      From The Chief Editor
-                    </h3>
-                  </div>
-                  <span className="text-[10px] font-bold text-[#D8AD55] bg-[#D8AD55]/10 px-2 py-0.5 rounded border border-[#D8AD55]/30">
-                    Exclusive
-                  </span>
-                </div>
-                <p className="text-xs text-gray-300 leading-relaxed">
-                  Deep-dive tactical analysis, auction breakdowns, and tournament stories written by our master cricket editorial desk.
-                </p>
-                {blogs.length > 0 && (
-                  <div className="pt-2 border-t border-gray-800 space-y-2">
-                    {blogs.slice(0, 3).map((b) => (
-                      <Link
-                        key={b.slug}
-                        href={`/news/${b.slug}`}
-                        className="block group/b hover:bg-black/30 p-2 rounded-lg transition-colors"
-                      >
-                        <h5 className="font-display font-bold text-xs text-white group-hover/b:text-[#D8AD55] transition-colors line-clamp-2 leading-snug">
-                          {b.title}
-                        </h5>
-                        <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5">
-                          <Clock className="w-2.5 h-2.5 text-[#D8AD55]" />
-                          <span>{getTimeAgo(b.published_at)}</span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Cricinfo Style "Most Read" / Trending Widget */}
-              <div className="rounded-2xl border border-gray-800 bg-[#08111F] p-5 shadow-lg space-y-4">
-                <div className="flex items-center justify-between border-b border-gray-800 pb-2">
-                  <h3 className="font-display font-extrabold text-sm text-white tracking-wide flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-red-500" />
-                    <span>Most Read Stories</span>
-                  </h3>
-                  <span className="text-[10px] text-gray-500 uppercase font-black">24H TRENDING</span>
-                </div>
-
-                <div className="space-y-3.5">
-                  {trendingStories.map((trend, idx) => (
-                    <Link
-                      key={trend.slug || idx}
-                      href={`/news/${trend.slug}`}
-                      className="flex items-start gap-3 group/trend hover:bg-[#0D1B2A]/50 p-1.5 rounded-lg transition-colors"
-                    >
-                      <span className="font-display font-black text-xl text-[#D8AD55]/70 w-5 shrink-0 text-center leading-none">
-                        {idx + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-display font-bold text-xs text-white group-hover/trend:text-[#D8AD55] transition-colors line-clamp-2 leading-snug">
-                          {trend.title}
-                        </h5>
-                        <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-1">
-                          <span>{trend.source}</span>
-                          <span>•</span>
-                          <span>{getTimeAgo(trend.published_at)}</span>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tournament Match Center Quick Promo */}
-              <div className="rounded-2xl border border-gray-800 bg-gradient-to-br from-[#08111F] to-[#040814] p-5 shadow-lg space-y-3 text-center">
-                <Trophy className="w-8 h-8 text-[#D8AD55] mx-auto" />
-                <h4 className="font-display font-bold text-sm text-white">
-                  Hosting a Corporate or Club League?
-                </h4>
-                <p className="text-xs text-gray-400">
-                  Manage auctions, group stages, live ball-by-ball scoring and automated points table.
-                </p>
-                <Link
-                  href="/tournaments/create"
-                  className="inline-block w-full py-2 px-3 rounded-lg bg-[#D8AD55] text-black text-xs font-black uppercase tracking-wider hover:bg-[#F2D69A] transition-colors"
-                >
-                  Create Tournament
-                </Link>
-              </div>
-
-            </div>
-
+              </article>
+            ))}
           </div>
-        )}
-      </div>
-
+        </div>
+      )}
     </div>
   );
 }
