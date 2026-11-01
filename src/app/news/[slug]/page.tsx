@@ -405,11 +405,21 @@ export default async function ArticleDetailPage({ params }: Props) {
 
         {/* 3. Featured Image */}
         <figure className="space-y-2">
-          <div className="relative w-full aspect-[16/9] rounded-3xl overflow-hidden border border-[#D8AD55]/30 bg-[#0D1B2A] shadow-2xl">
+          <div
+            className="relative w-full aspect-[16/9] h-auto rounded-3xl overflow-hidden border border-[#D8AD55]/30 bg-[#08111F] shadow-2xl flex items-center justify-center"
+            style={{ width: '100%', aspectRatio: '16 / 9', height: 'auto' }}
+          >
             <img
               src={article.featuredImage?.url || '/images/cricplus-stadium-4k.jpg'}
               alt={article.featuredImage?.altText || article.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain object-center"
+              style={{
+                width: '100%',
+                aspectRatio: '16 / 9',
+                height: 'auto',
+                objectFit: 'contain',
+                objectPosition: 'center',
+              }}
             />
           </div>
           {article.featuredImage?.caption && (

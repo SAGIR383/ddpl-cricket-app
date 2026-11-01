@@ -1389,8 +1389,22 @@ export function BlogStudio() {
                         <span>{calculateReadingTime(content)}</span>
                       </div>
 
-                      <div className="relative w-full h-48 rounded-xl overflow-hidden border border-white/10 bg-[#0D1B2A]">
-                        <img src={imageUrl} alt={imageAlt || title} className="w-full h-full object-cover" />
+                      <div
+                        className="relative w-full aspect-[16/9] h-auto rounded-2xl overflow-hidden border border-[#D8AD55]/30 bg-[#08111F] flex items-center justify-center shadow-xl"
+                        style={{ width: '100%', aspectRatio: '16 / 9', height: 'auto' }}
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={imageAlt || title}
+                          className="w-full h-full object-contain object-center"
+                          style={{
+                            width: '100%',
+                            aspectRatio: '16 / 9',
+                            height: 'auto',
+                            objectFit: 'contain',
+                            objectPosition: 'center',
+                          }}
+                        />
                       </div>
 
                       <div className="prose prose-invert max-w-none text-xs text-gray-300 whitespace-pre-line leading-relaxed">
