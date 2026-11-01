@@ -3,6 +3,9 @@ import { getAllArticles, EDITORIAL_CATEGORIES, slugifyCategory } from '@/lib/art
 import { getStoreData } from '@/lib/supabase/store';
 import { CRICKET_TOOLS } from '@/lib/cricketTools';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+
 const SITE_URL = 'https://www.cricplus24.in';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -135,7 +138,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 4. Published Original Articles (Drafts & Noindex strictly excluded)
   let articleRoutes: MetadataRoute.Sitemap = [];
   try {
-    const articles = await getAllArticles(false);
+    const articles = await getAllArticles(false, true);
     articleRoutes = articles
       .filter((a) => a.status === 'published' && a.seo?.robotsIndex !== 'noindex')
       .map((a) => ({
@@ -168,11 +171,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.warn('[Sitemap] Failed to load tournaments:', err);
   }
 
-  return [
+  const allEntries: MetadataRoute.Sitemap = [
     ...staticRoutes,
     ...toolRoutes,
     ...categoryRoutes,
     ...articleRoutes,
     ...tournamentRoutes,
   ];
+
+  // Guaranteed URL deduplication
+  const uniqueUrls = new Map<string, MetadataRoute.Sitemap[number]>();
+  for (const entry of allEntries) {
+    if (entry.url && !uniqueUrls.has(entry.url)) {
+      uniqueUrls.set(entry.url, entry);
+    }
+  }
+
+  return Array.from(uniqueUrls.values());
 }

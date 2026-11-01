@@ -14,12 +14,13 @@ const SUPABASE_SERVICE_KEY = getServiceRoleKey();
 /**
  * Universal Article Fetcher from Supabase / Store (Server-side only)
  */
-export async function getAllArticles(includeDrafts = false): Promise<CricPlusArticle[]> {
+export async function getAllArticles(includeDrafts = false, bypassCache = false): Promise<CricPlusArticle[]> {
   try {
     const storeContainer = await getStoreData<{ articles: Record<string, CricPlusArticle> }>(
       'cricplus_articles',
       'articles.json',
-      { articles: {} }
+      { articles: {} },
+      bypassCache
     );
 
     const storeArticles = Object.values(storeContainer?.articles || {});
@@ -116,8 +117,8 @@ export async function saveArticle(article: CricPlusArticle): Promise<CricPlusArt
   // 2. Mirror into blog_posts table for SQL compatibility
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const dbRow = {
-      id: article.id,
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(article.id);
+    const dbRow: any = {
       title: article.title,
       subtitle: article.subtitle || null,
       slug: article.slug,
@@ -130,6 +131,9 @@ export async function saveArticle(article: CricPlusArticle): Promise<CricPlusArt
       author_name: article.author?.name || 'CricPlus24 Editorial Team',
       published_at: article.publishedAt,
     };
+    if (isUuid) {
+      dbRow.id = article.id;
+    }
 
     await supabase.from('blog_posts').upsert(dbRow, { onConflict: 'slug' });
   } catch (dbErr) {
