@@ -65,19 +65,29 @@ export default function CricketNewsPage() {
   const [selectedCategory, setSelectedCategory] = useState('All Stories');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [countdown, setCountdown] = useState<number>(30);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState<boolean>(true);
+  const [justUpdated, setJustUpdated] = useState<boolean>(false);
 
   async function loadContent(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      // 1. Fetch live global news (ESPN Cricinfo, Cricbuzz, etc.)
-      const newsRes = await fetch(`/api/news${isRefresh ? '?refresh=true' : ''}`);
+      const timestamp = Date.now();
+      // 1. Fetch live global news (ESPN Cricinfo, Cricbuzz, etc.) with cache busting
+      const newsRes = await fetch(`/api/news?refresh=true&_t=${timestamp}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const newsData = await newsRes.json();
       const newsList: Article[] = newsData.articles || [];
 
       // 2. Fetch CricPlus Editorials & Blogs
-      const blogRes = await fetch('/api/blogs');
+      const blogRes = await fetch(`/api/blogs?_t=${timestamp}`, {
+        cache: 'no-store',
+      });
       const blogData = await blogRes.json();
       const blogList: Article[] = (blogData.posts || []).map((b: any) => ({
         id: b.id,
@@ -94,6 +104,11 @@ export default function CricketNewsPage() {
 
       setBlogs(blogList);
       setArticles(newsList);
+      setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      if (isRefresh) {
+        setJustUpdated(true);
+        setTimeout(() => setJustUpdated(false), 2500);
+      }
     } catch (err) {
       console.error('Failed to load news:', err);
     } finally {
@@ -102,15 +117,38 @@ export default function CricketNewsPage() {
     }
   }
 
+  // Initial load
   useEffect(() => {
     loadContent();
+  }, []);
 
-    // Auto-sync every 60s so newly broken international news streams live into CricPlus24
-    const interval = setInterval(() => {
-      loadContent(true);
-    }, 60000);
+  // 1-second interval ticker for live countdown and auto-refresh
+  useEffect(() => {
+    if (!autoRefreshEnabled) return;
 
-    return () => clearInterval(interval);
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          loadContent(true);
+          return 30; // reset to 30 seconds
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [autoRefreshEnabled]);
+
+  // Tab focus re-sync: when user switches back to this tab, refresh automatically
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setCountdown(30);
+        loadContent(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   function handleShare(article: Article, e: React.MouseEvent) {
@@ -184,16 +222,26 @@ export default function CricketNewsPage() {
                   <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded bg-red-600/30 border border-red-500/50 text-red-400 animate-pulse">
                     LIVE
                   </span>
+                  {justUpdated && (
+                    <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+                      ✨ Updated!
+                    </span>
+                  )}
                 </div>
-                <p className="text-[11px] text-gray-400 hidden sm:block">
-                  Real-time international coverage, series previews, and exclusive CricPlus24 analysis
-                </p>
+                <div className="flex items-center gap-2 text-[11px] text-gray-400 mt-0.5">
+                  <span className="hidden sm:inline">Real-time international coverage from ESPN Cricinfo &amp; Cricbuzz</span>
+                  {lastUpdated && (
+                    <span className="text-gray-400 flex items-center gap-1 font-mono text-[10px]">
+                      • Last synced: <span className="text-[#F2D69A] font-bold">{lastUpdated}</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Controls: Search & Refresh */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 sm:w-64">
+            {/* Controls: Search, Auto-Sync Status, and Sync Now */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 sm:w-56 min-w-[180px]">
                 <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -204,13 +252,33 @@ export default function CricketNewsPage() {
                 />
               </div>
 
+              {/* Auto-sync indicator & countdown */}
               <button
-                onClick={() => loadContent(true)}
-                disabled={refreshing}
-                title="Refresh news feeds"
-                className="p-2 rounded-lg bg-[#0D1B2A] border border-gray-800 text-[#D8AD55] hover:bg-[#D8AD55]/10 hover:border-[#D8AD55]/40 transition-colors shrink-0 disabled:opacity-50"
+                type="button"
+                onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                title={autoRefreshEnabled ? 'Auto-refresh active every 30s. Click to pause.' : 'Auto-refresh paused. Click to enable.'}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                  autoRefreshEnabled
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/50'
+                    : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white'
+                }`}
               >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className={`w-2 h-2 rounded-full ${refreshing ? 'bg-amber-400 animate-ping' : autoRefreshEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                <span>Auto-Sync: {autoRefreshEnabled ? `${countdown}s` : 'Paused'}</span>
+              </button>
+
+              {/* Manual Sync Button */}
+              <button
+                onClick={() => {
+                  setCountdown(30);
+                  loadContent(true);
+                }}
+                disabled={refreshing}
+                title="Sync latest live news now"
+                className="px-3 py-1.5 rounded-lg bg-[#0D1B2A] border border-[#D8AD55]/40 text-[#D8AD55] hover:bg-[#D8AD55]/15 transition-all shrink-0 disabled:opacity-50 flex items-center gap-1.5 text-xs font-bold"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#F2D69A]' : ''}`} />
+                <span className="hidden sm:inline">{refreshing ? 'Syncing...' : 'Sync Now'}</span>
               </button>
             </div>
           </div>

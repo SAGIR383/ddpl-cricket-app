@@ -17,7 +17,7 @@ const SUPABASE_KEY =
 // In-memory cache fallback for instant rendering
 let cachedNews: CricketNewsItem[] = [];
 let lastSyncTime = 0;
-const SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes live auto-sync
+const SYNC_INTERVAL_MS = 45 * 1000; // 45 seconds live auto-sync threshold
 
 export async function GET(req: NextRequest) {
   try {
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
           cachedNews = liveItems;
           lastSyncTime = now;
 
-          // Asynchronously upsert into Supabase for permanent archiving
+          // Upsert into Supabase for permanent archiving
           // CRITICAL: Only include 'content' if it is non-empty, NEVER overwrite existing rich content with null!
           const upsertRows = liveItems.map((item) => {
             const row: any = {
@@ -137,13 +137,15 @@ export async function GET(req: NextRequest) {
             return row;
           });
 
-          // Upsert in background without blocking API response
-          supabase
-            .from('cricket_news')
-            .upsert(upsertRows, { onConflict: 'slug' })
-            .then(({ error }) => {
-              if (error) console.warn('[NewsAPI] Supabase archive sync error:', error.message);
-            });
+          // Await upsert so Supabase has the latest records BEFORE querying
+          try {
+            const { error: upsertErr } = await supabase
+              .from('cricket_news')
+              .upsert(upsertRows, { onConflict: 'slug' });
+            if (upsertErr) console.warn('[NewsAPI] Supabase archive sync error:', upsertErr.message);
+          } catch (e: any) {
+            console.warn('[NewsAPI] Supabase upsert exception:', e?.message);
+          }
         }
       } catch (syncErr) {
         console.warn('[NewsAPI] Sync live news error:', syncErr);
@@ -151,13 +153,13 @@ export async function GET(req: NextRequest) {
     }
 
     // Try fetching combined archive from Supabase
-    let allNews: CricketNewsItem[] = [];
+    let dbNews: CricketNewsItem[] = [];
     try {
       let query = supabase
         .from('cricket_news')
         .select('*')
         .order('published_at', { ascending: false })
-        .limit(Math.max(limit * 2, 50));
+        .limit(Math.max(limit * 2, 60));
 
       if (category && category !== 'All Stories') {
         query = query.eq('category', category);
@@ -169,23 +171,47 @@ export async function GET(req: NextRequest) {
 
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        allNews = data as CricketNewsItem[];
+        dbNews = data as CricketNewsItem[];
       }
     } catch (dbErr) {
       console.warn('[NewsAPI] Supabase query fallback:', dbErr);
     }
 
-    // If Supabase returned empty or failed, fallback to memory cached items
-    if (allNews.length === 0) {
-      allNews = cachedNews;
-      if (category && category !== 'All Stories') {
-        allNews = allNews.filter((n) => n.category.toLowerCase() === category.toLowerCase());
-      }
-      if (search) {
-        const s = search.toLowerCase();
-        allNews = allNews.filter((n) => n.title.toLowerCase().includes(s) || n.summary.toLowerCase().includes(s));
+    // Merge live news and DB items to ensure newest headlines are always immediately visible
+    const mergedMap = new Map<string, CricketNewsItem>();
+
+    // 1. Add cached live items
+    for (const item of cachedNews) {
+      mergedMap.set(item.slug, item);
+    }
+
+    // 2. Merge DB items (preserving any rich scraped content)
+    for (const item of dbNews) {
+      const existing = mergedMap.get(item.slug);
+      if (existing) {
+        mergedMap.set(item.slug, {
+          ...existing,
+          ...item,
+          content: item.content || existing.content,
+        });
+      } else {
+        mergedMap.set(item.slug, item);
       }
     }
+
+    let allNews = Array.from(mergedMap.values());
+
+    // Apply category & search filters if needed
+    if (category && category !== 'All Stories') {
+      allNews = allNews.filter((n) => n.category.toLowerCase() === category.toLowerCase());
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      allNews = allNews.filter((n) => n.title.toLowerCase().includes(s) || (n.summary && n.summary.toLowerCase().includes(s)));
+    }
+
+    // Sort by publication date descending
+    allNews.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
 
     return NextResponse.json(
       {
@@ -196,7 +222,9 @@ export async function GET(req: NextRequest) {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'CDN-Cache-Control': 'no-store',
+          'Vercel-CDN-Cache-Control': 'no-store',
         },
       }
     );

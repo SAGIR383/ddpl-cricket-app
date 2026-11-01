@@ -100,7 +100,7 @@ export default function ArticleDetailPage() {
         }
 
         // 3. Fetch related stories (editorials + news)
-        const relRes = await fetch('/api/news?limit=4');
+        const relRes = await fetch('/api/news?limit=4', { cache: 'no-store' });
         const relData = await relRes.json();
         if (relData.articles) {
           setRelated(

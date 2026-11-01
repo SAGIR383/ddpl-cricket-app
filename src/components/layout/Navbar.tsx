@@ -34,12 +34,12 @@ export function Navbar() {
 
   const navLinks = [
     { href: '/', label: t.navHome, icon: Sparkles, exact: true },
-    { href: '/news', label: 'News', icon: Globe },
     { href: '/tournaments', label: t.navTournaments, icon: Trophy },
     { href: '/matches', label: t.navMatches, icon: Calendar },
     { href: '/auction', label: t.navAuction, icon: Gavel },
     { href: '/standings', label: t.navStandings, icon: BarChart3 },
     { href: '/leaderboard', label: t.navLeaderboard, icon: Flame },
+    { href: '/news', label: 'News', icon: Globe },
     { href: '/archive', label: t.navArchive, icon: Archive },
     ...(isOrganizer ? [{ href: '/admin', label: isSuperAdmin ? 'Super Admin' : 'Admin', icon: Shield, badge: isSuperAdmin ? 'Master' : 'Organizer' }] : []),
   ];
