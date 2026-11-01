@@ -142,6 +142,13 @@ export function BlogStudio() {
   }, []);
 
   // Auto-generate slug and SEO defaults from title if creating new
+  const handleSlugChange = (val: string) => {
+    setSlug(val);
+    if (!canonicalUrl || canonicalUrl.includes('cricplus24.in/news/')) {
+      setCanonicalUrl(`https://www.cricplus24.in/news/${val.trim()}`);
+    }
+  };
+
   const handleTitleChange = (val: string) => {
     setTitle(val);
     if (!editingSlug) {
@@ -431,7 +438,9 @@ export function BlogStudio() {
         metaDescription: metaDescription.trim() || summary.trim().slice(0, 160),
         primaryKeyword: primaryKeyword.trim(),
         secondaryKeywords: secondary,
-        canonicalUrl: canonicalUrl.trim() || `https://www.cricplus24.in/news/${slug.trim() || slugifyTitle(title)}`,
+        canonicalUrl: (!canonicalUrl.trim() || canonicalUrl.includes('cricplus24.in/news/'))
+          ? `https://www.cricplus24.in/news/${slug.trim() || slugifyTitle(title)}`
+          : canonicalUrl.trim(),
         ogTitle: ogTitle.trim() || seoTitle.trim() || title.trim(),
         ogDescription: ogDescription.trim() || metaDescription.trim() || summary.trim().slice(0, 160),
         ogImage: imageUrl,
@@ -730,7 +739,7 @@ export function BlogStudio() {
                       <input
                         type="text"
                         value={slug}
-                        onChange={(e) => setSlug(e.target.value)}
+                        onChange={(e) => handleSlugChange(e.target.value)}
                         placeholder="masterclass-decoding-modern-death-overs"
                         className="w-full px-4 py-2.5 rounded-xl bg-[#0D1B2A] border border-white/10 text-[#F2D69A] font-mono text-[11px] focus:border-[#D8AD55] focus:outline-none"
                       />

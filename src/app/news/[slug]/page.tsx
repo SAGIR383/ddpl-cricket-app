@@ -42,8 +42,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const seoTitle = article.seo?.seoTitle || `${article.title} | CricPlus24`;
   const metaDescription =
     article.seo?.metaDescription || article.summary || article.subtitle || article.title;
-  const canonicalUrl =
-    article.seo?.canonicalUrl || `https://www.cricplus24.in/news/${article.slug}`;
+  // Enforce canonical URL consistency:
+  // If the article canonical points to cricplus24.in/news/ or is missing,
+  // it MUST strictly match the actual published URL: https://www.cricplus24.in/news/${article.slug}
+  let canonicalUrl = article.seo?.canonicalUrl?.trim();
+  if (!canonicalUrl || canonicalUrl.includes('cricplus24.in/news/')) {
+    canonicalUrl = `https://www.cricplus24.in/news/${article.slug}`;
+  }
   const shareImage =
     article.seo?.ogImage || article.featuredImage?.url || '/images/cricplus-stadium-4k.jpg';
   const shouldIndex = article.seo?.robotsIndex !== 'noindex';
