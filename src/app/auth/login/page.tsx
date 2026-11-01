@@ -261,16 +261,31 @@ export default function LoginPage() {
               ? 'Join CricPlus24'
               : 'Welcome Back'}
           </h2>
-          <p className="text-xs text-[#8793A5] max-w-xs mx-auto">
+          <p className="text-xs text-[#8793A5] max-w-sm mx-auto">
             {authMode === 'forgot_password'
               ? resetStep === 'send_otp'
                 ? 'Enter your registered email to receive a secure password reset link.'
                 : 'Follow the link sent to your email to reset your password.'
               : authMode === 'register'
-              ? 'Create your player profile for corporate tournaments'
+              ? 'Create your universal player & spectator profile'
               : 'Sign in to manage teams, enter auction bids, or score matches'}
           </p>
         </div>
+
+        {/* Tournament Participation Safeguard Notice */}
+        {authMode === 'register' && (
+          <div className="p-3.5 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 flex items-start gap-2.5 text-left text-xs shadow-inner animate-fade-in">
+            <ShieldCheck className="w-4 h-4 text-[#D8AD55] shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <strong className="text-[#F2D69A] font-bold text-[11px] block">
+                Tournament Participation is Invitation-Only
+              </strong>
+              <p className="text-[#8793A5] text-[11px] leading-relaxed">
+                General account creation provides platform &amp; spectator access. To join a specific company or club tournament as an active athlete, please open the private joining link provided by your tournament organizer.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Tab Selector (Hidden during Forgot Password) */}
         {authMode !== 'forgot_password' ? (

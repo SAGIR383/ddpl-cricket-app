@@ -1122,7 +1122,7 @@ export default function AuctionPage() {
               </div>
               <div>
                 <span className="font-bold text-white">Live Spectator Broadcast Mode: </span>
-                <span className="text-[#8793A5]">Watch bids, timers, and sold/unsold celebrations in real time.</span>
+                <span className="text-[#8793A5]">Watch bids, timers, and sold/unsold celebrations in real time. (Bidding is exclusively reserved for verified franchise team owners).</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
