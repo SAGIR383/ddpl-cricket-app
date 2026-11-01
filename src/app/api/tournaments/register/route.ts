@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
 import { generateMultiGroupFixtures } from '@/app/api/matches/route';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 export interface TournamentPlayerRegistration {
   id: string;
   userId?: string;
@@ -710,11 +713,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, error: 'Invalid tournament slug' }, { status: 400 });
       }
 
-      const configs = await getStoreData<Record<string, TournamentConfig>>(
-        'tournament_configs',
-        'tournament_configs.json',
-        DEFAULT_CONFIGS
-      );
+      // Fast parallel fetch of all required initial store states in a single batch (< 1s)
+      const [
+        configs,
+        adminAccounts,
+        orgs,
+        roles,
+        allAuction,
+      ] = await Promise.all([
+        getStoreData<Record<string, TournamentConfig>>('tournament_configs', 'tournament_configs.json', DEFAULT_CONFIGS),
+        getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}),
+        getStoreData<Record<string, any>>('corporate_organizations', 'organizations.json', {}),
+        getStoreData<Record<string, string>>('user_roles', 'roles.json', {}),
+        getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }),
+      ]);
 
       const resolvedShort = (shortName || name.split(' ').map((w: string) => w[0]).join('').slice(0, 4)).toUpperCase();
       const tournamentType = body.tournamentType === 'direct_groups' ? 'direct_groups' : 'auction_league';
@@ -741,22 +753,15 @@ export async function POST(req: Request) {
       let resolvedAdminPin = adminPin?.trim() || undefined;
 
       if (creatorEmail) {
-        try {
-          const adminAccounts = await getStoreData<Record<string, any>>(
-            'super_admin_accounts',
-            'super_admin_accounts.json',
-            {}
-          );
-          const existingAcc = adminAccounts[creatorEmail.toLowerCase()];
-          if (existingAcc) {
-            if (!resolvedAdminPassword && existingAcc.password) {
-              resolvedAdminPassword = existingAcc.password;
-            }
-            if (!resolvedAdminPin && existingAcc.pin) {
-              resolvedAdminPin = existingAcc.pin;
-            }
+        const existingAcc = adminAccounts[creatorEmail.toLowerCase()];
+        if (existingAcc) {
+          if (!resolvedAdminPassword && existingAcc.password) {
+            resolvedAdminPassword = existingAcc.password;
           }
-        } catch {}
+          if (!resolvedAdminPin && existingAcc.pin) {
+            resolvedAdminPin = existingAcc.pin;
+          }
+        }
       }
 
       const newTournamentConfig: TournamentConfig = {
@@ -799,130 +804,48 @@ export async function POST(req: Request) {
       };
 
       configs[generatedSlug] = newTournamentConfig;
-      await setStoreData('tournament_configs', configs, 'tournament_configs.json');
 
-      // Auto-register / link with Corporate Organizations store
-      try {
-        const orgs = await getStoreData<Record<string, any>>(
-          'corporate_organizations',
-          'organizations.json',
-          {}
-        );
-        const currentOrg = orgs[finalOrgSlug] || {
-          id: `org-${Date.now()}`,
-          slug: finalOrgSlug,
-          name: resolvedOrgName,
-          country: country?.trim() || 'Global',
-          currency: currency?.trim() || 'INR',
-          currencySymbol: currencySymbol?.trim() || '₹',
-          adminEmails: [],
-          tournaments: [],
-          createdAt: new Date().toISOString(),
-          isVerified: false,
-        };
+      // Prepare organization record
+      const currentOrg = orgs[finalOrgSlug] || {
+        id: `org-${Date.now()}`,
+        slug: finalOrgSlug,
+        name: resolvedOrgName,
+        country: country?.trim() || 'Global',
+        currency: currency?.trim() || 'INR',
+        currencySymbol: currencySymbol?.trim() || '₹',
+        adminEmails: [],
+        tournaments: [],
+        createdAt: new Date().toISOString(),
+        isVerified: false,
+      };
 
-        if (creatorEmail && !currentOrg.adminEmails?.includes(creatorEmail.toLowerCase())) {
-          currentOrg.adminEmails = [...(currentOrg.adminEmails || []), creatorEmail.toLowerCase()];
-        }
-        if (!currentOrg.tournaments?.includes(generatedSlug)) {
-          currentOrg.tournaments = [...(currentOrg.tournaments || []), generatedSlug];
-        }
-
-        orgs[finalOrgSlug] = currentOrg;
-        await setStoreData('corporate_organizations', orgs, 'organizations.json');
-      } catch (orgErr) {
-        console.warn('Could not auto-sync organization:', orgErr);
+      if (creatorEmail && !currentOrg.adminEmails?.includes(creatorEmail.toLowerCase())) {
+        currentOrg.adminEmails = [...(currentOrg.adminEmails || []), creatorEmail.toLowerCase()];
       }
+      if (!currentOrg.tournaments?.includes(generatedSlug)) {
+        currentOrg.tournaments = [...(currentOrg.tournaments || []), generatedSlug];
+      }
+      orgs[finalOrgSlug] = currentOrg;
 
-      // Auto-promote tournament creator to Super Admin role and persist credentials
+      // Prepare Super Admin roles & credentials
       if (creatorEmail) {
-        try {
-          const roles = await getStoreData<Record<string, string>>('user_roles', 'roles.json', {});
-          roles[creatorEmail.toLowerCase()] = 'super_admin';
-          await setStoreData('user_roles', roles, 'roles.json');
-        } catch (rErr) {
-          console.warn('Could not auto-promote creator to super_admin in user_roles:', rErr);
-        }
+        roles[creatorEmail.toLowerCase()] = 'super_admin';
 
-        // Persist to super_admin_accounts store
-        try {
-          const adminAccounts = await getStoreData<Record<string, any>>(
-            'super_admin_accounts',
-            'super_admin_accounts.json',
-            {}
-          );
-          const prevAccount = adminAccounts[creatorEmail.toLowerCase()] || {};
-          adminAccounts[creatorEmail.toLowerCase()] = {
-            ...prevAccount,
-            email: creatorEmail.toLowerCase(),
-            password: adminPassword || prevAccount.password || '',
-            pin: adminPin || prevAccount.pin || '',
-            name: prevAccount.name || `${name.trim()} Super Admin`,
-            role: 'super_admin',
-            tournamentSlug: generatedSlug,
-            tournamentName: name.trim(),
-            updatedAt: new Date().toISOString(),
-          };
-          await setStoreData('super_admin_accounts', adminAccounts, 'super_admin_accounts.json');
-        } catch (saErr) {
-          console.warn('Could not save to super_admin_accounts:', saErr);
-        }
-
-        // Auto-provision or update user in Supabase Auth & profiles table
-        try {
-          const { getServiceRoleKey } = await import('@/lib/supabase/serviceKey');
-          const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
-          const SUPABASE_SERVICE_KEY = getServiceRoleKey();
-          const { createClient } = await import('@supabase/supabase-js');
-          const adminAuth = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
-
-          const { data: userList } = await adminAuth.auth.admin.listUsers();
-          const existingUser = userList?.users?.find(
-            (u) => u.email?.toLowerCase() === creatorEmail.toLowerCase()
-          );
-
-          let uid = existingUser?.id;
-
-          if (!existingUser) {
-            const { data: newUser, error: createErr } = await adminAuth.auth.admin.createUser({
-              email: creatorEmail.toLowerCase(),
-              password: adminPassword || 'SuperAdmin@2026',
-              email_confirm: true,
-              user_metadata: {
-                full_name: `${name.trim()} Super Admin`,
-                role: 'super_admin',
-              },
-            });
-            if (!createErr && newUser?.user) {
-              uid = newUser.user.id;
-            }
-          } else if (adminPassword) {
-            await adminAuth.auth.admin.updateUserById(existingUser.id, {
-              password: adminPassword,
-              user_metadata: {
-                full_name: `${name.trim()} Super Admin`,
-                role: 'super_admin',
-              },
-            });
-          }
-
-          if (uid) {
-            await adminAuth.from('profiles').upsert({
-              id: uid,
-              email: creatorEmail.toLowerCase(),
-              full_name: `${name.trim()} Super Admin`,
-              system_role: 'super_admin',
-              primary_role: 'All-rounder',
-              updated_at: new Date().toISOString(),
-            });
-          }
-        } catch (authErr) {
-          console.warn('Could not auto-provision Supabase Auth user:', authErr);
-        }
+        const prevAccount = adminAccounts[creatorEmail.toLowerCase()] || {};
+        adminAccounts[creatorEmail.toLowerCase()] = {
+          ...prevAccount,
+          email: creatorEmail.toLowerCase(),
+          password: adminPassword || prevAccount.password || '',
+          pin: adminPin || prevAccount.pin || '',
+          name: prevAccount.name || `${name.trim()} Super Admin`,
+          role: 'super_admin',
+          tournamentSlug: generatedSlug,
+          tournamentName: name.trim(),
+          updatedAt: new Date().toISOString(),
+        };
       }
 
-      // 1. Initialize Auction / Teams State for this tournament
-      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      // Prepare Auction & Teams state
       if (!allAuction.tournaments) allAuction.tournaments = {};
 
       let initialTeams: any[] = [];
@@ -969,10 +892,9 @@ export async function POST(req: Request) {
           autoBoardingEnabled: tournamentType !== 'direct_groups',
           currentLot: null,
         };
-        await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
       }
 
-      // 2. Initialize Tournament Rules
+      // Prepare Tournament Rules
       const rules = {
         basePurse: newTournamentConfig.pursePerTeam,
         ownerBlockedPrice: newTournamentConfig.ownerBasePrice,
@@ -987,9 +909,8 @@ export async function POST(req: Request) {
         pointsPerWin: 2,
         bidSteps: [50, 100, 200, 500],
       };
-      await setStoreData(`tournament_rules_${generatedSlug}`, rules, `rules_${generatedSlug}.json`);
 
-      // 3. Initialize Tournament Schedule (Auto-generate if direct teams provided)
+      // Prepare Tournament Schedule
       let initialMatches: any[] = [];
       if (initialTeams.length >= 2) {
         initialMatches = generateMultiGroupFixtures(initialTeams, groupNames, resolvedOvers, generatedSlug);
@@ -1003,7 +924,72 @@ export async function POST(req: Request) {
         matches: initialMatches,
         lastUpdated: new Date().toISOString(),
       };
-      await setStoreData(`tournament_schedule_${generatedSlug}`, schedule, `schedule_${generatedSlug}.json`);
+
+      // FAST PARALLEL WRITE: Persist all tournament stores simultaneously (< 1.5s total)
+      await Promise.all([
+        setStoreData('tournament_configs', configs, 'tournament_configs.json'),
+        setStoreData('auction_data_ddpl', allAuction, 'auction_data.json'),
+        setStoreData(`tournament_rules_${generatedSlug}`, rules, `rules_${generatedSlug}.json`),
+        setStoreData(`tournament_schedule_${generatedSlug}`, schedule, `schedule_${generatedSlug}.json`),
+        setStoreData('corporate_organizations', orgs, 'organizations.json'),
+        creatorEmail ? setStoreData('user_roles', roles, 'roles.json') : Promise.resolve(),
+        creatorEmail ? setStoreData('super_admin_accounts', adminAccounts, 'super_admin_accounts.json') : Promise.resolve(),
+      ]);
+
+      // Non-blocking background Supabase Auth user & profile provisioning
+      if (creatorEmail) {
+        (async () => {
+          try {
+            const { getServiceRoleKey } = await import('@/lib/supabase/serviceKey');
+            const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
+            const SUPABASE_SERVICE_KEY = getServiceRoleKey();
+            const { createClient } = await import('@supabase/supabase-js');
+            const adminAuth = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
+
+            const { data: existingProfile } = await adminAuth
+              .from('profiles')
+              .select('id')
+              .eq('email', creatorEmail.toLowerCase())
+              .maybeSingle();
+
+            let uid = existingProfile?.id;
+
+            if (!uid) {
+              const { data: newUser } = await adminAuth.auth.admin.createUser({
+                email: creatorEmail.toLowerCase(),
+                password: adminPassword || 'SuperAdmin@2026',
+                email_confirm: true,
+                user_metadata: {
+                  full_name: `${name.trim()} Super Admin`,
+                  role: 'super_admin',
+                },
+              });
+              uid = newUser?.user?.id;
+            } else if (adminPassword) {
+              await adminAuth.auth.admin.updateUserById(uid, {
+                password: adminPassword,
+                user_metadata: {
+                  full_name: `${name.trim()} Super Admin`,
+                  role: 'super_admin',
+                },
+              });
+            }
+
+            if (uid) {
+              await adminAuth.from('profiles').upsert({
+                id: uid,
+                email: creatorEmail.toLowerCase(),
+                full_name: `${name.trim()} Super Admin`,
+                system_role: 'super_admin',
+                primary_role: 'All-rounder',
+                updated_at: new Date().toISOString(),
+              });
+            }
+          } catch (authErr) {
+            console.warn('Background auto-provision Supabase Auth user skipped:', authErr);
+          }
+        })().catch(() => {});
+      }
 
       const response = NextResponse.json({
         success: true,

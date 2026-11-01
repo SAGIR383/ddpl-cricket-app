@@ -334,20 +334,35 @@ export default function CreateTournamentPage() {
         isPublic: true,
       };
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+
       const res = await fetch('/api/tournaments/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
-      const data = await res.json();
-      if (data.success && data.tournament) {
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Server returned an invalid response. Please try again.');
+      }
+
+      if (res.ok && data?.success && data?.tournament) {
         setCreatedResult(data.tournament);
       } else {
-        alert(data.error || 'Failed to create tournament. Please try again.');
+        alert(data?.error || `Failed to create tournament (Status: ${res.status}). Please try again.`);
       }
     } catch (err: any) {
-      alert(`Error creating tournament: ${err.message}`);
+      if (err.name === 'AbortError') {
+        alert('Tournament creation is taking longer than expected. Please check the Tournaments directory to see if your tournament was already provisioned.');
+      } else {
+        alert(`Error creating tournament: ${err.message || 'Network connection failed'}`);
+      }
     } finally {
       setSubmitting(false);
     }
