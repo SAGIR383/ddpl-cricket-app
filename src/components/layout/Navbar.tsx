@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle, Globe, Palette, LogOut } from 'lucide-react';
+import { Trophy, Calendar, Gavel, BarChart3, Archive, User, Shield, Menu, X, Flame, Sparkles, PlusCircle, Globe, Palette, LogOut, Smartphone, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCorporateTheme } from '@/contexts/ThemeContext';
@@ -130,6 +130,15 @@ export function Navbar() {
             >
               <Palette className="w-3.5 h-3.5 text-[#D8AD55]" />
             </button>
+
+            {/* Download Android App Button */}
+            <Link
+              href="/download"
+              className="p-1.5 rounded-full bg-[#0D1B2A] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] hover:text-white transition-all cursor-pointer shrink-0"
+              title="Download CricPlus24 Android App (.APK)"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-[#D8AD55]" />
+            </Link>
 
             {/* Host Tournament CTA */}
             <Link
@@ -267,6 +276,15 @@ export function Navbar() {
             >
               <PlusCircle className="w-4 h-4" />
               <span>+ Host Corporate Tournament</span>
+            </Link>
+
+            <Link
+              href="/download"
+              onClick={() => setMobileMenuOpen(false)}
+              className="btn-press w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Download Android App (.APK)</span>
             </Link>
 
             {isSuperAdmin && (

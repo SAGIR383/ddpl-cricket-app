@@ -29,6 +29,7 @@ import { LiveAnnouncementTicker } from '@/components/home/LiveAnnouncementTicker
 import { InteractiveFeatureShowcase } from '@/components/home/InteractiveFeatureShowcase';
 import { GlobalMatchRadarMap } from '@/components/home/GlobalMatchRadarMap';
 import { GlobalLiveScoresTicker } from '@/components/home/GlobalLiveScoresTicker';
+import { AppDownloadSection } from '@/components/home/AppDownloadSection';
 import type { LiveAnnouncementData } from '@/app/api/announcement/route';
 
 interface TournamentCardItem {
@@ -1038,6 +1039,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 6. CRICPLUS24 MOBILE APP (.APK) DOWNLOAD BLOCK */}
+      <AppDownloadSection />
 
       {/* 5. CREATE TOURNAMENT MODAL (Super Admin) */}
       {isCreateModalOpen && (

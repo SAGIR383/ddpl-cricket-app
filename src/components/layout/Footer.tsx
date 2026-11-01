@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Trophy, Shield, Sparkles } from 'lucide-react';
+import { Trophy, Shield, Sparkles, Smartphone } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -82,6 +82,10 @@ export function Footer() {
             <div className="space-y-2">
               <div className="text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">Platform</div>
               <div className="flex flex-col space-y-1.5">
+                <Link href="/download" className="hover:text-[#F2D69A] transition-colors flex items-center gap-1 font-bold text-gray-200">
+                  <Smartphone className="w-3 h-3 text-[#D8AD55]" />
+                  <span>Download App (.APK)</span>
+                </Link>
                 <Link href="/news" className="hover:text-white transition-colors">
                   Cricket News &amp; Editorials
                 </Link>
