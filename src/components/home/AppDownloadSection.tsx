@@ -147,45 +147,44 @@ export function AppDownloadSection() {
             </div>
           ) : (
             /* Mobile App Mockup Preview */
-            <div className="relative w-full max-w-xs sm:max-w-sm group">
+            <div className="relative w-full max-w-xs sm:max-w-sm group flex justify-center">
               {/* Outer Glow Halo */}
-              <div className="absolute -inset-1 bg-gradient-to-r from-[#D8AD55] to-amber-500 rounded-[2.5rem] blur-xl opacity-30 group-hover:opacity-50 transition duration-500" />
+              <div className="absolute -inset-2 bg-gradient-to-r from-[#D8AD55]/30 via-amber-500/20 to-[#D8AD55]/30 rounded-3xl blur-2xl opacity-40 group-hover:opacity-75 transition duration-500" />
               
-              {/* Device Frame */}
-              <div className="relative rounded-[2.5rem] bg-[#0A111C] p-3 border-2 border-[#D8AD55]/40 shadow-2xl overflow-hidden">
-                <div className="relative aspect-[9/18.5] w-full rounded-[2rem] overflow-hidden bg-[#08111F] border border-white/10">
-                  <Image
-                    src="/images/mobile-app-preview.jpg"
-                    alt="CricPlus24 Mobile App Interface"
-                    fill
-                    className="object-cover object-top hover:scale-105 transition-transform duration-700"
-                    priority
-                  />
-                  {/* Floating App Badge */}
-                  <div className="absolute bottom-3 inset-x-3 p-3 rounded-2xl bg-[#08111F]/90 backdrop-blur-md border border-[#D8AD55]/30 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg overflow-hidden border border-[#D8AD55]/50 shrink-0">
-                        <Image
-                          src="/images/cricplus-logo.jpg"
-                          alt="Logo"
-                          width={28}
-                          height={28}
-                          className="object-cover"
-                        />
-                      </div>
-                      <div>
-                        <div className="font-bold text-white text-[11px]">CricPlus24 Mobile</div>
-                        <div className="text-[9px] text-[#D8AD55] font-semibold">Official APK v2.0</div>
-                      </div>
+              <div className="relative rounded-3xl overflow-hidden border border-[#D8AD55]/40 shadow-2xl bg-[#08111F]/90 backdrop-blur-sm">
+                <Image
+                  src="/images/mobile-app-preview.png"
+                  alt="CricPlus24 Mobile App - Live Match Center"
+                  width={571}
+                  height={1024}
+                  className="w-full h-auto object-contain rounded-2xl group-hover:scale-[1.02] transition-transform duration-500"
+                  priority
+                />
+
+                {/* Floating App Badge */}
+                <div className="absolute bottom-3 inset-x-3 p-3 rounded-2xl bg-[#08111F]/90 backdrop-blur-md border border-[#D8AD55]/40 flex items-center justify-between text-xs shadow-xl">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl overflow-hidden border border-[#D8AD55]/50 shrink-0 bg-[#0D1B2A] p-0.5">
+                      <Image
+                        src="/images/cricplus-logo.jpg"
+                        alt="Logo"
+                        width={32}
+                        height={32}
+                        className="object-cover rounded-lg"
+                      />
                     </div>
-                    <a
-                      href={downloadUrl}
-                      download="CricPlus24.apk"
-                      className="px-2.5 py-1 rounded-lg bg-[#D8AD55] text-[#08111F] font-black text-[10px] uppercase hover:brightness-110"
-                    >
-                      Install
-                    </a>
+                    <div>
+                      <div className="font-bold text-white text-[11px]">CricPlus24 Mobile</div>
+                      <div className="text-[9px] text-[#D8AD55] font-semibold">Official Android APK v2.0</div>
+                    </div>
                   </div>
+                  <a
+                    href={downloadUrl}
+                    download="CricPlus24.apk"
+                    className="btn-press px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black text-[10px] uppercase tracking-wider hover:brightness-110 shadow"
+                  >
+                    Install APK
+                  </a>
                 </div>
               </div>
             </div>
