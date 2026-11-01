@@ -141,6 +141,85 @@ export async function extractArticleContent(url: string): Promise<string | null>
 export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
   const newsItems: CricketNewsItem[] = [];
 
+  // 1. Direct fetch from Cricbuzz latest news portal (https://www.cricbuzz.com/cricket-news)
+  try {
+    const cbRes = await fetch('https://www.cricbuzz.com/cricket-news', {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (cbRes.ok) {
+      const html = await cbRes.text();
+      const cardRegex =
+        /<a\s+href=["'](\/cricket-news\/\d+\/[^"']+)["']\s+title=["']([^"']+)["']>[\s\S]*?<img[^>]+(?:src|srcSet)=["']([^"']+)["'][\s\S]*?<\/a>[\s\S]*?<div[^>]*class=["'][^"']*w-2\/3[^"']*["']>([\s\S]*?)<\/div>\s*<\/div>/gi;
+
+      let match;
+      while ((match = cardRegex.exec(html)) !== null) {
+        const path = match[1];
+        const link = `https://www.cricbuzz.com${path}`;
+        const title = cleanHtmlEntities(match[2]);
+        if (!title || title.length < 5) continue;
+
+        let imgUrl = match[3];
+        if (imgUrl.includes(',')) {
+          imgUrl = imgUrl.split(',')[0].trim().split(' ')[0];
+        }
+        if (imgUrl.startsWith('data:') || !imgUrl.startsWith('http')) {
+          imgUrl = FALLBACK_CRICKET_IMAGES[newsItems.length % FALLBACK_CRICKET_IMAGES.length];
+        } else {
+          imgUrl = imgUrl.replace(/^http:\/\//i, 'https://');
+        }
+
+        const rightBlock = match[4];
+        let summary = cleanHtmlEntities(rightBlock.replace(/<[^>]+>/g, ' '));
+        if (summary.length > 280) summary = summary.slice(0, 277) + '...';
+
+        let category = 'Trending';
+        const lowerTitle = title.toLowerCase();
+        if (lowerTitle.includes('test') || lowerTitle.includes('wtc')) category = 'Test & WTC';
+        else if (
+          lowerTitle.includes('t20') ||
+          lowerTitle.includes('ipl') ||
+          lowerTitle.includes('bbl') ||
+          lowerTitle.includes('wpl')
+        )
+          category = 'T20 & Leagues';
+        else if (lowerTitle.includes('odi') || lowerTitle.includes('tri-series') || lowerTitle.includes('cup'))
+          category = 'ODIs & Cups';
+        else if (
+          lowerTitle.includes('gamble') ||
+          lowerTitle.includes('defeat') ||
+          lowerTitle.includes('scenarios') ||
+          lowerTitle.includes('questions')
+        )
+          category = 'Analysis & Debates';
+
+        const slug = `${slugify(title)}-${Date.now()}`;
+
+        if (!newsItems.some((n) => n.title.toLowerCase() === title.toLowerCase())) {
+          newsItems.push({
+            title,
+            slug,
+            summary: summary || title,
+            image_url: imgUrl,
+            source: 'Cricbuzz',
+            source_url: link,
+            category,
+            published_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+  } catch (cbErr) {
+    console.warn('[CricketNewsFetcher] Direct Cricbuzz news fetch error:', cbErr);
+  }
+
+  // 2. RSS Feeds: ESPN Cricinfo & Cricbuzz Search
   const feeds = [
     {
       source: 'ESPN Cricinfo' as const,
@@ -155,7 +234,7 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
     {
       source: 'Cricbuzz' as const,
       category: 'Trending',
-      url: 'https://news.google.com/rss/search?q=cricket+cricbuzz+espncricinfo+match&hl=en-IN&gl=IN&ceid=IN:en',
+      url: 'https://news.google.com/rss/search?q=site:cricbuzz.com&hl=en-IN&gl=IN&ceid=IN:en',
     },
   ];
 
@@ -163,7 +242,8 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
     try {
       const res = await fetch(feed.url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'application/rss+xml, application/xml, text/xml, */*',
         },
         cache: 'no-store',
@@ -179,7 +259,9 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
 
         // Title
         const titleMatch = itemXml.match(/<title>([\s\S]*?)<\/title>/i);
-        const title = cleanCdata(titleMatch ? titleMatch[1] : '');
+        let title = cleanCdata(titleMatch ? titleMatch[1] : '');
+        // Strip trailing source suffixes if present (e.g. " - Cricbuzz")
+        title = title.replace(/\s*-\s*Cricbuzz\s*$/i, '').trim();
         if (!title || title.length < 5) continue;
 
         // Link
@@ -199,7 +281,8 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
         // Published Date
         const dateMatch = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/i);
         const rawDate = dateMatch ? cleanCdata(dateMatch[1]) : '';
-        const published_at = rawDate && !isNaN(Date.parse(rawDate)) ? new Date(rawDate).toISOString() : new Date().toISOString();
+        const published_at =
+          rawDate && !isNaN(Date.parse(rawDate)) ? new Date(rawDate).toISOString() : new Date().toISOString();
 
         // Image URL: check enclosure, media:content, or media:thumbnail
         let imageUrl = '';
@@ -230,11 +313,20 @@ export async function fetchLiveCricketNews(): Promise<CricketNewsItem[]> {
         const lowerTitle = title.toLowerCase();
         if (lowerTitle.includes('test') || lowerTitle.includes('wtc')) {
           category = 'Test & WTC';
-        } else if (lowerTitle.includes('t20') || lowerTitle.includes('ipl') || lowerTitle.includes('bbl') || lowerTitle.includes('psl')) {
+        } else if (
+          lowerTitle.includes('t20') ||
+          lowerTitle.includes('ipl') ||
+          lowerTitle.includes('bbl') ||
+          lowerTitle.includes('psl')
+        ) {
           category = 'T20 & Leagues';
         } else if (lowerTitle.includes('odi') || lowerTitle.includes('world cup')) {
           category = 'ODIs & Cups';
-        } else if (lowerTitle.includes('controversy') || lowerTitle.includes('ban') || lowerTitle.includes('tampering')) {
+        } else if (
+          lowerTitle.includes('controversy') ||
+          lowerTitle.includes('ban') ||
+          lowerTitle.includes('tampering')
+        ) {
           category = 'Analysis & Debates';
         }
 
