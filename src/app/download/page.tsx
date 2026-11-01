@@ -27,7 +27,7 @@ export default function DownloadPage() {
       </div>
 
       {/* Main Download Section Component */}
-      <AppDownloadSection />
+      <AppDownloadSection forceShow={true} />
 
       {/* Frequently Asked Questions */}
       <div className="p-6 sm:p-8 rounded-3xl bg-[#08111F]/90 border border-[#D8AD55]/20 space-y-6">

@@ -278,15 +278,6 @@ export function Navbar() {
               <span>+ Host Corporate Tournament</span>
             </Link>
 
-            <Link
-              href="/download"
-              onClick={() => setMobileMenuOpen(false)}
-              className="btn-press w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all"
-            >
-              <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Download Android App (.APK)</span>
-            </Link>
-
             {isSuperAdmin && (
               <Link
                 href="/admin"

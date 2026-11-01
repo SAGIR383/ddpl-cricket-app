@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import {
   Download,
@@ -15,15 +15,39 @@ import {
   Info,
 } from 'lucide-react';
 
-export function AppDownloadSection() {
+export function AppDownloadSection({
+  className = '',
+  forceShow = false,
+}: {
+  className?: string;
+  forceShow?: boolean;
+}) {
   const [showQrModal, setShowQrModal] = useState(false);
+  const [isAppMode, setIsAppMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://') ||
+        window.location.search.includes('source=app') ||
+        window.location.search.includes('mode=app');
+      setIsAppMode(isStandalone);
+    }
+  }, []);
+
+  if (isAppMode && !forceShow) {
+    return null;
+  }
+
   const downloadUrl = '/downloads/CricPlus24.apk';
   const directLink = typeof window !== 'undefined' ? `${window.location.origin}/downloads/CricPlus24.apk` : 'https://www.cricplus24.in/downloads/CricPlus24.apk';
   // Standard Google Chart QR URL for instant, crisp mobile camera scanning
   const qrCodeImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(directLink)}&color=08111f&bgcolor=f2d69a&margin=10`;
 
   return (
-    <section id="download-app" className="relative my-12 rounded-3xl overflow-hidden border border-[#D8AD55]/30 bg-gradient-to-br from-[#08111F] via-[#0D1B2A] to-[#08111F] shadow-2xl p-6 sm:p-10 lg:p-12">
+    <section id="download-app" className={`relative my-12 rounded-3xl overflow-hidden border border-[#D8AD55]/30 bg-gradient-to-br from-[#08111F] via-[#0D1B2A] to-[#08111F] shadow-2xl p-6 sm:p-10 lg:p-12 ${className}`}>
       {/* Background Ambient Glows */}
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#D8AD55]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-10 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />

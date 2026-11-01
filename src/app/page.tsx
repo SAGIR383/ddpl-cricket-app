@@ -1040,8 +1040,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 6. CRICPLUS24 MOBILE APP (.APK) DOWNLOAD BLOCK */}
-      <AppDownloadSection />
+      {/* 6. CRICPLUS24 MOBILE APP (.APK) DOWNLOAD BLOCK (Website only, hidden on mobile application) */}
+      <AppDownloadSection className="hidden lg:block" />
 
       {/* 5. CREATE TOURNAMENT MODAL (Super Admin) */}
       {isCreateModalOpen && (
