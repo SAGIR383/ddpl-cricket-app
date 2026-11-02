@@ -4,3 +4,6 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # SUPERADMIN_IDENTIFIER holds the public super-admin login email, which is
+  # intentionally referenced in client UI code. It is an identifier, not a secret.
+  SECRETS_SCAN_OMIT_KEYS = "SUPERADMIN_IDENTIFIER"
