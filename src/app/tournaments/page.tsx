@@ -43,11 +43,28 @@ interface TournamentMeta {
   currencySymbol?: string;
   format?: string;
   formatTitle?: string;
+  creatorEmail?: string;
+  adminEmails?: string[];
 }
 
 export default function TournamentsPage() {
-  const { isSuperAdmin, isOrganizer, refreshProfile } = useAuth();
-  const hasAdminRights = isSuperAdmin || isOrganizer;
+  const { isSuperAdmin, isOrganizer, user, refreshProfile } = useAuth();
+  const userEmailLower = user?.email?.toLowerCase();
+  const isMasterSuperAdmin =
+    userEmailLower === 'superadmin@cricplus.com' ||
+    userEmailLower === 'superadmin@cricpluse.com' ||
+    user?.id === 'super-admin-master-id' ||
+    Boolean(isSuperAdmin && !userEmailLower?.includes('@'));
+
+  const canDeleteTournament = (t: TournamentMeta) => {
+    if (isMasterSuperAdmin) return true;
+    if (!userEmailLower) return false;
+    const isCreator = Boolean(t.creatorEmail && t.creatorEmail.toLowerCase() === userEmailLower);
+    const isSession = Boolean((user as any)?.tournamentSlug && t.id.toLowerCase() === (user as any).tournamentSlug.toLowerCase());
+    return isCreator || isSession;
+  };
+
+  const hasAdminRights = isMasterSuperAdmin || isOrganizer;
   const [tournaments, setTournaments] = useState<TournamentMeta[]>([]);
   const [loading, setLoading] = useState(false);
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
@@ -230,6 +247,8 @@ export default function TournamentsPage() {
             currencySymbol: cfg.currencySymbol || '₹',
             format: cfg.format || 'ddpl',
             formatTitle: cfg.formatTitle || (cfg.overs ? `T${overs} • ${cfg.format === 'game-of-run' ? 'Group Stage' : 'Round Robin'}` : 'Cricket League'),
+            creatorEmail: cfg.creatorEmail || undefined,
+            adminEmails: Array.isArray(cfg.adminEmails) ? cfg.adminEmails : [],
           };
         });
 
@@ -303,7 +322,7 @@ export default function TournamentsPage() {
 
         {/* Global CTAs */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {hasAdminRights && tournaments.length > 0 && (
+          {isMasterSuperAdmin && tournaments.length > 0 && (
             <button
               type="button"
               onClick={() => setWipeModalOpen(true)}
@@ -439,7 +458,7 @@ export default function TournamentsPage() {
                     <span className="text-xs text-[#8793A5] font-bold">
                       Season {t.activeSeason}
                     </span>
-                    {hasAdminRights && (
+                    {canDeleteTournament(t) && (
                       <button
                         type="button"
                         onClick={() => handleDeleteTournament(t.id, t.name)}

@@ -98,22 +98,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (adminRes.ok) {
         const adminData = await adminRes.json();
         if (adminData.authenticated && adminData.user) {
+          const isMaster =
+            adminData.user.email?.toLowerCase() === 'superadmin@cricplus.com' ||
+            adminData.user.email?.toLowerCase() === 'superadmin@cricpluse.com' ||
+            adminData.user.id === 'super-admin-master-id' ||
+            adminData.user.role === 'super_admin';
+          const resolvedRole: SystemRole = isMaster ? 'super_admin' : 'organizer';
           setUser(adminData.user);
           setProfile({
             id: adminData.user.id,
             email: adminData.user.email,
             full_name: adminData.user.name,
             avatar_url: null,
-            employee_id: 'SUPERADMIN-001',
+            employee_id: isMaster ? 'SUPERADMIN-001' : 'ORGANIZER-001',
             phone: null,
             batting_style: 'Right-hand bat',
             bowling_style: 'Right-arm medium',
             primary_role: 'All-rounder',
-            system_role: 'super_admin',
+            system_role: resolvedRole,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
-          setActiveRole('super_admin');
+          setActiveRole(resolvedRole);
           setLoading(false);
           return;
         }

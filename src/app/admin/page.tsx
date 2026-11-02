@@ -1041,14 +1041,13 @@ export default function AdminDashboardPage() {
     if (isMasterSuperAdmin) return tournamentsList;
     const userEmailLower = user?.email?.toLowerCase();
     const sessionSlug = (user as any)?.tournamentSlug?.toLowerCase();
-    const filtered = tournamentsList.filter((t: any) => {
+    return tournamentsList.filter((t: any) => {
       const creatorLower = t.creatorEmail?.toLowerCase();
-      const isCreator = creatorLower && userEmailLower && creatorLower === userEmailLower;
-      const isSession = sessionSlug && t.slug?.toLowerCase() === sessionSlug;
-      const isOrgAdmin = Array.isArray(t.adminEmails) && userEmailLower && t.adminEmails.some((e: string) => e.toLowerCase() === userEmailLower);
+      const isCreator = Boolean(creatorLower && userEmailLower && creatorLower === userEmailLower);
+      const isSession = Boolean(sessionSlug && t.slug?.toLowerCase() === sessionSlug);
+      const isOrgAdmin = Array.isArray(t.adminEmails) && Boolean(userEmailLower && t.adminEmails.some((e: string) => e.toLowerCase() === userEmailLower));
       return isCreator || isSession || isOrgAdmin;
     });
-    return filtered.length > 0 ? filtered : tournamentsList;
   }, [tournamentsList, isMasterSuperAdmin, user]);
 
   // Fetch real registered users, backend auction rules, tournament teams, and fixtures schedule
@@ -1070,22 +1069,24 @@ export default function AdminDashboardPage() {
           if (regData.registrations) setTournamentRegistrations(regData.registrations);
           if (regData.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
             setTournamentsList(regData.tournamentsList);
-            if (regData.tournamentsList.length > 0) {
-              setSelectedTournament((prev) => {
-                const userEmailLower = user?.email?.toLowerCase();
-                const sessionSlug = (user as any)?.tournamentSlug?.toLowerCase();
-                const allowedList = isMasterSuperAdmin
-                  ? regData.tournamentsList
-                  : regData.tournamentsList.filter((t: any) => {
-                      const creatorLower = t.creatorEmail?.toLowerCase();
-                      return (creatorLower && userEmailLower && creatorLower === userEmailLower) || (sessionSlug && t.slug?.toLowerCase() === sessionSlug);
-                    });
-                const effectiveList = allowedList.length > 0 ? allowedList : regData.tournamentsList;
-                const found = effectiveList.some((t: any) => t.slug === prev);
-                return found ? prev : effectiveList[0].slug;
-              });
-            } else {
+            const userEmailLower = user?.email?.toLowerCase();
+            const sessionSlug = (user as any)?.tournamentSlug?.toLowerCase();
+            const allowedList = isMasterSuperAdmin
+              ? regData.tournamentsList
+              : regData.tournamentsList.filter((t: any) => {
+                  const creatorLower = t.creatorEmail?.toLowerCase();
+                  const isCreator = Boolean(creatorLower && userEmailLower && creatorLower === userEmailLower);
+                  const isSession = Boolean(sessionSlug && t.slug?.toLowerCase() === sessionSlug);
+                  const isOrgAdmin = Array.isArray(t.adminEmails) && Boolean(userEmailLower && t.adminEmails.some((e: string) => e.toLowerCase() === userEmailLower));
+                  return isCreator || isSession || isOrgAdmin;
+                });
+            if (allowedList.length === 0) {
               setSelectedTournament('');
+            } else {
+              setSelectedTournament((prev) => {
+                const found = allowedList.some((t: any) => t.slug === prev);
+                return found ? prev : allowedList[0].slug;
+              });
             }
           }
         }
@@ -1247,7 +1248,7 @@ export default function AdminDashboardPage() {
       const res = await fetch('/api/admin/roles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role: newRole }),
+        body: JSON.stringify({ email, role: newRole, tournament: selectedTournament }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -1592,13 +1593,22 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Empty State Banner (When all tournaments are deleted / none created yet) */}
-      {tournamentsList.length === 0 && (
+      {/* Real-time Notification Banner */}
+      {notification && (
+        <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-sm flex items-center gap-3 shadow-lg shadow-emerald-500/10 animate-fade-in">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
+          <span>{notification}</span>
+        </div>
+      )}
+
+      {/* Empty State Banner (When user has no tournament created/assigned) */}
+      {(!selectedTournament || visibleTournaments.length === 0) ? (
         <div className="rounded-3xl p-8 sm:p-12 bg-[#0D1B2A]/90 border border-[#D8AD55]/30 text-center space-y-4 shadow-2xl">
           <Trophy className="w-14 h-14 text-[#D8AD55] mx-auto animate-pulse" />
-          <h3 className="font-display font-black text-2xl sm:text-3xl text-white">No Tournaments Active Right Now</h3>
+          <h3 className="font-display font-black text-2xl sm:text-3xl text-white">No Tournaments Hosted Under This Account</h3>
           <p className="text-xs sm:text-sm text-[#8793A5] max-w-lg mx-auto leading-relaxed">
-            All previous tournament data has been permanently cleared. You can now launch your next tournament using the Custom Format &amp; Overs Studio.
+            You are signed in as an Organizer. You do not currently have ownership of any active tournament.
+            Launch your company or club&apos;s tournament using the button below, or request the tournament super admin to add your email ({user?.email}) as an organizer.
           </p>
           <button
             type="button"
@@ -1609,17 +1619,9 @@ export default function AdminDashboardPage() {
             <span>+ Host &amp; Launch New Tournament</span>
           </button>
         </div>
-      )}
-
-      {/* Real-time Notification Banner */}
-      {notification && (
-        <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-sm flex items-center gap-3 shadow-lg shadow-emerald-500/10 animate-fade-in">
-          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
-          <span>{notification}</span>
-        </div>
-      )}
-
-      {/* Admin KPI Quick Counters */}
+      ) : (
+        <>
+          {/* Admin KPI Quick Counters */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-3xl p-5 sm:p-6 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/25 shadow-xl space-y-1">
           <div className="text-xs text-[#8793A5] font-bold uppercase tracking-wider">Franchises</div>
@@ -4196,6 +4198,8 @@ export default function AdminDashboardPage() {
         <div className="animate-fade-in">
           <BlogStudio />
         </div>
+      )}
+        </>
       )}
 
       {/* Create Custom Tournament Modal (Super Admin) */}

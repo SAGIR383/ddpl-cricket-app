@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, role } = await req.json();
+    const { email, role, tournament } = await req.json();
 
     if (!email || !role) {
       return NextResponse.json({ success: false, error: 'Email and role are required' }, { status: 400 });
@@ -138,6 +138,47 @@ export async function POST(req: NextRequest) {
     const storedRoles = await getStoredRoles();
     storedRoles[normalizedEmail] = role;
     await saveStoredRoles(storedRoles);
+
+    // If a specific tournament is targeted, update that tournament's config permissions
+    if (tournament) {
+      const tourneySlug = tournament.trim().toLowerCase();
+      const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
+      if (configs[tourneySlug]) {
+        const cfg = configs[tourneySlug];
+        let admins: string[] = Array.isArray(cfg.adminEmails) ? [...cfg.adminEmails] : [];
+        let scorers: string[] = Array.isArray(cfg.scorerEmails) ? [...cfg.scorerEmails] : [];
+
+        // Filter out email first
+        admins = admins.filter((e: string) => e.toLowerCase() !== normalizedEmail);
+        scorers = scorers.filter((e: string) => e.toLowerCase() !== normalizedEmail);
+
+        if (role === 'organizer' || role === 'super_admin') {
+          admins.push(normalizedEmail);
+        } else if (role === 'scorer') {
+          scorers.push(normalizedEmail);
+        }
+
+        cfg.adminEmails = admins;
+        cfg.scorerEmails = scorers;
+        configs[tourneySlug] = cfg;
+        await setStoreData('tournament_configs', configs, 'tournament_configs.json');
+      }
+
+      // Also update role in tournament registrations pool
+      const regKey = `tournament_registrations_${tourneySlug}`;
+      const registrations = await getStoreData<any[]>(regKey, `registrations_${tourneySlug}.json`, []);
+      let updatedRegs = false;
+      const mapped = registrations.map((r) => {
+        if (r.email?.toLowerCase() === normalizedEmail) {
+          updatedRegs = true;
+          return { ...r, role };
+        }
+        return r;
+      });
+      if (updatedRegs) {
+        await setStoreData(regKey, mapped, `registrations_${tourneySlug}.json`);
+      }
+    }
 
     // Also attempt update on Supabase profiles
     try {
