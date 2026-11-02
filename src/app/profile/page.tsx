@@ -33,25 +33,31 @@ export default function ProfilePage() {
         }
       } catch (e) {}
 
-      if (isSuperAdmin && authUser) {
-        try {
-          const { data: dbProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', authUser.email?.toLowerCase())
-            .maybeSingle();
-
-          if (dbProfile) {
-            setProfile(dbProfile);
+      // 1. Fetch unified profile via /api/profile endpoint
+      try {
+        const queryEmail = authUser?.email || authProfile?.email || '';
+        const res = await fetch(`/api/profile${queryEmail ? `?email=${encodeURIComponent(queryEmail)}` : ''}`, { cache: 'no-store' });
+        if (res.ok) {
+          const apiData = await res.json();
+          if (apiData?.success && apiData?.profile) {
+            setProfile(apiData.profile);
+            if (apiData.profile.avatar_url && apiData.profile.avatar_url.startsWith('data:')) {
+              const kb = Math.round(((apiData.profile.avatar_url.length - 22) * 0.75) / 1024);
+              setPhotoInfo({ sizeInKb: kb });
+            }
             setLoading(false);
             return;
           }
-        } catch {}
+        }
+      } catch (err) {
+        console.warn('API profile load error, falling back:', err);
+      }
 
+      if (isSuperAdmin && authUser) {
         setProfile({
           id: authUser.id || 'super-admin-master-id',
           email: authUser.email || 'superadmin@cricplus.com',
-          full_name: authUser.name || 'Tournament Super Admin',
+          full_name: authUser.name || (authUser.email ? authUser.email.split('@')[0] : 'Tournament Host Admin'),
           primary_role: 'All-rounder',
           batting_style: 'Right-hand bat',
           bowling_style: 'Right-arm medium',
@@ -132,41 +138,24 @@ export default function ProfilePage() {
     setMsg(null);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentUserId = sessionData?.session?.user?.id || profile.id;
+      const targetEmail = profile.email || authUser?.email || '';
+      if (!targetEmail) throw new Error('Not authenticated. Please sign in again.');
 
-      if (!currentUserId) throw new Error('Not authenticated. Please sign in again.');
+      const res = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...profile,
+          email: targetEmail,
+        }),
+      });
 
-      const updateData = {
-        full_name: profile.full_name,
-        avatar_url: profile.avatar_url,
-        employee_id: profile.employee_id,
-        phone: profile.phone,
-        primary_role: profile.primary_role,
-        batting_style: profile.batting_style,
-        bowling_style: profile.bowling_style,
-        system_role: profile.system_role || 'user',
-        updated_at: new Date().toISOString(),
-      };
-
-      // Perform direct UPDATE adhering to RLS policy 'Users can update own profile'
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update(updateData)
-        .eq('id', currentUserId);
-
-      if (updateError) {
-        // Fallback to upsert only if row did not exist yet
-        const { error: upsertError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: currentUserId,
-            email: profile.email,
-            ...updateData,
-          });
-        if (upsertError) throw upsertError;
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update profile');
       }
 
+      setProfile(data.profile);
       await refreshProfile();
       setMsg({ type: 'success', text: 'Profile successfully updated!' });
     } catch (err: any) {

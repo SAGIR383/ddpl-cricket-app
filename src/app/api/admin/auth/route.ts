@@ -211,13 +211,17 @@ export async function GET(req: NextRequest) {
   };
 
   if (cookieVal === 'active_session') {
+    const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
+    const masterAcc = adminAccountsStore['superadmin@cricplus.com'] || {};
+    const masterName = masterAcc.name || 'Master Super Admin';
+
     return NextResponse.json(
       {
         authenticated: true,
         user: {
           id: 'super-admin-master-id',
-          email: 'superadmin@cricplus.com',
-          name: 'Master Super Admin',
+          email: masterAcc.email || 'superadmin@cricplus.com',
+          name: masterName,
           role: 'super_admin',
         },
       },
@@ -238,7 +242,7 @@ export async function GET(req: NextRequest) {
     const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
     const resolvedEmail = email || cfg.creatorEmail || 'organizer@cricplus.com';
     const acc = adminAccountsStore[resolvedEmail.toLowerCase()] || {};
-    const resolvedName = cfg.creatorName || (acc.name && !acc.name.includes('Super Admin') ? acc.name : null) || `${cfg.name || 'Tournament'} Super Admin`;
+    const resolvedName = acc.name || cfg.creatorName || `${cfg.name || 'Tournament'} Organizer`;
 
     return NextResponse.json(
       {

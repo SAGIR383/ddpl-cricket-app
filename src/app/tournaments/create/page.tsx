@@ -278,12 +278,17 @@ export default function CreateTournamentPage() {
       alert('Please enter a tournament name');
       return;
     }
-    const finalEmail = isSuperAdmin ? (user?.email || organizerEmail.trim()) : organizerEmail.trim();
+    const finalEmail = (organizerEmail.trim() || user?.email || '').toLowerCase();
+    const finalName = (organizerName.trim() || profile?.full_name || user?.user_metadata?.full_name || user?.name || '').trim();
     if (!finalEmail) {
       alert('Organizer email is required for administration access');
       return;
     }
-    if (!isSuperAdmin && (!adminPassword.trim() || adminPassword.trim().length < 6)) {
+    if (!finalName) {
+      alert('Please enter the Organizer Full Name to receive host administration credentials.');
+      return;
+    }
+    if (!adminPassword.trim() && !isSuperAdmin) {
       alert('Please create a Super Admin password (minimum 6 characters) to manage and govern your tournament.');
       return;
     }
@@ -328,9 +333,9 @@ export default function CreateTournamentPage() {
         currency: selectedCountry.currency,
         currencySymbol: selectedCountry.symbol,
         creatorEmail: finalEmail,
-        creatorName: organizerName.trim() || user?.user_metadata?.full_name || user?.name || undefined,
-        adminPassword: isSuperAdmin ? undefined : adminPassword.trim(),
-        adminPin: isSuperAdmin ? undefined : adminPin.trim(),
+        creatorName: finalName,
+        adminPassword: adminPassword.trim() || undefined,
+        adminPin: adminPin.trim() || undefined,
         logo: customLogo || '/images/default-tournament.svg',
         isPublic: true,
       };
@@ -1325,41 +1330,18 @@ export default function CreateTournamentPage() {
                 </div>
               </div>
 
-              {isSuperAdmin ? (
-                /* Streamlined Credential Binding Card for Existing Super Admin */
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-[#0D1B2A] to-[#08111F] border border-emerald-500/40 shadow-lg space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] flex items-center justify-center font-display font-black text-[#08111F] text-lg shadow-md">
-                        {(profile?.full_name || user?.user_metadata?.full_name || user?.email || 'A')[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-display font-black text-sm sm:text-base text-white">
-                            {profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Master Super Admin'}
-                          </span>
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/40">
-                            Super Admin Active
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#8793A5] font-mono mt-0.5">{user?.email}</p>
-                      </div>
-                    </div>
-                    <span className="hidden sm:inline-flex px-3 py-1 rounded-full bg-[#D8AD55]/15 border border-[#D8AD55]/30 text-[#F2D69A] text-[10px] font-bold">
-                      Session Verified
-                    </span>
+              {isSuperAdmin && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Active Session: {user?.email}</span>
                   </div>
-
-                  <div className="p-3 rounded-xl bg-[#08111F] border border-emerald-500/20 text-xs text-gray-300 flex items-start gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <span className="leading-relaxed">
-                      <strong>Automatic Credential Binding:</strong> This tournament will be automatically provisioned under your master profile (<strong>{user?.email}</strong>). You will govern it directly from your existing Admin Console.
-                    </span>
-                  </div>
+                  <span className="text-[11px] text-[#8793A5]">Specify your host organizer profile details below</span>
                 </div>
-              ) : (
-                /* First-time Account Creation for New Organizations */
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              )}
+
+              {/* Account Creation & Organizer Identity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-gray-200">
                       Host / Organizer Full Name <span className="text-rose-400">*</span>
@@ -1437,9 +1419,8 @@ export default function CreateTournamentPage() {
                     </div>
                   </div>
                 </div>
-              )}
 
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200/90 leading-relaxed flex items-center gap-2">
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200/90 leading-relaxed flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>
                   <strong>Role Protection:</strong> You will be the sole Super Admin of this tournament. All players, employees, or club members who register via your link will be assigned the <strong>Spectator / Player</strong> role by default.
@@ -1499,8 +1480,8 @@ export default function CreateTournamentPage() {
                   <b className="text-white">{season}</b>
                 </div>
                 <div>
-                  <span className="text-[#8793A5] block">Host Email:</span>
-                  <b className="text-white font-mono truncate block">{organizerEmail || '—'}</b>
+                  <span className="text-[#8793A5] block">Host Name &amp; Email:</span>
+                  <b className="text-white truncate block">{organizerName || 'Host Admin'} ({organizerEmail || '—'})</b>
                 </div>
               </div>
             </div>
