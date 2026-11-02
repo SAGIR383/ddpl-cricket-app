@@ -16,6 +16,30 @@ const DEFAULT_DDPL_RULES = {
   wideBallPenalty: '+1 Run & Extra Ball',
   noBallPenalty: '+1 Run + Free Hit',
   pointsPerWin: 2,
+  pointsPerTie: 1,
+  pointsPerNR: 1,
+  pointsPerLoss: 0,
+  knockoutFormat: 'ipl_playoffs',
+  pathwayTitle: 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
+  pathwayBadge: 'Official League Structure',
+  stages: [
+    {
+      title: 'Stage 1: Group League',
+      badge: 'Round Robin',
+      desc: 'Franchises play round-robin matches. Top teams on points and NRR advance to the Playoffs.',
+    },
+    {
+      title: 'Stage 2: Playoffs',
+      badge: 'Top 4 Teams',
+      desc: 'Qualifier 1, Eliminator, and Qualifier 2. The 2 victorious teams advance to the Grand Final.',
+    },
+    {
+      title: 'Stage 3: Grand Final',
+      badge: 'Championship',
+      desc: 'The two playoff champions compete in the Grand Final for the official corporate tournament trophy!',
+    },
+  ],
+  qualificationRule: 'Top 4 franchises secure direct playoff qualification.',
   lastUpdated: new Date().toISOString(),
   updatedBy: 'superadmin@cricplus.com',
 };
@@ -32,6 +56,30 @@ const DEFAULT_GOR_RULES = {
   wideBallPenalty: '+1 Run & Extra Ball',
   noBallPenalty: '+1 Run + Free Hit',
   pointsPerWin: 2,
+  pointsPerTie: 1,
+  pointsPerNR: 1,
+  pointsPerLoss: 0,
+  knockoutFormat: 'direct_final',
+  pathwayTitle: 'Knockout Pathway: League Stage ➔ Grand Final',
+  pathwayBadge: 'Top 2 Direct Final',
+  stages: [
+    {
+      title: 'Stage 1: Round Robin League',
+      badge: 'All Play All',
+      desc: 'Franchises play round-robin fixtures. Points and NRR determine the top 2 teams on the leaderboard.',
+    },
+    {
+      title: 'Stage 2: Grand Final Showdown',
+      badge: 'Top 2 Teams',
+      desc: 'The top 2 ranked teams clash head-to-head in the Grand Final to claim the championship trophy!',
+    },
+    {
+      title: 'Stage 3: Champion Crowned',
+      badge: 'Championship',
+      desc: 'Championship Trophy, MVP, Orange Cap, and Purple Cap awards presented to the tournament champions.',
+    },
+  ],
+  qualificationRule: 'Top 2 franchises on the points table secure direct qualification to the Grand Final.',
   lastUpdated: new Date().toISOString(),
   updatedBy: 'superadmin@cricplus.com',
 };
@@ -132,6 +180,14 @@ export async function POST(req: Request) {
       wideBallPenalty,
       noBallPenalty,
       pointsPerWin,
+      pointsPerTie,
+      pointsPerNR,
+      pointsPerLoss,
+      knockoutFormat,
+      pathwayTitle,
+      pathwayBadge,
+      stages,
+      qualificationRule,
       updaterEmail,
     } = body;
 
@@ -166,6 +222,14 @@ export async function POST(req: Request) {
       wideBallPenalty: wideBallPenalty || currentRules.wideBallPenalty || '+1 Run & Extra Ball',
       noBallPenalty: noBallPenalty || currentRules.noBallPenalty || '+1 Run + Free Hit',
       pointsPerWin: pointsPerWin !== undefined ? Number(pointsPerWin) : (currentRules.pointsPerWin || 2),
+      pointsPerTie: pointsPerTie !== undefined ? Number(pointsPerTie) : (currentRules.pointsPerTie || 1),
+      pointsPerNR: pointsPerNR !== undefined ? Number(pointsPerNR) : (currentRules.pointsPerNR || 1),
+      pointsPerLoss: pointsPerLoss !== undefined ? Number(pointsPerLoss) : (currentRules.pointsPerLoss || 0),
+      knockoutFormat: knockoutFormat || currentRules.knockoutFormat || 'ipl_playoffs',
+      pathwayTitle: pathwayTitle !== undefined ? pathwayTitle : currentRules.pathwayTitle,
+      pathwayBadge: pathwayBadge !== undefined ? pathwayBadge : currentRules.pathwayBadge,
+      stages: Array.isArray(stages) && stages.length > 0 ? stages : currentRules.stages,
+      qualificationRule: qualificationRule !== undefined ? qualificationRule : currentRules.qualificationRule,
       lastUpdated: new Date().toISOString(),
       updatedBy: updaterEmail || 'superadmin@cricplus.com',
     };
@@ -179,6 +243,12 @@ export async function POST(req: Request) {
       configs[tournament].ownerBasePrice = updated.ownerBlockedPrice;
       configs[tournament].maxSquad = updated.maxSquadSize;
       configs[tournament].minSquad = updated.minSquadSize;
+      configs[tournament].pointsPerWin = updated.pointsPerWin;
+      configs[tournament].knockoutFormat = updated.knockoutFormat;
+      configs[tournament].pathwayTitle = updated.pathwayTitle;
+      configs[tournament].pathwayBadge = updated.pathwayBadge;
+      configs[tournament].stages = updated.stages;
+      configs[tournament].qualificationRule = updated.qualificationRule;
     }
 
     // Persist all data simultaneously

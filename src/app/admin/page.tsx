@@ -100,6 +100,130 @@ interface UserAccount {
 import { useAuth } from '@/contexts/AuthContext';
 import { BlogStudio } from '@/components/admin/BlogStudio';
 
+const KNOCKOUT_PRESETS: Record<string, {
+  name: string;
+  badge: string;
+  title: string;
+  stages: { title: string; badge: string; desc: string }[];
+  qualificationRule: string;
+}> = {
+  ipl_playoffs: {
+    name: 'IPL Playoffs (Top 4: Q1, Eliminator, Q2, Final)',
+    badge: 'Official League Structure',
+    title: 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
+    stages: [
+      {
+        title: 'Stage 1: Group League',
+        badge: 'Round Robin',
+        desc: 'Franchises play round-robin matches. Top teams on points and NRR advance to the Playoffs.',
+      },
+      {
+        title: 'Stage 2: Playoffs',
+        badge: 'Top 4 Teams',
+        desc: 'Qualifier 1, Eliminator, and Qualifier 2. The 2 victorious teams advance to the Grand Final.',
+      },
+      {
+        title: 'Stage 3: Grand Final',
+        badge: 'Championship',
+        desc: 'The two playoff champions compete in the Grand Final for the official corporate tournament trophy!',
+      },
+    ],
+    qualificationRule: 'Top 4 franchises secure direct playoff qualification based on points and Net Run Rate (NRR).',
+  },
+  semis_final: {
+    name: 'Semi-Finals & Grand Final (Top 4)',
+    badge: 'Top 4 Knockouts',
+    title: 'Knockout Pathway: League Stage ➔ Semi-Finals ➔ Grand Final',
+    stages: [
+      {
+        title: 'Stage 1: Group League',
+        badge: 'Round Robin',
+        desc: 'Franchises compete in round-robin fixtures. Top 4 teams on points and Net Run Rate (NRR) advance to the Semi-Finals.',
+      },
+      {
+        title: 'Stage 2: Knockout Semi-Finals',
+        badge: 'Top 4 Teams',
+        desc: '1st vs 4th and 2nd vs 3rd in sudden-death knockout semi-finals. Winners advance to the Grand Final.',
+      },
+      {
+        title: 'Stage 3: Grand Final',
+        badge: 'Championship',
+        desc: 'The 2 semi-final winners battle in the Grand Final for the official corporate tournament championship trophy!',
+      },
+    ],
+    qualificationRule: 'Top 4 franchises secure direct qualification to the Semi-Finals.',
+  },
+  direct_final: {
+    name: 'Top 2 Direct Final (Round Robin ➔ Final)',
+    badge: 'Top 2 Direct Final',
+    title: 'Knockout Pathway: League Stage ➔ Grand Final',
+    stages: [
+      {
+        title: 'Stage 1: Round Robin League',
+        badge: 'All Play All',
+        desc: 'Franchises play round-robin fixtures. Points and NRR determine the top 2 teams on the leaderboard.',
+      },
+      {
+        title: 'Stage 2: Grand Final Showdown',
+        badge: 'Top 2 Teams',
+        desc: 'The top 2 ranked teams clash head-to-head in the Grand Final to claim the championship trophy!',
+      },
+      {
+        title: 'Stage 3: Champion Crowned',
+        badge: 'Championship',
+        desc: 'Championship Trophy, MVP, Orange Cap, and Purple Cap awards presented to the tournament champions.',
+      },
+    ],
+    qualificationRule: 'Top 2 franchises on the points table secure direct qualification to the Grand Final.',
+  },
+  group_stage_knockout: {
+    name: 'Multi-Group Stage ➔ Semi-Finals ➔ Final',
+    badge: 'Multi-Group League',
+    title: 'Knockout Pathway: Multi-Group Stage ➔ Semi-Finals ➔ Grand Final',
+    stages: [
+      {
+        title: 'Stage 1: Multi-Pool League',
+        badge: 'Group Stage',
+        desc: 'Franchises compete within assigned pools. Top 2 teams from each pool advance to the Cross-Group Playoffs.',
+      },
+      {
+        title: 'Stage 2: Cross-Group Semi-Finals',
+        badge: 'Top 4 Teams',
+        desc: 'Pool A Leader vs Pool B Runner-Up, and Pool B Leader vs Pool A Runner-Up clash for a place in the Grand Final.',
+      },
+      {
+        title: 'Stage 3: Grand Final',
+        badge: 'Championship',
+        desc: 'The two victorious semi-finalists face off in the Grand Final for the official corporate tournament trophy!',
+      },
+    ],
+    qualificationRule: 'Top 2 teams from each pool advance to the Cross-Group Semi-Finals.',
+  },
+  pure_knockout: {
+    name: 'Single Elimination Knockout',
+    badge: 'Single Elimination',
+    title: 'Knockout Pathway: Elimination Rounds ➔ Grand Final',
+    stages: [
+      {
+        title: 'Stage 1: Elimination Rounds',
+        badge: 'Sudden Death',
+        desc: 'Every match is a do-or-die battle. Winning teams advance immediately while defeated teams exit.',
+      },
+      {
+        title: 'Stage 2: Semi-Finals',
+        badge: 'Final 4',
+        desc: 'The final 4 remaining teams clash for the ultimate 2 berths in the championship decider.',
+      },
+      {
+        title: 'Stage 3: Grand Final',
+        badge: 'Championship',
+        desc: 'The 2 finalists duel under stadium floodlights to lift the championship cup!',
+      },
+    ],
+    qualificationRule: 'Single elimination sudden-death knockout structure.',
+  },
+};
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { isOrganizer, isSuperAdmin, role, user, profile, signOut, refreshProfile } = useAuth();
@@ -1048,9 +1172,46 @@ export default function AdminDashboardPage() {
     wideBallPenalty: '+1 Run & Extra Ball',
     noBallPenalty: '+1 Run + Free Hit',
     pointsPerWin: 2,
+    pointsPerTie: 1,
+    pointsPerNR: 1,
+    pointsPerLoss: 0,
     bidSteps: [50, 100, 200, 500],
+    knockoutFormat: 'ipl_playoffs',
+    pathwayTitle: 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
+    pathwayBadge: 'Official League Structure',
+    stages: [
+      {
+        title: 'Stage 1: Group League',
+        badge: 'Round Robin',
+        desc: 'Franchises play round-robin matches. Top teams on points and NRR advance to the Playoffs.',
+      },
+      {
+        title: 'Stage 2: Playoffs',
+        badge: 'Top 4 Teams',
+        desc: 'Qualifier 1, Eliminator, and Qualifier 2. The 2 victorious teams advance to the Grand Final.',
+      },
+      {
+        title: 'Stage 3: Grand Final',
+        badge: 'Championship',
+        desc: 'The two playoff champions compete in the Grand Final for the official corporate tournament trophy!',
+      },
+    ],
+    qualificationRule: 'Top 4 franchises secure direct playoff qualification based on points and Net Run Rate (NRR).',
   });
   const [isSavingRules, setIsSavingRules] = useState(false);
+
+  const applyKnockoutPreset = (presetKey: string) => {
+    const preset = KNOCKOUT_PRESETS[presetKey];
+    if (!preset) return;
+    setAuctionRules((prev) => ({
+      ...prev,
+      knockoutFormat: presetKey,
+      pathwayTitle: preset.title,
+      pathwayBadge: preset.badge,
+      stages: JSON.parse(JSON.stringify(preset.stages)),
+      qualificationRule: preset.qualificationRule,
+    }));
+  };
 
   const visibleTournaments = useMemo(() => {
     if (isMasterSuperAdmin) return tournamentsList;
@@ -1120,6 +1281,24 @@ export default function AdminDashboardPage() {
             const rBowlerLimit = data.rules.maxBowlerOvers !== undefined
               ? data.rules.maxBowlerOvers
               : Math.max(1, Math.ceil(rOvers / 5));
+            const defaultStages = [
+              {
+                title: 'Stage 1: Group League',
+                badge: 'Round Robin',
+                desc: 'Franchises play round-robin matches. Top teams on points and NRR advance to the Playoffs.',
+              },
+              {
+                title: 'Stage 2: Playoffs',
+                badge: 'Top 4 Teams',
+                desc: 'Qualifier 1, Eliminator, and Qualifier 2. The 2 victorious teams advance to the Grand Final.',
+              },
+              {
+                title: 'Stage 3: Grand Final',
+                badge: 'Championship',
+                desc: 'The two playoff champions compete in the Grand Final for the official corporate tournament trophy!',
+              },
+            ];
+
             setAuctionRules({
               basePurse: data.rules.basePurse || 10000,
               ownerBlockedPrice: data.rules.ownerBlockedPrice || 500,
@@ -1130,8 +1309,16 @@ export default function AdminDashboardPage() {
               maxBowlerOvers: rBowlerLimit,
               wideBallPenalty: data.rules.wideBallPenalty || '+1 Run & Extra Ball',
               noBallPenalty: data.rules.noBallPenalty || '+1 Run + Free Hit',
-              pointsPerWin: data.rules.pointsPerWin || 2,
+              pointsPerWin: data.rules.pointsPerWin !== undefined ? data.rules.pointsPerWin : 2,
+              pointsPerTie: data.rules.pointsPerTie !== undefined ? data.rules.pointsPerTie : 1,
+              pointsPerNR: data.rules.pointsPerNR !== undefined ? data.rules.pointsPerNR : 1,
+              pointsPerLoss: data.rules.pointsPerLoss !== undefined ? data.rules.pointsPerLoss : 0,
               bidSteps: data.rules.bidSteps || [50, 100, 200, 500],
+              knockoutFormat: data.rules.knockoutFormat || 'ipl_playoffs',
+              pathwayTitle: data.rules.pathwayTitle || 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
+              pathwayBadge: data.rules.pathwayBadge || 'Official League Structure',
+              stages: Array.isArray(data.rules.stages) && data.rules.stages.length > 0 ? data.rules.stages : defaultStages,
+              qualificationRule: data.rules.qualificationRule || 'Top 4 franchises secure direct playoff qualification based on points and Net Run Rate (NRR).',
             });
           }
         }
@@ -3245,6 +3432,194 @@ export default function AdminDashboardPage() {
                   />
                   <p className="text-[11px] text-cricket-muted">Protocol and bonus for crease or height violations.</p>
                 </div>
+
+                {/* Points System Breakdown */}
+                <div className="p-4 rounded-2xl bg-cricket-dark/80 border border-cricket-border space-y-2">
+                  <label className="text-xs font-bold text-gray-300 uppercase block">
+                    Points Per Win
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    disabled={!isOrganizer && !isSuperAdmin}
+                    value={auctionRules.pointsPerWin}
+                    onChange={(e) => setAuctionRules({ ...auctionRules, pointsPerWin: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-card border border-cricket-border text-cricket-gold font-display font-extrabold text-xl focus:outline-none focus:border-cricket-gold disabled:opacity-60"
+                  />
+                  <p className="text-[11px] text-cricket-muted">Points awarded to match winner.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-cricket-dark/80 border border-cricket-border space-y-2">
+                  <label className="text-xs font-bold text-gray-300 uppercase block">
+                    Points Per Tie / No Result
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    disabled={!isOrganizer && !isSuperAdmin}
+                    value={auctionRules.pointsPerTie}
+                    onChange={(e) => setAuctionRules({ ...auctionRules, pointsPerTie: Number(e.target.value), pointsPerNR: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-card border border-cricket-border text-amber-400 font-display font-extrabold text-xl focus:outline-none focus:border-amber-400 disabled:opacity-60"
+                  />
+                  <p className="text-[11px] text-cricket-muted">Points awarded per team for tied / abandoned matches.</p>
+                </div>
+              </div>
+
+              {/* Tournament Knockout Pathway & Standings Rules */}
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-[#0c1929] to-[#08111f] border border-[#D8AD55]/30 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D8AD55]/20 pb-4">
+                  <div>
+                    <h4 className="font-display font-bold text-lg text-white flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-[#D8AD55]" />
+                      <span>Tournament Format &amp; Knockout Pathway</span>
+                    </h4>
+                    <p className="text-xs text-[#8793A5] mt-1">
+                      Customize how stages, playoffs, and finals progress. This directly controls the live Knockout Pathway on the Standings page for <strong>{selectedTournament.toUpperCase()}</strong>.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-[#D8AD55]/15 text-[#F2D69A] border border-[#D8AD55]/30 text-xs font-bold self-start sm:self-auto">
+                    Live Standings Sync
+                  </span>
+                </div>
+
+                {/* 1-Click Format Presets */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-300 uppercase block">
+                    Choose Progression Preset (1-Click Fill)
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {Object.entries(KNOCKOUT_PRESETS).map(([k, p]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => applyKnockoutPreset(k)}
+                        disabled={!isOrganizer && !isSuperAdmin}
+                        className={`p-3 rounded-xl border text-left transition-all text-xs font-bold flex flex-col justify-between gap-1.5 ${
+                          auctionRules.knockoutFormat === k
+                            ? 'bg-[#D8AD55]/20 border-[#D8AD55] text-white shadow-lg'
+                            : 'bg-cricket-dark/80 border-cricket-border text-gray-300 hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-white">{p.name}</span>
+                          {auctionRules.knockoutFormat === k && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-[#8793A5] font-normal">{p.badge}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Pathway Title & Badge */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="text-xs font-bold text-gray-300 uppercase block">
+                      Pathway Header Title
+                    </label>
+                    <input
+                      type="text"
+                      disabled={!isOrganizer && !isSuperAdmin}
+                      value={auctionRules.pathwayTitle || ''}
+                      onChange={(e) => setAuctionRules({ ...auctionRules, pathwayTitle: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-card border border-cricket-border text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                      placeholder="e.g. Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-300 uppercase block">
+                      Header Badge Text
+                    </label>
+                    <input
+                      type="text"
+                      disabled={!isOrganizer && !isSuperAdmin}
+                      value={auctionRules.pathwayBadge || ''}
+                      onChange={(e) => setAuctionRules({ ...auctionRules, pathwayBadge: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-card border border-cricket-border text-blue-300 text-xs font-bold focus:outline-none focus:border-blue-400"
+                      placeholder="e.g. Official League Structure"
+                    />
+                  </div>
+                </div>
+
+                {/* 3 Pathway Stages */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  {(auctionRules.stages || []).map((st: any, idx: number) => {
+                    const borderColors = [
+                      'border-emerald-500/30 focus-within:border-emerald-400',
+                      'border-blue-500/30 focus-within:border-blue-400',
+                      'border-[#D8AD55]/40 focus-within:border-[#D8AD55]',
+                    ];
+                    const badgeTitles = ['Stage 1', 'Stage 2', 'Stage 3'];
+                    return (
+                      <div key={idx} className={`p-4 rounded-xl bg-[#08111F] border ${borderColors[idx % 3]} space-y-3`}>
+                        <div className="flex items-center justify-between text-xs font-bold text-gray-300">
+                          <span>{badgeTitles[idx]} Details</span>
+                          <span className="text-[10px] text-[#8793A5]">Step {idx + 1} of 3</span>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-gray-400">Title</label>
+                          <input
+                            type="text"
+                            disabled={!isOrganizer && !isSuperAdmin}
+                            value={st.title || ''}
+                            onChange={(e) => {
+                              const updatedStages = [...auctionRules.stages];
+                              updatedStages[idx] = { ...updatedStages[idx], title: e.target.value };
+                              setAuctionRules({ ...auctionRules, stages: updatedStages });
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-cricket-card border border-white/10 text-white text-xs font-bold focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-gray-400">Badge Text</label>
+                          <input
+                            type="text"
+                            disabled={!isOrganizer && !isSuperAdmin}
+                            value={st.badge || ''}
+                            onChange={(e) => {
+                              const updatedStages = [...auctionRules.stages];
+                              updatedStages[idx] = { ...updatedStages[idx], badge: e.target.value };
+                              setAuctionRules({ ...auctionRules, stages: updatedStages });
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-cricket-card border border-white/10 text-[#F2D69A] text-xs font-medium focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-semibold text-gray-400">Description</label>
+                          <textarea
+                            rows={3}
+                            disabled={!isOrganizer && !isSuperAdmin}
+                            value={st.desc || ''}
+                            onChange={(e) => {
+                              const updatedStages = [...auctionRules.stages];
+                              updatedStages[idx] = { ...updatedStages[idx], desc: e.target.value };
+                              setAuctionRules({ ...auctionRules, stages: updatedStages });
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-cricket-card border border-white/10 text-gray-300 text-xs focus:outline-none resize-none"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Qualification Rule Note */}
+                <div className="space-y-1.5 pt-2">
+                  <label className="text-xs font-bold text-gray-300 uppercase block">
+                    Qualification Rule Note (Appears in Points Table Footnote)
+                  </label>
+                  <input
+                    type="text"
+                    disabled={!isOrganizer && !isSuperAdmin}
+                    value={auctionRules.qualificationRule || ''}
+                    onChange={(e) => setAuctionRules({ ...auctionRules, qualificationRule: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-card border border-cricket-border text-white text-xs focus:outline-none focus:border-[#D8AD55]"
+                    placeholder="e.g. Top 4 franchises secure direct playoff qualification based on points and Net Run Rate (NRR)."
+                  />
+                </div>
               </div>
 
               {/* Action Buttons */}
@@ -3327,7 +3702,20 @@ export default function AdminDashboardPage() {
                 <div className="font-display font-black text-2xl text-cricket-gold">
                   {auctionRules.pointsPerWin} Points
                 </div>
-                <p className="text-[11px] text-gray-400">Win: {auctionRules.pointsPerWin} pts, Tie / No Result: {Math.max(1, Math.floor(auctionRules.pointsPerWin / 2))} pt, Loss: 0 pts.</p>
+                <p className="text-[11px] text-gray-400">Win: {auctionRules.pointsPerWin} pts, Tie / NR: {auctionRules.pointsPerTie || 1} pt, Loss: {auctionRules.pointsPerLoss || 0} pts.</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-cricket-dark/80 border border-cricket-border space-y-2 sm:col-span-2 lg:col-span-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <span className="text-xs font-semibold text-cricket-muted uppercase">Knockout Pathway &amp; Structure Live Summary</span>
+                  <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold self-start sm:self-auto">{auctionRules.pathwayBadge}</span>
+                </div>
+                <div className="font-display font-bold text-base text-white">
+                  {auctionRules.pathwayTitle}
+                </div>
+                <p className="text-xs text-[#8793A5]">
+                  Qualification Rule: <span className="text-gray-300">{auctionRules.qualificationRule}</span>
+                </p>
               </div>
             </div>
           </div>

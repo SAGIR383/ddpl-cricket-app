@@ -27,6 +27,8 @@ export default function StandingsPage() {
   const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
   const [selectedSeason, setSelectedSeason] = useState('2027');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
+  const [activeTournamentConfig, setActiveTournamentConfig] = useState<any>(null);
+  const [activeTournamentRules, setActiveTournamentRules] = useState<any>(null);
   const [standings, setStandings] = useState<TeamStandingRow[]>([]);
   const [completedMatches, setCompletedMatches] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -104,13 +106,24 @@ export default function StandingsPage() {
       if (standings.length === 0) setLoading(true);
       try {
         const activeSlug = selectedTournament || 'ddpl';
-        const [regData, analyticsData, auctionData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
+        const [regData, analyticsData, auctionData, rulesData] = await Promise.all([
+          fetchWithCache<any>(`/api/tournaments/register?tournament=${activeSlug}`, { ttlMs: 15000 }),
           fetchWithCache<any>(`/api/analytics/tournament?tournament=${activeSlug}`, { ttlMs: 15000 }),
           fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 20000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${activeSlug}`, { ttlMs: 15000 }),
         ]);
 
         if (!isMounted) return;
+
+        if (regData?.config) {
+          setActiveTournamentConfig(regData.config);
+          if (regData.config.season) {
+            setSelectedSeason(regData.config.season);
+          }
+        }
+        if (rulesData?.rules) {
+          setActiveTournamentRules(rulesData.rules);
+        }
 
         if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
           setTournamentsList(regData.tournamentsList);
@@ -175,6 +188,150 @@ export default function StandingsPage() {
     }
     return calculateHeadToHead(h2hTeamA, h2hTeamB);
   }, [h2hTeamA, h2hTeamB]);
+
+  // Dynamic Knockout Pathway computed from superadmin rules and tournament configuration
+  const dynamicPathway = useMemo(() => {
+    const cfg = activeTournamentConfig || {};
+    const r = activeTournamentRules || {};
+
+    // 1. If superadmin set explicit custom stages or pathway in rules
+    if (r.stages && Array.isArray(r.stages) && r.stages.length > 0) {
+      return {
+        title: r.pathwayTitle || `Knockout Pathway: ${cfg.name || 'Tournament'} Structure`,
+        badge: r.pathwayBadge || 'Official Tournament Rules',
+        stages: r.stages,
+        qualificationRule: r.qualificationRule || 'Top teams advance to the knockout playoffs based on points and Net Run Rate (NRR).',
+      };
+    }
+
+    // 2. Derive structure from tournament format / knockoutFormat
+    const kFormat = r.knockoutFormat || (cfg.groupsCount > 1 ? 'group_stage_knockout' : cfg.format === 'game-of-run' ? 'direct_final' : 'ipl_playoffs');
+
+    if (kFormat === 'direct_final') {
+      return {
+        title: 'Knockout Pathway: League Stage ➔ Grand Final',
+        badge: 'Top 2 Direct Final',
+        stages: [
+          {
+            title: 'Stage 1: Round Robin League',
+            badge: 'All Play All',
+            desc: `Franchises play round-robin fixtures (${cfg.overs || 7} Overs / Innings). Points and NRR determine the top 2 teams on the leaderboard.`,
+          },
+          {
+            title: 'Stage 2: Grand Final Showdown',
+            badge: 'Top 2 Teams',
+            desc: 'The top 2 ranked teams clash head-to-head in the Grand Final to claim the championship trophy!',
+          },
+          {
+            title: 'Stage 3: Champion Crowned',
+            badge: 'Championship',
+            desc: 'Championship Trophy, MVP, Orange Cap, and Purple Cap awards presented to the tournament champions.',
+          },
+        ],
+        qualificationRule: 'Top 2 franchises on the points table secure direct qualification to the Grand Final.',
+      };
+    }
+
+    if (kFormat === 'group_stage_knockout' || cfg.groupsCount > 1) {
+      const gNames = Array.isArray(cfg.groupNames) && cfg.groupNames.length > 0 ? cfg.groupNames.join(', ') : `${cfg.groupsCount || 2} Groups`;
+      return {
+        title: 'Knockout Pathway: Multi-Group Stage ➔ Semi-Finals ➔ Grand Final',
+        badge: 'Multi-Group League',
+        stages: [
+          {
+            title: 'Stage 1: Multi-Pool League',
+            badge: 'Group Stage',
+            desc: `Franchises compete within assigned pools (${gNames}). Top 2 teams from each pool advance to the Cross-Group Playoffs.`,
+          },
+          {
+            title: 'Stage 2: Cross-Group Semi-Finals',
+            badge: 'Top 4 Teams',
+            desc: 'Pool A Leader vs Pool B Runner-Up, and Pool B Leader vs Pool A Runner-Up clash for a place in the Grand Final.',
+          },
+          {
+            title: 'Stage 3: Grand Final',
+            badge: 'Championship',
+            desc: 'The two victorious semi-finalists face off in the Grand Final for the official corporate tournament trophy!',
+          },
+        ],
+        qualificationRule: 'Top 2 teams from each pool advance to the Cross-Group Semi-Finals.',
+      };
+    }
+
+    if (kFormat === 'semis_final') {
+      return {
+        title: 'Knockout Pathway: League Stage ➔ Semi-Finals ➔ Grand Final',
+        badge: 'Top 4 Knockouts',
+        stages: [
+          {
+            title: 'Stage 1: Group League',
+            badge: 'Round Robin',
+            desc: 'Franchises compete in round-robin fixtures. Top 4 teams on points and Net Run Rate (NRR) advance to the Semi-Finals.',
+          },
+          {
+            title: 'Stage 2: Knockout Semi-Finals',
+            badge: 'Top 4 Teams',
+            desc: '1st vs 4th and 2nd vs 3rd in sudden-death knockout semi-finals. Winners advance to the Grand Final.',
+          },
+          {
+            title: 'Stage 3: Grand Final',
+            badge: 'Championship',
+            desc: 'The 2 semi-final winners battle in the Grand Final for the official corporate tournament championship trophy!',
+          },
+        ],
+        qualificationRule: 'Top 4 franchises secure direct qualification to the Semi-Finals.',
+      };
+    }
+
+    if (kFormat === 'pure_knockout') {
+      return {
+        title: 'Knockout Pathway: Elimination Rounds ➔ Grand Final',
+        badge: 'Single Elimination',
+        stages: [
+          {
+            title: 'Stage 1: Elimination Rounds',
+            badge: 'Sudden Death',
+            desc: 'Every match is a do-or-die battle. Winning teams advance immediately while defeated teams exit.',
+          },
+          {
+            title: 'Stage 2: Semi-Finals',
+            badge: 'Final 4',
+            desc: 'The final 4 remaining teams clash for the ultimate 2 berths in the championship decider.',
+          },
+          {
+            title: 'Stage 3: Grand Final',
+            badge: 'Championship',
+            desc: 'The 2 finalists duel under stadium floodlights to lift the championship cup!',
+          },
+        ],
+        qualificationRule: 'Single elimination sudden-death knockout structure.',
+      };
+    }
+
+    // Default: IPL style
+    return {
+      title: 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
+      badge: 'Official League Structure',
+      stages: [
+        {
+          title: 'Stage 1: Group League',
+          badge: 'Round Robin',
+          desc: 'Franchises play round-robin matches. Top teams on points and NRR advance to the Playoffs.',
+        },
+        {
+          title: 'Stage 2: Playoffs',
+          badge: 'Top 4 Teams',
+          desc: 'Qualifier 1, Eliminator, and Qualifier 2. The 2 victorious teams advance to the Grand Final.',
+        },
+        {
+          title: 'Stage 3: Grand Final',
+          badge: 'Championship',
+          desc: 'The two playoff champions compete in the Grand Final for the official corporate tournament trophy!',
+        },
+      ],
+      qualificationRule: 'Top 4 franchises secure direct playoff qualification.',
+    };
+  }, [activeTournamentConfig, activeTournamentRules]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
@@ -529,43 +686,46 @@ export default function StandingsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-display font-bold text-xl text-white">
             <Trophy className="w-5 h-5 text-[#D8AD55]" />
-            <span>Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final</span>
+            <span>{dynamicPathway.title}</span>
           </div>
           <span className="px-3 py-1 rounded-full bg-blue-500/15 text-blue-300 text-xs font-bold border border-blue-500/30 self-start sm:self-auto">
-            Official League Structure
+            {dynamicPathway.badge}
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-5 rounded-2xl bg-[#08111F] border border-emerald-500/30 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-emerald-400 uppercase tracking-wider">Stage 1: Group League</span>
-              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">Round Robin</span>
-            </div>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Franchises play round-robin matches. Top teams on points and NRR advance to the Playoffs.
-            </p>
-          </div>
+          {dynamicPathway.stages.map((st: any, idx: number) => {
+            const borderColors = [
+              'border-emerald-500/30',
+              'border-blue-500/30',
+              'border-[#D8AD55]/40',
+            ];
+            const badgeColors = [
+              'bg-emerald-500/20 text-emerald-300',
+              'bg-blue-500/20 text-blue-300',
+              'bg-amber-500/20 text-amber-300',
+            ];
+            const titleColors = [
+              'text-emerald-400',
+              'text-blue-400',
+              'text-[#D8AD55]',
+            ];
+            const bColor = borderColors[idx % borderColors.length];
+            const badgeColor = badgeColors[idx % badgeColors.length];
+            const tColor = titleColors[idx % titleColors.length];
 
-          <div className="p-5 rounded-2xl bg-[#08111F] border border-blue-500/30 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-blue-400 uppercase tracking-wider">Stage 2: Playoffs</span>
-              <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold">Top 4 Teams</span>
-            </div>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Qualifier 1, Eliminator, and Qualifier 2. The 2 victorious teams advance to the Grand Final.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-[#08111F] border border-[#D8AD55]/40 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[#D8AD55] uppercase tracking-wider">Stage 3: Grand Final</span>
-              <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">Championship</span>
-            </div>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              The two playoff champions compete in the Grand Final for the official corporate tournament trophy!
-            </p>
-          </div>
+            return (
+              <div key={idx} className={`p-5 rounded-2xl bg-[#08111F] border ${bColor} space-y-2`}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`font-bold ${tColor} uppercase tracking-wider`}>{st.title}</span>
+                  <span className={`px-2 py-0.5 rounded ${badgeColor} text-[10px] font-bold`}>{st.badge}</span>
+                </div>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  {st.desc}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -574,7 +734,7 @@ export default function StandingsPage() {
         <HelpCircle className="w-4 h-4 shrink-0 text-[#D8AD55] mt-0.5" />
         <div>
           <strong className="text-gray-200">How Standings &amp; Points Table Operate:</strong>{' '}
-          Franchises and squads are synchronized directly with verified live matches and auction rosters. Net Run Rate (NRR) is calculated as (Total Runs Scored / Total Overs Faced) minus (Total Runs Conceded / Total Overs Bowled). Top 4 franchises secure direct playoff qualification.
+          Franchises and squads are synchronized directly with verified live matches and auction rosters. Net Run Rate (NRR) is calculated as (Total Runs Scored / Total Overs Faced) minus (Total Runs Conceded / Total Overs Bowled). {dynamicPathway.qualificationRule}
         </div>
       </div>
     </div>
