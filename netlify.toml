@@ -3,4 +3,8 @@
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
+  # The Supabase URL and anon (publishable) key are public by design: they are
+  # NEXT_PUBLIC_* values that Next.js intentionally inlines into browser code.
+  # The service role key is NOT omitted and stays protected by secrets scanning.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"

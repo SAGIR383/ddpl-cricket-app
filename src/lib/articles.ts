@@ -1,3 +1,4 @@
+import 'server-only';
 import { getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
 import { createClient } from '@supabase/supabase-js';
 import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
