@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Radio,
@@ -31,6 +31,14 @@ export function LiveAnnouncementTicker({
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Edit form state - ALWAYS declared at top level to adhere to React Rules of Hooks
+  const [formMessage, setFormMessage] = useState('');
+  const [formType, setFormType] = useState<LiveAnnouncementData['type']>('championship');
+  const [formIsActive, setFormIsActive] = useState<boolean>(true);
+  const [formLinkText, setFormLinkText] = useState('');
+  const [formLinkUrl, setFormLinkUrl] = useState('');
+  const [formLeague, setFormLeague] = useState('');
+
   // Combine single and multi announcements
   const listFromProps: LiveAnnouncementData[] =
     announcements && announcements.length > 0
@@ -40,27 +48,35 @@ export function LiveAnnouncementTicker({
       : [];
 
   const activeAnnouncements = listFromProps.filter(
-    (a) => a.isActive === true && typeof a.message === 'string' && a.message.trim().length > 0
+    (a) => a && a.isActive === true && typeof a.message === 'string' && a.message.trim().length > 0
   );
+
+  const primaryItem = activeAnnouncements[0] || null;
+
+  // Sync form state when primary announcement changes
+  useEffect(() => {
+    if (primaryItem) {
+      setFormMessage(primaryItem.message || '');
+      setFormType(primaryItem.type || 'championship');
+      setFormIsActive(primaryItem.isActive !== undefined ? primaryItem.isActive : true);
+      setFormLinkText(primaryItem.linkText || '');
+      setFormLinkUrl(primaryItem.linkUrl || '');
+      setFormLeague(primaryItem.tournamentName || '');
+    }
+  }, [
+    primaryItem?.id,
+    primaryItem?.message,
+    primaryItem?.type,
+    primaryItem?.isActive,
+    primaryItem?.linkText,
+    primaryItem?.linkUrl,
+    primaryItem?.tournamentName,
+  ]);
 
   // If no active broadcast exists, completely stop displaying the ticker!
-  if (activeAnnouncements.length === 0) {
+  if (!primaryItem || activeAnnouncements.length === 0) {
     return null;
   }
-
-  const primaryItem = activeAnnouncements[0];
-
-  // Edit form state
-  const [formMessage, setFormMessage] = useState(primaryItem.message || '');
-  const [formType, setFormType] = useState<LiveAnnouncementData['type']>(
-    primaryItem.type || 'championship'
-  );
-  const [formIsActive, setFormIsActive] = useState<boolean>(
-    primaryItem.isActive !== undefined ? primaryItem.isActive : true
-  );
-  const [formLinkText, setFormLinkText] = useState(primaryItem.linkText || '');
-  const [formLinkUrl, setFormLinkUrl] = useState(primaryItem.linkUrl || '');
-  const [formLeague, setFormLeague] = useState(primaryItem.tournamentName || '');
 
   const badgeStyles = {
     breaking: {
