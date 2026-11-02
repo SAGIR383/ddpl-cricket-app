@@ -1,17 +1,12 @@
 /**
- * Safe server-side accessor for Supabase elevated service role privileges.
+ * Server-side accessor for the Supabase service role key.
+ * The key must be provided via the SUPABASE_SERVICE_ROLE_KEY environment
+ * variable; it is never hardcoded in source.
  */
 export function getServiceRoleKey(): string {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return process.env.SUPABASE_SERVICE_ROLE_KEY;
-  }
-  // Runtime fallback when deployed
-  try {
-    return Buffer.from(
-      'c2Jfc2VjcmV0X2N3TUxQLXBTLTFHM2hYeWxQQW9WOGdfZ3NGVHFPUDQ=',
-      'base64'
-    ).toString('utf-8');
-  } catch {
-    return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  }
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    ''
+  );
 }
