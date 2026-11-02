@@ -40,14 +40,15 @@ export function LiveAnnouncementTicker({
       : [];
 
   const activeAnnouncements = listFromProps.filter(
-    (a) => a.isActive !== false && a.message?.trim().length > 0
+    (a) => a.isActive === true && typeof a.message === 'string' && a.message.trim().length > 0
   );
 
-  const primaryItem = activeAnnouncements[0] || announcement || {
-    message: '',
-    isActive: true,
-    type: 'championship' as const,
-  };
+  // If no active broadcast exists, completely stop displaying the ticker!
+  if (activeAnnouncements.length === 0) {
+    return null;
+  }
+
+  const primaryItem = activeAnnouncements[0];
 
   // Edit form state
   const [formMessage, setFormMessage] = useState(primaryItem.message || '');
@@ -60,11 +61,6 @@ export function LiveAnnouncementTicker({
   const [formLinkText, setFormLinkText] = useState(primaryItem.linkText || '');
   const [formLinkUrl, setFormLinkUrl] = useState(primaryItem.linkUrl || '');
   const [formLeague, setFormLeague] = useState(primaryItem.tournamentName || '');
-
-  // If no announcement or deactivated and not admin, hide
-  if (activeAnnouncements.length === 0 && !isSuperAdmin) {
-    return null;
-  }
 
   const badgeStyles = {
     breaking: {
@@ -167,9 +163,7 @@ export function LiveAnnouncementTicker({
   ];
 
   // Repeat the active announcements twice to form a seamless infinite marquee
-  const marqueeItems = activeAnnouncements.length > 0 
-    ? [...activeAnnouncements, ...activeAnnouncements] 
-    : [primaryItem, primaryItem];
+  const marqueeItems = [...activeAnnouncements, ...activeAnnouncements];
 
   return (
     <>

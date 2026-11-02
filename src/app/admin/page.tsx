@@ -247,9 +247,11 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const loadAnnouncement = async () => {
+  const loadAnnouncement = async (slug?: string) => {
     try {
-      const res = await fetch('/api/announcement');
+      const activeSlug = slug || selectedTournament;
+      const url = activeSlug ? `/api/announcement?tournament=${encodeURIComponent(activeSlug)}` : '/api/announcement';
+      const res = await fetch(url);
       if (res.ok) {
         const d = await res.json();
         if (d.announcement) {
@@ -289,7 +291,11 @@ export default function AdminDashboardPage() {
           link: data.announcement.linkUrl || data.announcement.link || '',
           linkUrl: data.announcement.linkUrl || data.announcement.link || '',
         });
-        showNotification('🎉 Live announcement updated and running across the global news ticker!');
+        if (adminAnnouncement.isActive) {
+          showNotification(`🎉 Live announcement active and broadcasting for ${(currentTourney?.name || selectedTournament.toUpperCase())}!`);
+        } else {
+          showNotification(`⏸️ Broadcast paused and completely stopped for ${(currentTourney?.name || selectedTournament.toUpperCase())}.`);
+        }
       } else {
         alert(data.error || 'Failed to update announcement');
       }
@@ -1170,7 +1176,9 @@ export default function AdminDashboardPage() {
       }
     }
     loadAdminData();
-    loadAnnouncement();
+    if (selectedTournament) {
+      loadAnnouncement(selectedTournament);
+    }
   }, [selectedTournament]);
 
   const handleSaveAuctionRules = async (e: React.FormEvent) => {
@@ -3655,96 +3663,101 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Quick 1-Click Presets */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-[#F2D69A] uppercase tracking-wider">
-                ⚡ Quick Presets (1-Click Fill)
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setAdminAnnouncement({
-                    ...adminAnnouncement,
-                    badge: 'LIVE',
-                    type: 'live',
-                    badgeType: 'live',
-                    message: '🏏 Most awaited league for this year DDPL 2.0 is going to start soon... Keep playing hard! Register your squad now.',
-                    link: '/registration',
-                    linkText: 'Register Now',
-                    isActive: true,
-                  })}
-                  className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
-                >
-                  <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
-                    <span>🏏 DDPL 2.0 Starting Soon</span>
-                    <span className="text-[10px] text-[#D8AD55]">Preset 1</span>
-                  </div>
-                  <p className="text-[11px] text-[#8793A5] truncate">Most awaited league for this year DDPL 2.0 is going to start soon...</p>
-                </button>
+            {(() => {
+              const activeTourneyName = (tournamentsList.find((t: any) => t.slug === selectedTournament)?.name) || (selectedTournament ? selectedTournament.toUpperCase() : 'DDPL 2.0');
+              return (
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-[#F2D69A] uppercase tracking-wider">
+                    ⚡ Quick Presets (1-Click Fill) — {activeTourneyName}
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setAdminAnnouncement({
+                        ...adminAnnouncement,
+                        badge: 'LIVE',
+                        type: 'live',
+                        badgeType: 'live',
+                        message: `🏏 Most awaited league for this year ${activeTourneyName} is going to start soon... Keep playing hard! Register your squad now.`,
+                        link: selectedTournament ? `/tournaments/${selectedTournament}` : '/tournaments',
+                        linkText: 'Register Now',
+                        isActive: true,
+                      })}
+                      className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
+                    >
+                      <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
+                        <span>🏏 {activeTourneyName} Starting Soon</span>
+                        <span className="text-[10px] text-[#D8AD55]">Preset 1</span>
+                      </div>
+                      <p className="text-[11px] text-[#8793A5] truncate">Most awaited league for this year {activeTourneyName} is going to start soon...</p>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => setAdminAnnouncement({
-                    ...adminAnnouncement,
-                    badge: 'AUCTION ALERT',
-                    type: 'breaking',
-                    badgeType: 'breaking',
-                    message: '🔨 Attention all Franchise Owners! The DDPL 2.0 Mega Player Auction begins shortly. Finalize your purse strategy!',
-                    link: '/auction',
-                    linkText: 'Enter Auction Room',
-                    isActive: true,
-                  })}
-                  className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
-                >
-                  <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
-                    <span>🔨 Player Auction Command</span>
-                    <span className="text-[10px] text-[#D8AD55]">Preset 2</span>
-                  </div>
-                  <p className="text-[11px] text-[#8793A5] truncate">Attention all Franchise Owners! Mega Player Auction begins shortly...</p>
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdminAnnouncement({
+                        ...adminAnnouncement,
+                        badge: 'AUCTION ALERT',
+                        type: 'breaking',
+                        badgeType: 'breaking',
+                        message: `🔨 Attention all Franchise Owners! The ${activeTourneyName} Mega Player Auction begins shortly. Finalize your purse strategy!`,
+                        link: selectedTournament ? `/auction?tournament=${selectedTournament}` : '/auction',
+                        linkText: 'Enter Auction Room',
+                        isActive: true,
+                      })}
+                      className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
+                    >
+                      <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
+                        <span>🔨 Player Auction Command</span>
+                        <span className="text-[10px] text-[#D8AD55]">Preset 2</span>
+                      </div>
+                      <p className="text-[11px] text-[#8793A5] truncate">Attention all Franchise Owners! Mega Player Auction begins shortly...</p>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => setAdminAnnouncement({
-                    ...adminAnnouncement,
-                    badge: 'GRAND FINALS',
-                    type: 'championship',
-                    badgeType: 'championship',
-                    message: '🏆 DDPL 2.0 GRAND FINALE: The ultimate championship match is underway! Follow the ball-by-ball live score and wagon wheel.',
-                    link: '/schedule',
-                    linkText: 'Live Scorecard',
-                    isActive: true,
-                  })}
-                  className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
-                >
-                  <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
-                    <span>🏆 Championship Finals</span>
-                    <span className="text-[10px] text-[#D8AD55]">Preset 3</span>
-                  </div>
-                  <p className="text-[11px] text-[#8793A5] truncate">DDPL 2.0 Grand Finale match is underway! Follow live score...</p>
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdminAnnouncement({
+                        ...adminAnnouncement,
+                        badge: 'GRAND FINALS',
+                        type: 'championship',
+                        badgeType: 'championship',
+                        message: `🏆 ${activeTourneyName} GRAND FINALE: The ultimate championship match is underway! Follow the ball-by-ball live score and wagon wheel.`,
+                        link: selectedTournament ? `/matches` : '/matches',
+                        linkText: 'Live Scorecard',
+                        isActive: true,
+                      })}
+                      className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
+                    >
+                      <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
+                        <span>🏆 Championship Finals</span>
+                        <span className="text-[10px] text-[#D8AD55]">Preset 3</span>
+                      </div>
+                      <p className="text-[11px] text-[#8793A5] truncate">{activeTourneyName} Grand Finale match is underway! Follow live score...</p>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => setAdminAnnouncement({
-                    ...adminAnnouncement,
-                    badge: 'WEATHER NOTICE',
-                    type: 'alert',
-                    badgeType: 'alert',
-                    message: '⚡ Match 4 Update: Slight drizzle delay. Pitch covers are in place and ground staff expect full overs upon resumption.',
-                    link: '',
-                    linkText: '',
-                    isActive: true,
-                  })}
-                  className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
-                >
-                  <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
-                    <span>⚡ Match Weather / Delay Notice</span>
-                    <span className="text-[10px] text-[#D8AD55]">Preset 4</span>
+                    <button
+                      type="button"
+                      onClick={() => setAdminAnnouncement({
+                        ...adminAnnouncement,
+                        badge: 'WEATHER NOTICE',
+                        type: 'alert',
+                        badgeType: 'alert',
+                        message: '⚡ Match 4 Update: Slight drizzle delay. Pitch covers are in place and ground staff expect full overs upon resumption.',
+                        link: '',
+                        linkText: '',
+                        isActive: true,
+                      })}
+                      className="p-3 text-left rounded-xl bg-[#08111F] hover:bg-[#122236] border border-[#D8AD55]/20 hover:border-[#D8AD55] transition-all text-xs space-y-1 cursor-pointer group"
+                    >
+                      <div className="font-bold text-[#F2D69A] group-hover:text-white flex items-center justify-between">
+                        <span>⚡ Match Weather / Delay Notice</span>
+                        <span className="text-[10px] text-[#D8AD55]">Preset 4</span>
+                      </div>
+                      <p className="text-[11px] text-[#8793A5] truncate">Match update: Slight delay due to drizzle. Resuming shortly...</p>
+                    </button>
                   </div>
-                  <p className="text-[11px] text-[#8793A5] truncate">Match update: Slight delay due to drizzle. Resuming shortly...</p>
-                </button>
-              </div>
-            </div>
+                </div>
+              );
+            })()}
 
             {/* Badge Type Selector */}
             <div className="space-y-2">
