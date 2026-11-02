@@ -28,6 +28,10 @@ export async function getAllArticles(includeDrafts = false, bypassCache = false)
     // If store already has articles, use it
     if (storeArticles.length > 0) {
       return storeArticles
+        .map((a) => ({
+          ...a,
+          viewsCount: typeof a.viewsCount === 'number' ? a.viewsCount : 0,
+        }))
         .filter((a) => (includeDrafts ? true : a.status === 'published'))
         .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
     }
@@ -66,7 +70,7 @@ export async function getAllArticles(includeDrafts = false, bypassCache = false)
           readingTime: calculateReadingTime(p.content),
           status: p.status === 'draft' ? 'draft' : 'published',
           isFeatured: Boolean(p.is_featured),
-          viewsCount: p.views_count || 120,
+          viewsCount: typeof p.views_count === 'number' ? p.views_count : 0,
           seo: {
             seoTitle: `${p.title} | CricPlus24`,
             metaDescription: (p.summary || p.subtitle || p.title).slice(0, 160),
@@ -166,4 +170,61 @@ export async function deleteArticle(slug: string): Promise<boolean> {
     return true;
   }
   return false;
+}
+
+/**
+ * Increment authentic real views for an article by slug
+ */
+export async function incrementArticleViews(slug: string): Promise<number> {
+  if (!slug) return 0;
+  const storeContainer = await getStoreData<{ articles: Record<string, CricPlusArticle> }>(
+    'cricplus_articles',
+    'articles.json',
+    { articles: {} },
+    true // bypass in-memory cache to fetch current count
+  );
+
+  const articles = storeContainer?.articles || {};
+  let article = articles[slug];
+
+  // If not in store yet, search case-insensitively
+  if (!article) {
+    const foundKey = Object.keys(articles).find((k) => k.toLowerCase() === slug.toLowerCase());
+    if (foundKey) {
+      article = articles[foundKey];
+      slug = foundKey;
+    }
+  }
+
+  if (!article) return 0;
+
+  const currentCount = typeof article.viewsCount === 'number' ? article.viewsCount : 0;
+  const newCount = currentCount + 1;
+  article.viewsCount = newCount;
+  articles[slug] = article;
+
+  await setStoreData('cricplus_articles', { articles }, 'articles.json');
+  invalidateStoreCache('cricplus_articles');
+
+  // Mirror into Supabase blog_posts
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    await supabase
+      .from('blog_posts')
+      .update({ views_count: newCount })
+      .eq('slug', slug);
+  } catch (err) {
+    console.warn('[Articles] DB view update mirror note:', err);
+  }
+
+  return newCount;
+}
+
+/**
+ * Get current real views count for an article
+ */
+export async function getArticleViews(slug: string): Promise<number> {
+  if (!slug) return 0;
+  const article = await getArticleBySlug(slug, true);
+  return typeof article?.viewsCount === 'number' ? article.viewsCount : 0;
 }

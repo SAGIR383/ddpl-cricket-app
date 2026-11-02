@@ -545,11 +545,18 @@ export function BlogStudio() {
       {/* Articles Management Table */}
       <div className="bg-[#08111F] rounded-2xl border border-white/5 overflow-hidden shadow-xl">
         <div className="p-4 border-b border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-display font-bold text-sm text-white">
-            <BookOpen className="w-4 h-4 text-[#D8AD55]" />
-            <span>Published &amp; Draft Editorials ({articles.length})</span>
+          <div className="flex items-center gap-3 font-display font-bold text-sm text-white flex-wrap">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-[#D8AD55]" />
+              <span>Published &amp; Draft Editorials ({articles.length})</span>
+            </div>
+            <span className="hidden sm:inline text-white/20">•</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-semibold">
+              <Eye className="w-3.5 h-3.5 text-[#D8AD55]" />
+              <span>{articles.reduce((acc, a) => acc + (a.viewsCount || 0), 0).toLocaleString()} Total Real Views</span>
+            </div>
           </div>
-          <span className="text-[11px] text-[#8793A5]">Exclusive CricPlus24 Original Content</span>
+          <span className="text-[11px] text-[#8793A5]">100% Authentic Verified Views</span>
         </div>
 
         {loading ? (
@@ -598,6 +605,10 @@ export function BlogStudio() {
                         </span>
                       )}
                       <span className="text-[11px] text-[#8793A5]">{art.readingTime}</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0D1B2A] text-[#F2D69A] border border-[#D8AD55]/40 flex items-center gap-1">
+                        <Eye className="w-3 h-3 text-[#D8AD55]" />
+                        <span>{(art.viewsCount || 0).toLocaleString()} real views</span>
+                      </span>
                     </div>
 
                     <h3 className="font-display font-bold text-base text-white hover:text-[#D8AD55] transition-colors line-clamp-1">
@@ -615,10 +626,12 @@ export function BlogStudio() {
                     href={`/news/${art.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-[#8793A5] hover:text-white transition-colors"
-                    title="View Public Article"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors shadow-sm"
+                    title="Open live published article & inspect real view count"
                   >
-                    <ExternalLink className="w-4 h-4" />
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>{(art.viewsCount || 0).toLocaleString()} Views</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
                   </a>
                   <button
                     onClick={() => handleOpenEdit(art)}

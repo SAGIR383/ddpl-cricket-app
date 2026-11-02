@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Filter,
   BookOpen,
+  Eye,
 } from 'lucide-react';
 import {
   CricPlusArticle,
@@ -154,7 +155,7 @@ export function NewsExplorer({ initialArticles }: NewsExplorerProps) {
                 {/* Featured Content Details */}
                 <div className="lg:col-span-5 p-6 sm:p-10 flex flex-col justify-between space-y-6">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-xs text-[#8793A5]">
+                    <div className="flex items-center gap-2 text-xs text-[#8793A5] flex-wrap">
                       <Calendar className="w-3.5 h-3.5 text-[#D8AD55]" />
                       <time dateTime={featuredArticle.publishedAt}>
                         {new Date(featuredArticle.publishedAt).toLocaleDateString('en-US', {
@@ -165,6 +166,11 @@ export function NewsExplorer({ initialArticles }: NewsExplorerProps) {
                       </time>
                       <span>•</span>
                       <span>{featuredArticle.readingTime}</span>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 text-[#F2D69A] font-semibold bg-[#0D1B2A] px-2.5 py-0.5 rounded-full border border-[#D8AD55]/30">
+                        <Eye className="w-3.5 h-3.5 text-[#D8AD55]" />
+                        <span>{(featuredArticle.viewsCount || 0).toLocaleString()} {featuredArticle.viewsCount === 1 ? 'view' : 'views'}</span>
+                      </span>
                     </div>
 
                     <h2 className="font-display font-black text-2xl sm:text-3xl text-white group-hover:text-[#D8AD55] transition-colors leading-tight">
@@ -235,7 +241,7 @@ export function NewsExplorer({ initialArticles }: NewsExplorerProps) {
                 {/* Content */}
                 <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2.5">
-                    <div className="flex items-center gap-2 text-xs text-[#8793A5]">
+                    <div className="flex items-center gap-2 text-xs text-[#8793A5] flex-wrap">
                       <Calendar className="w-3.5 h-3.5 text-[#D8AD55]" />
                       <time dateTime={art.publishedAt}>
                         {new Date(art.publishedAt).toLocaleDateString('en-US', {
@@ -246,6 +252,11 @@ export function NewsExplorer({ initialArticles }: NewsExplorerProps) {
                       </time>
                       <span>•</span>
                       <span>{art.readingTime}</span>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 text-[#F2D69A] font-semibold bg-[#0D1B2A] px-2 py-0.5 rounded-full border border-[#D8AD55]/30 text-[11px]">
+                        <Eye className="w-3 h-3 text-[#D8AD55]" />
+                        <span>{(art.viewsCount || 0).toLocaleString()}</span>
+                      </span>
                     </div>
 
                     <h3 className="font-display font-bold text-lg sm:text-xl text-white group-hover:text-[#D8AD55] transition-colors leading-snug line-clamp-2">
@@ -257,12 +268,12 @@ export function NewsExplorer({ initialArticles }: NewsExplorerProps) {
                     </p>
                   </div>
 
-                  <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                    <span className="text-[11px] text-gray-400 font-semibold truncate max-w-[130px]">
+                  <div className="pt-4 border-t border-white/5 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-gray-400 font-semibold truncate max-w-[120px]">
                       By {art.author?.name || 'CricPlus24 Chief Editor'}
                     </span>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => handleCopyLink(art.slug)}
                         className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
@@ -277,10 +288,12 @@ export function NewsExplorer({ initialArticles }: NewsExplorerProps) {
 
                       <Link
                         href={`/news/${art.slug}`}
-                        className="text-xs font-bold text-[#D8AD55] group-hover:text-[#F2D69A] flex items-center gap-1 transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 text-[#F2D69A] text-xs font-bold border border-[#D8AD55]/30 transition-all shadow-sm"
+                        title="Read full article & real view stats"
                       >
-                        <span>Read Article</span>
-                        <span>→</span>
+                        <Eye className="w-3.5 h-3.5 text-[#D8AD55]" />
+                        <span>View</span>
+                        <ArrowRight className="w-3 h-3 ml-0.5" />
                       </Link>
                     </div>
                   </div>

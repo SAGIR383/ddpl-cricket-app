@@ -20,6 +20,7 @@ import {
   CricPlusArticle,
 } from '@/lib/articles';
 import { ArticleShareButtons, ArticleTableOfContents } from '@/components/news/ArticleInteractions';
+import { ArticleViewTracker } from '@/components/news/ArticleViewTracker';
 
 export const revalidate = 60; // Incremental Static Regeneration every 60s
 
@@ -379,7 +380,7 @@ export default async function ArticleDetailPage({ params }: Props) {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-[#8793A5]">
+            <div className="flex items-center gap-3 text-xs text-[#8793A5] flex-wrap">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-[#D8AD55]" />
                 <time dateTime={article.publishedAt}>
@@ -396,6 +397,12 @@ export default async function ArticleDetailPage({ params }: Props) {
                   (Updated {new Date(article.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
                 </div>
               )}
+
+              {/* Dedicated Real Authentic Views Badge */}
+              <ArticleViewTracker
+                slug={article.slug}
+                initialViews={article.viewsCount || 0}
+              />
             </div>
           </div>
 
