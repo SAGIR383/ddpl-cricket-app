@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 
 import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
 
-const SUPERADMIN_IDENTIFIER = process.env.SUPERADMIN_IDENTIFIER || 'superadmin@cricplus.com';
-const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@2026';
+const SUPERADMIN_IDENTIFIER = process.env.SUPERADMIN_IDENTIFIER || '';
+const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || '';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
 const SUPABASE_SERVICE_KEY = getServiceRoleKey();
 
@@ -16,20 +16,20 @@ export async function POST(req: NextRequest) {
     const normalizedUser = (username || '').trim().toLowerCase();
     const providedPass = (password || '').trim();
 
-    // 1. Check Master Super Admin credentials
-    const isMasterUser =
-      normalizedUser === 'superadmin@cricplus.com' ||
-      normalizedUser === 'superadmin@cricpluse.com' ||
-      normalizedUser === SUPERADMIN_IDENTIFIER.toLowerCase() ||
-      normalizedUser === 'admin' ||
-      normalizedUser === 'superadmin';
+    // 1. Check Master Super Admin credentials strictly from environment variables
+    const isMasterUser = Boolean(
+      SUPERADMIN_IDENTIFIER &&
+      (normalizedUser === SUPERADMIN_IDENTIFIER.toLowerCase() ||
+        normalizedUser === 'admin' ||
+        normalizedUser === 'superadmin')
+    );
 
-    if (isMasterUser && providedPass === SUPERADMIN_PASSWORD) {
+    if (isMasterUser && SUPERADMIN_PASSWORD && providedPass === SUPERADMIN_PASSWORD) {
       const response = NextResponse.json({
         success: true,
         user: {
           id: 'super-admin-master-id',
-          email: 'superadmin@cricplus.com',
+          email: SUPERADMIN_IDENTIFIER || 'superadmin@cricplus.com',
           name: 'Master Super Admin',
           role: 'super_admin',
         },
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       const passMatch =
         (account.password && account.password === providedPass) ||
         (account.pin && account.pin === providedPass) ||
-        (providedPass === SUPERADMIN_PASSWORD);
+        Boolean(SUPERADMIN_PASSWORD && providedPass === SUPERADMIN_PASSWORD);
 
       if (passMatch) {
         const slug = account.tournamentSlug || 'ddpl';
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       const passMatch =
         (cfg.adminPassword && cfg.adminPassword === providedPass) ||
         (cfg.adminPin && cfg.adminPin === providedPass) ||
-        (providedPass === SUPERADMIN_PASSWORD);
+        Boolean(SUPERADMIN_PASSWORD && providedPass === SUPERADMIN_PASSWORD);
 
       if (creatorMatch && passMatch) {
         const token = `organizer_session:${slug}:${Buffer.from(cfg.creatorEmail).toString('base64')}`;

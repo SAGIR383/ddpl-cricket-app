@@ -9,7 +9,8 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_OTwkrFMSeuzq_QbWS6htWQ_FicJF8Tf';
 const SUPABASE_SERVICE_KEY = getServiceRoleKey();
-const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@2026';
+const SUPERADMIN_IDENTIFIER = process.env.SUPERADMIN_IDENTIFIER || '';
+const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || '';
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,19 +27,20 @@ export async function POST(req: NextRequest) {
 
     const normalized = rawIdentifier.toLowerCase();
 
-    // 1. Check Super Admin Credentials (master bypass & instant response)
-    const isSuperAdminUser =
-      normalized === 'superadmin' ||
-      normalized === 'admin' ||
-      normalized === 'superadmin@cricplus.com' ||
-      normalized === 'superadmin@cricpluse.com';
+    // 1. Check Super Admin Credentials (strictly from environment variables)
+    const isSuperAdminUser = Boolean(
+      SUPERADMIN_IDENTIFIER &&
+      (normalized === SUPERADMIN_IDENTIFIER.toLowerCase() ||
+        normalized === 'superadmin' ||
+        normalized === 'admin')
+    );
 
-    if (isSuperAdminUser && password === SUPERADMIN_PASSWORD) {
+    if (isSuperAdminUser && SUPERADMIN_PASSWORD && password === SUPERADMIN_PASSWORD) {
       const response = NextResponse.json({
         success: true,
         user: {
           id: 'super-admin-master-id',
-          email: 'superadmin@cricplus.com',
+          email: SUPERADMIN_IDENTIFIER || 'superadmin@cricplus.com',
           name: 'Master Super Admin',
           role: 'super_admin',
         },
@@ -164,7 +166,7 @@ export async function POST(req: NextRequest) {
         adminAcc &&
         (adminAcc.password === password ||
           (adminAcc.pin && adminAcc.pin === password) ||
-          password === SUPERADMIN_PASSWORD)
+          Boolean(SUPERADMIN_PASSWORD && password === SUPERADMIN_PASSWORD))
       ) {
         const slug = adminAcc.tournamentSlug || 'ddpl';
         const token = `organizer_session:${slug}:${Buffer.from(adminAcc.email).toString('base64')}`;
@@ -208,7 +210,7 @@ export async function POST(req: NextRequest) {
           const passMatch =
             (cfg.adminPassword && cfg.adminPassword === password) ||
             (cfg.adminPin && cfg.adminPin === password) ||
-            password === SUPERADMIN_PASSWORD;
+            Boolean(SUPERADMIN_PASSWORD && password === SUPERADMIN_PASSWORD);
 
           if (passMatch) {
             const token = `organizer_session:${slug}:${Buffer.from(cfg.creatorEmail).toString('base64')}`;

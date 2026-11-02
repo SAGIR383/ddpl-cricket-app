@@ -20,8 +20,8 @@ function isMasterAdmin(req: NextRequest): boolean {
   }
 
   const authHeader = req.headers.get('authorization') || '';
-  const expectedPassword = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@2026';
-  if (authHeader === `Bearer ${expectedPassword}`) return true;
+  const expectedPassword = process.env.SUPERADMIN_PASSWORD;
+  if (expectedPassword && authHeader === `Bearer ${expectedPassword}`) return true;
 
   return false;
 }

@@ -1014,9 +1014,10 @@ export async function POST(req: Request) {
             const adminDisplayName = creatorName?.trim() || `${name.trim()} Super Admin`;
 
             if (!uid) {
+              const fallbackAdminPass = process.env.SUPERADMIN_PASSWORD || (typeof crypto !== 'undefined' ? crypto.randomUUID() : `P@ss-${Date.now()}`);
               const { data: newUser } = await adminAuth.auth.admin.createUser({
                 email: creatorEmail.toLowerCase(),
-                password: adminPassword || 'SuperAdmin@2026',
+                password: adminPassword || fallbackAdminPass,
                 email_confirm: true,
                 user_metadata: {
                   full_name: adminDisplayName,
