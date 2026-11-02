@@ -51,6 +51,7 @@ export interface TournamentConfig {
   currency?: string;
   currencySymbol?: string;
   creatorEmail?: string;
+  creatorName?: string;
   isPublic?: boolean;
   maxBowlerOvers?: number;
   ballsPerOver?: number;
@@ -714,6 +715,7 @@ export async function POST(req: Request) {
         currency = 'INR',
         currencySymbol = '₹',
         creatorEmail = '',
+        creatorName = '',
         adminPassword = '',
         adminPin = '',
         isPublic = true,
@@ -815,6 +817,7 @@ export async function POST(req: Request) {
         currency: currency?.trim() || 'INR',
         currencySymbol: currencySymbol?.trim() || '₹',
         creatorEmail: creatorEmail?.trim() || undefined,
+        creatorName: creatorName?.trim() || undefined,
         isPublic: Boolean(isPublic),
         maxBowlerOvers: Number(maxBowlerOvers) || Math.max(1, Math.ceil(resolvedOvers / 5)),
         ballsPerOver: Number(ballsPerOver) || 6,
@@ -853,12 +856,13 @@ export async function POST(req: Request) {
         roles[creatorEmail.toLowerCase()] = 'super_admin';
 
         const prevAccount = adminAccounts[creatorEmail.toLowerCase()] || {};
+        const resolvedAdminName = creatorName?.trim() || prevAccount.name || `${name.trim()} Super Admin`;
         adminAccounts[creatorEmail.toLowerCase()] = {
           ...prevAccount,
           email: creatorEmail.toLowerCase(),
           password: adminPassword || prevAccount.password || '',
           pin: adminPin || prevAccount.pin || '',
-          name: prevAccount.name || `${name.trim()} Super Admin`,
+          name: resolvedAdminName,
           role: 'super_admin',
           tournamentSlug: generatedSlug,
           tournamentName: name.trim(),
@@ -986,13 +990,15 @@ export async function POST(req: Request) {
 
             let uid = existingProfile?.id;
 
+            const adminDisplayName = creatorName?.trim() || `${name.trim()} Super Admin`;
+
             if (!uid) {
               const { data: newUser } = await adminAuth.auth.admin.createUser({
                 email: creatorEmail.toLowerCase(),
                 password: adminPassword || 'SuperAdmin@2026',
                 email_confirm: true,
                 user_metadata: {
-                  full_name: `${name.trim()} Super Admin`,
+                  full_name: adminDisplayName,
                   role: 'super_admin',
                 },
               });
@@ -1001,7 +1007,7 @@ export async function POST(req: Request) {
               await adminAuth.auth.admin.updateUserById(uid, {
                 password: adminPassword,
                 user_metadata: {
-                  full_name: `${name.trim()} Super Admin`,
+                  full_name: adminDisplayName,
                   role: 'super_admin',
                 },
               });
@@ -1011,7 +1017,7 @@ export async function POST(req: Request) {
               await adminAuth.from('profiles').upsert({
                 id: uid,
                 email: creatorEmail.toLowerCase(),
-                full_name: `${name.trim()} Super Admin`,
+                full_name: adminDisplayName,
                 system_role: 'super_admin',
                 primary_role: 'All-rounder',
                 updated_at: new Date().toISOString(),

@@ -41,6 +41,8 @@ interface TournamentMeta {
   country?: string;
   currency?: string;
   currencySymbol?: string;
+  format?: string;
+  formatTitle?: string;
 }
 
 export default function TournamentsPage() {
@@ -226,6 +228,8 @@ export default function TournamentsPage() {
             country: cfg.country || 'Global',
             currency: cfg.currency || 'INR',
             currencySymbol: cfg.currencySymbol || '₹',
+            format: cfg.format || 'ddpl',
+            formatTitle: cfg.formatTitle || (cfg.overs ? `T${overs} • ${cfg.format === 'game-of-run' ? 'Group Stage' : 'Round Robin'}` : 'Cricket League'),
           };
         });
 
@@ -487,25 +491,37 @@ export default function TournamentsPage() {
 
               {/* Quick Metrics */}
               <div className="p-6 sm:p-8 space-y-6">
-                {t.startDate && t.endDate && (
+                {(t.startDate || t.endDate) && (
                   <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
                     <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Tournament Schedule: {t.startDate} to {t.endDate}</span>
+                    <span>
+                      {t.startDate && t.endDate
+                        ? `Tournament Dates: ${t.startDate} to ${t.endDate}`
+                        : t.startDate
+                        ? `Starts: ${t.startDate}`
+                        : `Ends: ${t.endDate}`}
+                    </span>
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="p-3.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
-                    <div className="text-[11px] text-[#8793A5] font-semibold">Match Overs</div>
-                    <div className="font-display font-bold text-lg text-white">{t.overs} Overs</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-center">
+                  <div className="p-3 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
+                    <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Format</div>
+                    <div className="font-display font-bold text-xs sm:text-sm text-[#F2D69A] truncate" title={t.formatTitle || `${t.overs} Overs`}>
+                      {t.formatTitle || `${t.overs} Overs`}
+                    </div>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
-                    <div className="text-[11px] text-[#8793A5] font-semibold">Franchises</div>
-                    <div className="font-display font-bold text-lg text-white">{t.teamsCount} Teams</div>
+                  <div className="p-3 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
+                    <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Match Overs</div>
+                    <div className="font-display font-bold text-xs sm:text-sm text-white">{t.overs} Overs</div>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
-                    <div className="text-[11px] text-[#8793A5] font-semibold">Currency</div>
-                    <div className="font-display font-bold text-lg text-[#D8AD55]">{t.currency} ({t.currencySymbol})</div>
+                  <div className="p-3 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
+                    <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Franchises</div>
+                    <div className="font-display font-bold text-xs sm:text-sm text-white">{t.teamsCount} Teams</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#08111F] border border-[#D8AD55]/15">
+                    <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Currency</div>
+                    <div className="font-display font-bold text-xs sm:text-sm text-[#D8AD55] truncate">{t.currency} ({t.currencySymbol})</div>
                   </div>
                 </div>
 

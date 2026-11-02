@@ -109,12 +109,16 @@ export async function POST(req: NextRequest) {
 
       if (creatorMatch && passMatch) {
         const token = `organizer_session:${slug}:${Buffer.from(cfg.creatorEmail).toString('base64')}`;
+        const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
+        const acc = adminAccountsStore[normalizedUser] || {};
+        const resolvedName = cfg.creatorName || (acc.name && !acc.name.includes('Super Admin') ? acc.name : null) || `${cfg.name} Super Admin`;
+
         const response = NextResponse.json({
           success: true,
           user: {
             id: `organizer-${slug}`,
-            email: cfg.creatorEmail,
-            name: `${cfg.name} Super Admin`,
+            email: cfg.creatorEmail || normalizedUser,
+            name: resolvedName,
             role: 'super_admin',
             tournamentSlug: slug,
           },
@@ -231,14 +235,18 @@ export async function GET(req: NextRequest) {
 
     const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
     const cfg = configs[slug] || {};
+    const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
+    const resolvedEmail = email || cfg.creatorEmail || 'organizer@cricplus.com';
+    const acc = adminAccountsStore[resolvedEmail.toLowerCase()] || {};
+    const resolvedName = cfg.creatorName || (acc.name && !acc.name.includes('Super Admin') ? acc.name : null) || `${cfg.name || 'Tournament'} Super Admin`;
 
     return NextResponse.json(
       {
         authenticated: true,
         user: {
           id: `organizer-${slug}`,
-          email: email || cfg.creatorEmail || 'organizer@cricplus.com',
-          name: `${cfg.name || 'Tournament'} Super Admin`,
+          email: resolvedEmail,
+          name: resolvedName,
           role: 'super_admin',
           tournamentSlug: slug,
         },

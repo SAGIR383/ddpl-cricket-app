@@ -328,6 +328,7 @@ export default function CreateTournamentPage() {
         currency: selectedCountry.currency,
         currencySymbol: selectedCountry.symbol,
         creatorEmail: finalEmail,
+        creatorName: organizerName.trim() || user?.user_metadata?.full_name || user?.name || undefined,
         adminPassword: isSuperAdmin ? undefined : adminPassword.trim(),
         adminPin: isSuperAdmin ? undefined : adminPin.trim(),
         logo: customLogo || '/images/default-tournament.svg',
@@ -1477,8 +1478,8 @@ export default function CreateTournamentPage() {
                   <span className="text-[#8793A5] block">Format &amp; Overs:</span>
                   <b className="text-[#F2D69A]">
                     {selectedFormat.id === 'custom' || showAdvancedTuning
-                      ? `${customOvers} Overs (${customFormatName})`
-                      : `${selectedFormat.overs} Overs (${selectedFormat.name})`}
+                      ? `${customFormatName} (${customOvers} Overs)`
+                      : selectedFormat.name}
                   </b>
                 </div>
                 <div>

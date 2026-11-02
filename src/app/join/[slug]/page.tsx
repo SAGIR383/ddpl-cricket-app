@@ -135,7 +135,8 @@ export default function JoinTournamentPage() {
       setEmail(user.email || '');
     }
     if (profile) {
-      setFullName(profile.full_name || '');
+      const cleanName = profile.full_name && !profile.full_name.includes('Super Admin') ? profile.full_name : '';
+      setFullName(cleanName);
       setPhone(profile.phone || '');
       if (profile.primary_role) setRole(profile.primary_role);
       if (profile.batting_style) setBattingStyle(profile.batting_style);
@@ -401,6 +402,22 @@ export default function JoinTournamentPage() {
                 <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
                   Account Active
                 </span>
+              </div>
+
+              {/* Editable Name & WhatsApp for Enrolling User / Admin */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-gray-200 font-bold block text-xs">
+                  Your Player Full Name <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sagir Hossain"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/40 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                />
+                <p className="text-[10px] text-[#8793A5]">This exact name will be broadcast during player auction bidding &amp; official match scorecards.</p>
               </div>
 
               <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-[#08111F]/80 border border-white/5 text-center text-xs">

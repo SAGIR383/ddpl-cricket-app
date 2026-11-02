@@ -538,8 +538,8 @@ export default function TournamentDetailPage() {
               href={`/join/${slug}`}
               className="btn-press shimmer-btn px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-2"
             >
-              <ExternalLink className="w-4 h-4" />
-              <span>Preview Registration Page</span>
+              <UserPlus className="w-4 h-4" />
+              <span>Join Tournament as Player</span>
             </Link>
           ) : currentStatus === 'auction' ? (
             <Link
@@ -653,6 +653,30 @@ export default function TournamentDetailPage() {
             {statusInfo.label}
           </span>
         </div>
+
+        {/* Schedule & Format banner if dates or formatTitle exist */}
+        {(tournamentConfig?.startDate || tournamentConfig?.endDate || tournamentConfig?.formatTitle) && (
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#08111F]/80 border border-[#D8AD55]/20 text-xs">
+            {tournamentConfig?.formatTitle && (
+              <div className="flex items-center gap-2 text-[#F2D69A] font-bold">
+                <Trophy className="w-4 h-4 text-[#D8AD55]" />
+                <span>Format: {tournamentConfig.formatTitle}</span>
+              </div>
+            )}
+            {(tournamentConfig?.startDate || tournamentConfig?.endDate) && (
+              <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                <Calendar className="w-4 h-4 text-emerald-400" />
+                <span>
+                  {tournamentConfig.startDate && tournamentConfig.endDate
+                    ? `Tournament Schedule: ${tournamentConfig.startDate} to ${tournamentConfig.endDate}`
+                    : tournamentConfig.startDate
+                    ? `Tournament Starts: ${tournamentConfig.startDate}`
+                    : `Tournament Ends: ${tournamentConfig.endDate}`}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
           <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">

@@ -13,7 +13,41 @@ async function saveStoredRoles(roles: Record<string, string>) {
   return setStoreData('user_roles', roles, 'roles.json');
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const cookie = req.cookies.get('cricplus_superadmin') || req.cookies.get('cricpluse_superadmin');
+  const cookieVal = cookie?.value || '';
+
+  const { searchParams } = new URL(req.url);
+  const queryTournament = searchParams.get('tournament')?.trim().toLowerCase();
+
+  const isMasterAdmin = cookieVal === 'active_session';
+  const isOrganizerSession = cookieVal.startsWith('organizer_session:');
+  const sessionSlug = isOrganizerSession ? cookieVal.split(':')[1]?.toLowerCase() : null;
+
+  const targetTournament = queryTournament || sessionSlug;
+
+  // MULTI-TENANT ISOLATION:
+  // If the requester is an organizer or a tournament is targeted, return ONLY players/users enrolled in that tournament!
+  // This guarantees User B from another organization CANNOT see User A's account details or platform-wide users!
+  if (!isMasterAdmin && targetTournament) {
+    const registrations = await getStoreData<any[]>(
+      `tournament_registrations_${targetTournament}`,
+      `registrations_${targetTournament}.json`,
+      []
+    );
+
+    const users = registrations.map((r) => ({
+      id: r.id || `reg-${r.email}`,
+      name: r.name,
+      email: r.email,
+      role: r.role || 'user',
+      joinedDate: r.registeredAt ? new Date(r.registeredAt).toLocaleDateString('en-GB') : 'Enrolled',
+    }));
+
+    return NextResponse.json({ users, tournamentSlug: targetTournament, isScoped: true });
+  }
+
+  // Master Super Admin view across the platform
   const storedRoles = await getStoredRoles();
 
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';

@@ -33,11 +33,25 @@ export default function ProfilePage() {
         }
       } catch (e) {}
 
-      if (isSuperAdmin) {
+      if (isSuperAdmin && authUser) {
+        try {
+          const { data: dbProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', authUser.email?.toLowerCase())
+            .maybeSingle();
+
+          if (dbProfile) {
+            setProfile(dbProfile);
+            setLoading(false);
+            return;
+          }
+        } catch {}
+
         setProfile({
-          id: authUser?.id || 'super-admin-master-id',
-          email: authUser?.email || 'superadmin@cricplus.com',
-          full_name: authUser?.name || 'Master Super Admin',
+          id: authUser.id || 'super-admin-master-id',
+          email: authUser.email || 'superadmin@cricplus.com',
+          full_name: authUser.name || 'Tournament Super Admin',
           primary_role: 'All-rounder',
           batting_style: 'Right-hand bat',
           bowling_style: 'Right-arm medium',

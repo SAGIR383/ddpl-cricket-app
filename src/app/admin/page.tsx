@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -102,10 +102,16 @@ import { BlogStudio } from '@/components/admin/BlogStudio';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const { isOrganizer, isSuperAdmin, role, signOut, refreshProfile } = useAuth();
+  const { isOrganizer, isSuperAdmin, role, user, profile, signOut, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement' | 'reports' | 'blogs'>('teams');
   const [selectedTournament, setSelectedTournament] = useState<string>('');
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
+
+  // Master Super Admin check (Platform Owner vs Tournament Host Admin)
+  const isMasterSuperAdmin =
+    user?.email?.toLowerCase() === 'superadmin@cricplus.com' ||
+    user?.email?.toLowerCase() === 'superadmin@cricpluse.com' ||
+    user?.id === 'super-admin-master-id';
 
   // Certificate Studio & Dossier Reports State
   const [certRecipient, setCertRecipient] = useState('');
@@ -1031,12 +1037,27 @@ export default function AdminDashboardPage() {
   });
   const [isSavingRules, setIsSavingRules] = useState(false);
 
+  const visibleTournaments = useMemo(() => {
+    if (isMasterSuperAdmin) return tournamentsList;
+    const userEmailLower = user?.email?.toLowerCase();
+    const sessionSlug = (user as any)?.tournamentSlug?.toLowerCase();
+    const filtered = tournamentsList.filter((t: any) => {
+      const creatorLower = t.creatorEmail?.toLowerCase();
+      const isCreator = creatorLower && userEmailLower && creatorLower === userEmailLower;
+      const isSession = sessionSlug && t.slug?.toLowerCase() === sessionSlug;
+      const isOrgAdmin = Array.isArray(t.adminEmails) && userEmailLower && t.adminEmails.some((e: string) => e.toLowerCase() === userEmailLower);
+      return isCreator || isSession || isOrgAdmin;
+    });
+    return filtered.length > 0 ? filtered : tournamentsList;
+  }, [tournamentsList, isMasterSuperAdmin, user]);
+
   // Fetch real registered users, backend auction rules, tournament teams, and fixtures schedule
   useEffect(() => {
     async function loadAdminData() {
       try {
+        const rolesUrl = selectedTournament ? `/api/admin/roles?tournament=${selectedTournament}` : '/api/admin/roles';
         const [rolesRes, rulesRes, auctionRes, regRes, matchesRes] = await Promise.all([
-          fetch('/api/admin/roles'),
+          fetch(rolesUrl),
           fetch(`/api/admin/rules?tournament=${selectedTournament}`),
           fetch(`/api/auction/data?tournament=${selectedTournament}`),
           fetch(`/api/tournaments/register?tournament=${selectedTournament}`),
@@ -1051,8 +1072,17 @@ export default function AdminDashboardPage() {
             setTournamentsList(regData.tournamentsList);
             if (regData.tournamentsList.length > 0) {
               setSelectedTournament((prev) => {
-                const found = regData.tournamentsList.some((t: any) => t.slug === prev);
-                return found ? prev : regData.tournamentsList[0].slug;
+                const userEmailLower = user?.email?.toLowerCase();
+                const sessionSlug = (user as any)?.tournamentSlug?.toLowerCase();
+                const allowedList = isMasterSuperAdmin
+                  ? regData.tournamentsList
+                  : regData.tournamentsList.filter((t: any) => {
+                      const creatorLower = t.creatorEmail?.toLowerCase();
+                      return (creatorLower && userEmailLower && creatorLower === userEmailLower) || (sessionSlug && t.slug?.toLowerCase() === sessionSlug);
+                    });
+                const effectiveList = allowedList.length > 0 ? allowedList : regData.tournamentsList;
+                const found = effectiveList.some((t: any) => t.slug === prev);
+                return found ? prev : effectiveList[0].slug;
               });
             } else {
               setSelectedTournament('');
@@ -1459,10 +1489,10 @@ export default function AdminDashboardPage() {
               onChange={(e) => setSelectedTournament(e.target.value)}
               className="px-4 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
             >
-              {tournamentsList.length === 0 ? (
+              {visibleTournaments.length === 0 ? (
                 <option value="">— No Active Tournaments —</option>
               ) : (
-                tournamentsList.map((t) => (
+                visibleTournaments.map((t) => (
                   <option key={t.slug} value={t.slug}>
                     {t.name} {t.season ? `(${t.season})` : ''}
                   </option>
@@ -3370,8 +3400,16 @@ export default function AdminDashboardPage() {
           <div className="glass-card overflow-hidden border border-cricket-border shadow-2xl">
             <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex items-center justify-between">
               <div>
-                <span className="font-display font-bold text-xl text-white">Registered Users &amp; Active Roles ({userAccounts.length})</span>
-                <p className="text-xs text-cricket-muted">Manage roles across all registered Gmail / personal email accounts</p>
+                <span className="font-display font-bold text-xl text-white">
+                  {isMasterSuperAdmin
+                    ? `Registered Platform Users & Active Roles (${userAccounts.length})`
+                    : `Enrolled Players & Roles in ${(tournamentsList.find((t) => t.slug === selectedTournament)?.name) || selectedTournament.toUpperCase()} (${userAccounts.length})`}
+                </span>
+                <p className="text-xs text-cricket-muted">
+                  {isMasterSuperAdmin
+                    ? 'Manage system-wide roles across all registered accounts'
+                    : 'Manage player roles and permissions enrolled exclusively in your tournament'}
+                </p>
               </div>
             </div>
 
