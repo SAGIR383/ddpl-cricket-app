@@ -785,21 +785,36 @@ export default function AdminDashboardPage() {
   // Tournament Start / End Dates handlers (set, unset, rearrange)
   const handleSaveTournamentDates = async (start: string, end: string) => {
     try {
-      await fetch('/api/matches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update_tournament_dates',
-          tournament: selectedTournament,
-          startDate: start || null,
-          endDate: end || null,
+      await Promise.all([
+        fetch('/api/matches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_tournament_dates',
+            tournament: selectedTournament,
+            startDate: start || null,
+            endDate: end || null,
+          }),
         }),
-      });
+        fetch('/api/tournaments/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_tournament_dates',
+            tournament: selectedTournament,
+            startDate: start || null,
+            endDate: end || null,
+          }),
+        }),
+      ]);
       setTournamentStartDate(start);
       setTournamentEndDate(end);
+      invalidateClientCache();
       showNotification(
         start && end
           ? `Tournament dates updated: ${start} to ${end}`
+          : start
+          ? `Tournament start date updated: ${start}`
           : 'Tournament dates saved successfully!'
       );
     } catch (err: any) {

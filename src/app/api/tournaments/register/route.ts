@@ -178,6 +178,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, config: configs[tSlug] });
     }
 
+    // 1.1 UPDATE TOURNAMENT DATES (Super Admin / Organizer)
+    if (action === 'update_tournament_dates' || action === 'update_dates') {
+      const { startDate, endDate } = body;
+      const configs = await getStoreData<Record<string, TournamentConfig>>(
+        'tournament_configs',
+        'tournament_configs.json',
+        DEFAULT_CONFIGS
+      );
+
+      if (configs[tSlug]) {
+        configs[tSlug] = {
+          ...configs[tSlug],
+          startDate: startDate !== undefined ? startDate : configs[tSlug].startDate,
+          endDate: endDate !== undefined ? endDate : configs[tSlug].endDate,
+        };
+        await setStoreData('tournament_configs', configs, 'tournament_configs.json');
+      }
+
+      return NextResponse.json({ success: true, config: configs[tSlug] });
+    }
+
     // 2. PLAYER REGISTRATION (Player)
     if (action === 'register' || action === 'register_player') {
       const registration = body.registration || body.player;

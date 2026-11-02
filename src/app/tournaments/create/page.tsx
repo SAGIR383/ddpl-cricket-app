@@ -304,7 +304,7 @@ export default function CreateTournamentPage() {
         name: tournamentName.trim(),
         shortName: shortName.trim() || undefined,
         fullName: `${tournamentName.trim()} Championship`,
-        tagline: orgTagline.trim() || (isCustom ? `${customFormatName} (${resolvedOvers} Overs)` : `Official ${tournamentName.trim()} Corporate Cricket Tournament`),
+        tagline: orgTagline.trim() || `Official ${tournamentName.trim()} Corporate Cricket Tournament`,
         season,
         tournamentType,
         groupsCount: tournamentType === 'direct_groups' ? selectedGroupsCount : 1,

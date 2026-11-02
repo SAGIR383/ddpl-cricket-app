@@ -505,7 +505,9 @@ export default function TournamentsPage() {
                     )}
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">{t.tagline}</p>
+                {t.tagline && !t.tagline.trim().startsWith('(') && !t.tagline.toLowerCase().includes('overs') && (
+                  <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">{t.tagline}</p>
+                )}
               </div>
 
               {/* Quick Metrics */}

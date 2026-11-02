@@ -805,6 +805,18 @@ export async function POST(req: Request) {
 
       await setStoreData(`tournament_schedule_${tournament}`, schedule, `schedule_${tournament}.json`);
 
+      // Keep tournament_configs synchronized so all directory and home cards immediately reflect updated dates
+      try {
+        const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
+        if (configs[tournament]) {
+          configs[tournament].startDate = startDate || null;
+          configs[tournament].endDate = endDate || null;
+          await setStoreData('tournament_configs', configs, 'tournament_configs.json');
+        }
+      } catch (cfgErr) {
+        console.warn('Could not update dates in tournament_configs store:', cfgErr);
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Tournament dates updated successfully',

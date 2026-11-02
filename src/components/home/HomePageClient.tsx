@@ -45,6 +45,8 @@ interface TournamentCardItem {
   pursePerTeam: number;
   logo: string;
   bannerColor?: string;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 interface LiveStats {
@@ -302,6 +304,10 @@ export function HomePageClient() {
           const teamsCount = tTeams.length;
           const status = cfg.status || t.status || 'upcoming';
           const pursePerTeam = Number(tRules?.basePurse) || Number(cfg.pursePerTeam) || Number(t.pursePerTeam) || 10000;
+          const rawTag = (t.tagline || cfg.tagline || '').trim();
+          const cleanTag = rawTag.startsWith('(') || rawTag.toLowerCase().includes('overs') ? '' : rawTag;
+          const startDate = cfg.startDate || t.startDate || null;
+          const endDate = cfg.endDate || t.endDate || null;
 
           return {
             id: slug,
@@ -309,13 +315,15 @@ export function HomePageClient() {
             name: t.name || cfg.name || slug.toUpperCase(),
             shortName: t.shortName || cfg.shortName || slug.toUpperCase(),
             fullName: t.fullName || cfg.fullName || `${t.name || slug} Cricket Tournament`,
-            tagline: t.tagline || cfg.tagline || 'Official corporate cricket championship featuring live auctions, group stages, and grand finals.',
+            tagline: cleanTag,
             status,
             overs,
             teamsCount: teamsCount > 0 ? teamsCount : 0,
             pursePerTeam,
             logo: t.logo || cfg.logo || '/images/default-tournament.svg',
             bannerColor: t.bannerColor || cfg.bannerColor,
+            startDate,
+            endDate,
           };
         });
 
@@ -815,9 +823,25 @@ export function HomePageClient() {
                       </div>
                     </div>
 
-                    <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-                      {tourney.tagline}
-                    </p>
+                    {tourney.tagline && !tourney.tagline.trim().startsWith('(') && !tourney.tagline.toLowerCase().includes('overs') && (
+                      <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                        {tourney.tagline}
+                      </p>
+                    )}
+
+                    {/* Schedule / Start Date Badge */}
+                    {(tourney.startDate || tourney.endDate) && (
+                      <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+                        <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>
+                          {tourney.startDate && tourney.endDate
+                            ? `Tournament Dates: ${tourney.startDate} to ${tourney.endDate}`
+                            : tourney.startDate
+                            ? `Starts: ${tourney.startDate}`
+                            : `Ends: ${tourney.endDate}`}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Dynamic Metrics */}
                     <div className="grid grid-cols-3 gap-2.5 sm:gap-3 text-center">
