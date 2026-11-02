@@ -4,3 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # The Supabase URL and anon (publishable) key are public by design and are
+  # inlined into the client bundle by Next.js. The service role key is NOT
+  # omitted and must stay server-side only.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_URL"
