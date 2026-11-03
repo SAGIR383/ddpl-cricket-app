@@ -85,7 +85,7 @@ export function ArticleTableOfContents({ headings }: { headings: { id: string; t
   if (headings.length < 2) return null;
 
   return (
-    <div className="p-5 rounded-2xl bg-[#0D1B2A]/90 border border-[#D8AD55]/30 space-y-3 my-6 shadow-xl">
+    <div className="p-5 sm:p-6 rounded-2xl bg-[#0D1622]/95 backdrop-blur-md border border-white/10 space-y-3 my-6 shadow-2xl">
       <div className="text-xs font-extrabold uppercase text-[#D8AD55] tracking-wider flex items-center gap-2">
         <span>Table of Contents</span>
       </div>

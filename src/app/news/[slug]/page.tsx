@@ -212,6 +212,34 @@ export default async function ArticleDetailPage({ params }: Props) {
         }
       : null;
 
+  // Helper for inline bold (**text**) and markdown links ([text](url))
+  function formatInline(str: string) {
+    const parts = str.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
+    return parts.map((part, pIdx) => {
+      const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+      if (linkMatch) {
+        return (
+          <Link
+            key={pIdx}
+            href={linkMatch[2]}
+            className="text-[#F2D69A] underline decoration-[#D8AD55]/60 hover:text-white font-semibold transition-colors"
+          >
+            {linkMatch[1]}
+          </Link>
+        );
+      }
+      const boldMatch = part.match(/^\*\*(.*?)\*\*$/);
+      if (boldMatch) {
+        return (
+          <strong key={pIdx} className="font-bold text-white">
+            {boldMatch[1]}
+          </strong>
+        );
+      }
+      return part;
+    });
+  }
+
   // Render Markdown Body to crawlable HTML
   function renderParagraph(raw: string, idx: number) {
     const trimmed = raw.trim();
@@ -224,7 +252,7 @@ export default async function ArticleDetailPage({ params }: Props) {
         <h2
           key={idx}
           id={id}
-          className="font-display font-black text-2xl sm:text-3xl text-white mt-10 mb-4 border-b border-[#D8AD55]/20 pb-2 scroll-mt-24"
+          className="font-display font-black text-2xl sm:text-3xl text-white mt-10 mb-4 border-b border-[#D8AD55]/30 pb-3 scroll-mt-24 tracking-tight"
         >
           {text}
         </h2>
@@ -257,35 +285,80 @@ export default async function ArticleDetailPage({ params }: Props) {
       return (
         <blockquote
           key={idx}
-          className="border-l-4 border-[#D8AD55] pl-5 py-3 my-6 bg-[#0D1B2A]/70 rounded-r-2xl italic text-gray-200 text-base"
+          className="border-l-4 border-[#D8AD55] pl-5 py-3 my-6 bg-[#081018]/90 rounded-r-2xl italic text-slate-200 text-base shadow-inner"
         >
           {trimmed.replace('> ', '').replace(/\*/g, '')}
         </blockquote>
       );
     }
 
+    if (trimmed.startsWith('```')) {
+      const code = trimmed.replace(/^```[a-z]*\n?/, '').replace(/```$/, '');
+      return (
+        <pre key={idx} className="p-4 rounded-2xl bg-[#081018] border border-white/10 text-emerald-400 font-mono text-xs sm:text-sm overflow-x-auto my-6 leading-relaxed shadow-lg">
+          <code>{code}</code>
+        </pre>
+      );
+    }
+
+    // Markdown Table Rendering
+    if (trimmed.startsWith('|')) {
+      const rows = trimmed.split('\n').filter((r) => r.trim().startsWith('|'));
+      if (rows.length >= 2) {
+        const headerRow = rows[0].split('|').map((c) => c.trim()).filter(Boolean);
+        const dataRows = rows.slice(rows[1].includes('---') ? 2 : 1).map((r) =>
+          r.split('|').map((c) => c.trim()).filter(Boolean)
+        );
+        return (
+          <div key={idx} className="my-6 overflow-x-auto rounded-2xl border border-white/10 bg-[#081018]/90 shadow-xl">
+            <table className="w-full text-left text-sm text-slate-200">
+              <thead className="bg-[#152233] text-[#F2D69A] font-bold border-b border-white/10">
+                <tr>
+                  {headerRow.map((h, hi) => (
+                    <th key={hi} className="px-4 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {dataRows.map((dr, dri) => (
+                  <tr key={dri} className="hover:bg-white/[0.02] transition-colors">
+                    {dr.map((cell, ci) => (
+                      <td key={ci} className={`px-4 py-2.5 ${ci === 0 ? 'font-semibold text-white' : 'text-slate-300'}`}>
+                        {formatInline(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+    }
+
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       return (
-        <li key={idx} className="ml-6 list-disc text-gray-300 text-base leading-relaxed my-1.5">
-          {trimmed.replace(/^[-*]\s+/, '')}
+        <li key={idx} className="ml-6 list-disc text-slate-100 text-base sm:text-lg leading-relaxed my-1.5 font-normal">
+          {formatInline(trimmed.replace(/^[-*]\s+/, ''))}
         </li>
       );
     }
 
     if (/^\d+\.\s+/.test(trimmed)) {
       return (
-        <li key={idx} className="ml-6 list-decimal text-gray-300 text-base leading-relaxed my-1.5">
-          {trimmed.replace(/^\d+\.\s+/, '')}
+        <li key={idx} className="ml-6 list-decimal text-slate-100 text-base sm:text-lg leading-relaxed my-1.5 font-normal">
+          {formatInline(trimmed.replace(/^\d+\.\s+/, ''))}
         </li>
       );
     }
 
-    // Check for inline links e.g. [text](url)
-    const formattedText = trimmed;
+    if (trimmed === '---') {
+      return <hr key={idx} className="border-t border-white/10 my-8" />;
+    }
 
     return (
-      <p key={idx} className="text-gray-300 text-base sm:text-lg leading-relaxed my-5 font-normal">
-        {formattedText}
+      <p key={idx} className="text-slate-100 text-base sm:text-lg leading-relaxed my-5 font-normal">
+        {formatInline(trimmed)}
       </p>
     );
   }
@@ -444,18 +517,18 @@ export default async function ArticleDetailPage({ params }: Props) {
         {/* 4. Table of Contents (for long analysis pieces) */}
         {headings.length >= 2 && <ArticleTableOfContents headings={headings} />}
 
-        {/* 5. Article Crawlable Body */}
-        <article className="prose prose-invert max-w-none text-gray-200">
+        {/* 5. Article Crawlable Body - Option 1: Premium Dark Ash / Slate Card */}
+        <article className="rounded-3xl bg-[#0D1622]/95 backdrop-blur-md border border-white/10 p-6 sm:p-10 lg:p-12 shadow-2xl space-y-4">
           {article.content ? (
             article.content.split('\n\n').map((chunk, i) => renderParagraph(chunk, i))
           ) : (
-            <p>{article.summary}</p>
+            <p className="text-slate-100 text-base sm:text-lg leading-relaxed">{article.summary}</p>
           )}
         </article>
 
         {/* 6. Structured FAQs (if present) */}
         {article.faqs && article.faqs.length > 0 && (
-          <section className="p-6 rounded-3xl bg-[#0D1B2A]/90 border border-[#D8AD55]/30 space-y-4 shadow-xl">
+          <section className="p-6 sm:p-10 rounded-3xl bg-[#0D1622]/95 backdrop-blur-md border border-white/10 space-y-4 shadow-2xl">
             <div className="flex items-center gap-2 font-display font-bold text-xl text-white">
               <HelpCircle className="w-5 h-5 text-[#D8AD55]" />
               <span>Frequently Asked Questions</span>
@@ -466,7 +539,7 @@ export default async function ArticleDetailPage({ params }: Props) {
                   <h3 className="font-display font-bold text-base text-[#F2D69A]">
                     {f.question}
                   </h3>
-                  <p className="text-sm text-gray-300 leading-relaxed">{f.answer}</p>
+                  <p className="text-sm text-slate-200 leading-relaxed">{f.answer}</p>
                 </div>
               ))}
             </div>
