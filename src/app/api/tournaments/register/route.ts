@@ -61,14 +61,63 @@ export interface TournamentConfig {
   adminPin?: string;
 }
 
-const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {};
+const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
+  'ddpl-3-0': {
+    name: 'DDPL 3.0',
+    slug: 'ddpl-3-0',
+    organizationName: 'TEOCO Sports Council',
+    organizationSlug: 'teoco',
+    status: 'upcoming',
+    overs: 7,
+    pursePerTeam: 10000,
+    ownerBasePrice: 500,
+    maxSquad: 11,
+    minSquad: 7,
+    creatorEmail: 'arindamroyaec2009@gmail.com',
+    creatorName: 'Arindam T Roy',
+    isPublic: true,
+    createdAt: '2026-11-02T07:43:07.943Z',
+  },
+  'ddpl': {
+    name: 'DDPL 2026',
+    slug: 'ddpl',
+    organizationName: 'TEOCO Corporation',
+    organizationSlug: 'teoco',
+    status: 'upcoming',
+    overs: 8,
+    pursePerTeam: 10000,
+    ownerBasePrice: 500,
+    maxSquad: 11,
+    minSquad: 7,
+    creatorEmail: 'mdsagirhossain560@gmail.com',
+    creatorName: 'Md Sagir Hossain',
+    isPublic: true,
+    createdAt: '2026-10-13T12:20:35.140Z',
+  },
+  'game-of-run': {
+    name: 'Game of RUN',
+    slug: 'game-of-run',
+    organizationName: 'Corporate Cricket League',
+    organizationSlug: 'ccl',
+    status: 'upcoming',
+    overs: 10,
+    pursePerTeam: 15000,
+    ownerBasePrice: 500,
+    maxSquad: 11,
+    minSquad: 7,
+    creatorEmail: 'arindamroyaec2009@gmail.com',
+    creatorName: 'Arindam T Roy',
+    isPublic: true,
+    createdAt: '2026-10-13T12:20:35.140Z',
+  },
+};
 
 // GET /api/tournaments/register?tournament=ddpl
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
+  const tournament = (searchParams.get('tournament') || 'ddpl-3-0').toLowerCase();
 
-  const [configs, rulesContainer] = await Promise.all([
+  const [storedConfigs, rulesContainer] = await Promise.all([
     getStoreData<Record<string, TournamentConfig>>(
       'tournament_configs',
       'tournament_configs.json',
@@ -76,6 +125,11 @@ export async function GET(req: Request) {
     ),
     getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
   ]);
+
+  const configs: Record<string, TournamentConfig> = {
+    ...DEFAULT_CONFIGS,
+    ...(storedConfigs || {}),
+  };
 
   const rulesMap = rulesContainer?.tournaments || rulesContainer || {};
 
