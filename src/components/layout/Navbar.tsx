@@ -15,9 +15,18 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
-  const { user, isSuperAdmin, isOrganizer, signOut } = useAuth();
+  const { user, profile, isSuperAdmin, isOrganizer, signOut } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const { currentTheme, customLogo } = useCorporateTheme();
+
+  const displayName =
+    profile?.full_name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.name ||
+    (user?.email ? user.email.split('@')[0] : 'User');
+
+  const displayInitial = (displayName || 'U').charAt(0).toUpperCase();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -156,12 +165,12 @@ export function Navbar() {
                 <Link
                   href="/profile"
                   className="btn-press flex items-center gap-2 px-2.5 xl:px-3 py-1 rounded-full bg-[#111D2D] hover:bg-[#111D2D]/80 border border-[#D8AD55]/30 text-xs font-bold text-white shadow-sm shrink-0"
-                  title="View Profile"
+                  title={`View Profile (${displayName})`}
                 >
                   <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-black text-[10px] shadow-sm shrink-0">
-                    {user.email?.charAt(0).toUpperCase() || 'U'}
+                    {displayInitial}
                   </div>
-                  <span className="max-w-[90px] xl:max-w-[120px] truncate text-gray-200 text-xs">{user.email?.split('@')[0]}</span>
+                  <span className="max-w-[100px] xl:max-w-[150px] truncate text-gray-200 text-xs font-semibold">{displayName}</span>
                 </Link>
                 <button
                   type="button"
@@ -194,7 +203,7 @@ export function Navbar() {
                 className="btn-press flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold shadow-sm"
               >
                 <User className="w-3.5 h-3.5 text-[#D8AD55]" />
-                <span className="max-w-[70px] truncate">{user.email?.split('@')[0]}</span>
+                <span className="max-w-[80px] truncate">{displayName}</span>
               </Link>
             ) : (
               <Link
@@ -301,7 +310,7 @@ export function Navbar() {
                 className="btn-press w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 text-xs font-bold transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out ({user.email?.split('@')[0]})</span>
+                <span>Sign Out ({displayName})</span>
               </button>
             )}
           </div>
