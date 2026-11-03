@@ -685,10 +685,32 @@ export function generateMultiGroupFixtures(
   return fixtures;
 }
 
-// GET /api/matches?tournament=ddpl
+// GET /api/matches?tournament=...
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
+  const tournament = (searchParams.get('tournament') || '').toLowerCase();
+
+  if (!tournament) {
+    return NextResponse.json(
+      {
+        success: true,
+        tournament: '',
+        schedule: {
+          tournament: '',
+          startDate: null,
+          endDate: null,
+          format: 'round-robin-playoffs',
+          matches: [],
+          lastUpdated: new Date().toISOString(),
+        },
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        },
+      }
+    );
+  }
 
   const defaultSchedule: TournamentScheduleState = {
     tournament,

@@ -235,11 +235,14 @@ export function HomePageClient() {
 
     async function loadLiveData() {
       try {
-        const [regData, aData, rulesData, matchesData, annData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 15000 }),
-          fetchWithCache<any>('/api/auction/data?tournament=ddpl', { ttlMs: 15000 }),
-          fetchWithCache<any>('/api/admin/rules?tournament=ddpl', { ttlMs: 25000 }),
-          fetchWithCache<any>('/api/matches?tournament=ddpl', { ttlMs: 15000 }),
+        const regData = await fetchWithCache<any>('/api/tournaments/register', { ttlMs: 15000 });
+        const tourneys = Array.isArray(regData?.tournamentsList) ? regData.tournamentsList : [];
+        const activeSlug = tourneys.length > 0 ? tourneys[0].slug : '';
+
+        const [aData, rulesData, matchesData, annData] = await Promise.all([
+          activeSlug ? fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 15000 }) : Promise.resolve(null),
+          activeSlug ? fetchWithCache<any>(`/api/admin/rules?tournament=${activeSlug}`, { ttlMs: 25000 }) : Promise.resolve(null),
+          activeSlug ? fetchWithCache<any>(`/api/matches?tournament=${activeSlug}`, { ttlMs: 15000 }) : Promise.resolve(null),
           fetchWithCache<any>('/api/announcement', { ttlMs: 20000 }),
         ]);
 

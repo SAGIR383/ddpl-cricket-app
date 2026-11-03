@@ -61,61 +61,12 @@ export interface TournamentConfig {
   adminPin?: string;
 }
 
-const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {
-  'ddpl-3-0': {
-    name: 'DDPL 3.0',
-    slug: 'ddpl-3-0',
-    organizationName: 'TEOCO Sports Council',
-    organizationSlug: 'teoco',
-    status: 'upcoming',
-    overs: 7,
-    pursePerTeam: 10000,
-    ownerBasePrice: 500,
-    maxSquad: 11,
-    minSquad: 7,
-    creatorEmail: 'arindamroyaec2009@gmail.com',
-    creatorName: 'Arindam T Roy',
-    isPublic: true,
-    createdAt: '2026-11-02T07:43:07.943Z',
-  },
-  'ddpl': {
-    name: 'DDPL 2026',
-    slug: 'ddpl',
-    organizationName: 'TEOCO Corporation',
-    organizationSlug: 'teoco',
-    status: 'upcoming',
-    overs: 8,
-    pursePerTeam: 10000,
-    ownerBasePrice: 500,
-    maxSquad: 11,
-    minSquad: 7,
-    creatorEmail: 'mdsagirhossain560@gmail.com',
-    creatorName: 'Md Sagir Hossain',
-    isPublic: true,
-    createdAt: '2026-10-13T12:20:35.140Z',
-  },
-  'game-of-run': {
-    name: 'Game of RUN',
-    slug: 'game-of-run',
-    organizationName: 'Corporate Cricket League',
-    organizationSlug: 'ccl',
-    status: 'upcoming',
-    overs: 10,
-    pursePerTeam: 15000,
-    ownerBasePrice: 500,
-    maxSquad: 11,
-    minSquad: 7,
-    creatorEmail: 'arindamroyaec2009@gmail.com',
-    creatorName: 'Arindam T Roy',
-    isPublic: true,
-    createdAt: '2026-10-13T12:20:35.140Z',
-  },
-};
+const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {};
 
-// GET /api/tournaments/register?tournament=ddpl
+// GET /api/tournaments/register?tournament=...
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tournament = (searchParams.get('tournament') || 'ddpl-3-0').toLowerCase();
+  const requestedSlug = searchParams.get('tournament')?.toLowerCase();
 
   const [storedConfigs, rulesContainer] = await Promise.all([
     getStoreData<Record<string, TournamentConfig>>(
@@ -126,11 +77,7 @@ export async function GET(req: Request) {
     getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
   ]);
 
-  const configs: Record<string, TournamentConfig> = {
-    ...DEFAULT_CONFIGS,
-    ...(storedConfigs || {}),
-  };
-
+  const configs: Record<string, TournamentConfig> = storedConfigs || {};
   const rulesMap = rulesContainer?.tournaments || rulesContainer || {};
 
   // Cross-synchronize rules and configs so overs, purse, squad size are 100% consistent across all views
@@ -146,42 +93,23 @@ export async function GET(req: Request) {
     }
   });
 
-  const config = configs[tournament] || (Object.keys(configs).length > 0 ? Object.values(configs)[0] : {
-    slug: tournament,
-    name: tournament.toUpperCase(),
-    shortName: tournament.slice(0, 4).toUpperCase(),
-    fullName: tournament.toUpperCase(),
-    tagline: `${tournament.toUpperCase()} Cricket Tournament`,
-    season: '2027',
-    totalSeasons: 1,
-    overs: rulesMap[tournament]?.matchOvers ? Number(rulesMap[tournament].matchOvers) : 10,
-    format: 'ddpl',
-    bannerColor: 'from-blue-900 via-indigo-950 to-cricket-dark',
-    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50',
-    logo: '/images/default-tournament.svg',
-    status: 'upcoming',
-    pursePerTeam: rulesMap[tournament]?.basePurse ? Number(rulesMap[tournament].basePurse) : 10000,
-    ownerBasePrice: rulesMap[tournament]?.ownerBlockedPrice ? Number(rulesMap[tournament].ownerBlockedPrice) : 500,
-    maxSquad: rulesMap[tournament]?.maxSquadSize ? Number(rulesMap[tournament].maxSquadSize) : 11,
-    minSquad: rulesMap[tournament]?.minSquadSize ? Number(rulesMap[tournament].minSquadSize) : 7,
-    startDate: null,
-    endDate: null,
-    createdAt: new Date().toISOString(),
-    isPublic: true,
-  });
-
-  const registrations = await getStoreData<TournamentPlayerRegistration[]>(
-    `tournament_registrations_${tournament}`,
-    `registrations_${tournament}.json`,
-    []
-  );
-
   const tournamentsList = Object.values(configs);
+  const activeSlug = requestedSlug && configs[requestedSlug]
+    ? requestedSlug
+    : (tournamentsList.length > 0 ? tournamentsList[0].slug : (requestedSlug || ''));
+
+  const config = configs[activeSlug] || (tournamentsList.length > 0 ? tournamentsList[0] : null);
+
+  const registrations = activeSlug ? await getStoreData<TournamentPlayerRegistration[]>(
+    `tournament_registrations_${activeSlug}`,
+    `registrations_${activeSlug}.json`,
+    []
+  ) : [];
 
   return NextResponse.json(
     {
       success: true,
-      tournament,
+      tournament: activeSlug,
       config,
       allConfigs: configs,
       tournamentsList,
@@ -210,7 +138,7 @@ export async function POST(req: Request) {
       const configs = await getStoreData<Record<string, TournamentConfig>>(
         'tournament_configs',
         'tournament_configs.json',
-        DEFAULT_CONFIGS
+        {}
       );
 
       const current = configs[tSlug] || {
@@ -238,7 +166,7 @@ export async function POST(req: Request) {
       const configs = await getStoreData<Record<string, TournamentConfig>>(
         'tournament_configs',
         'tournament_configs.json',
-        DEFAULT_CONFIGS
+        {}
       );
 
       if (configs[tSlug]) {
@@ -270,9 +198,9 @@ export async function POST(req: Request) {
       const configs = await getStoreData<Record<string, TournamentConfig>>(
         'tournament_configs',
         'tournament_configs.json',
-        DEFAULT_CONFIGS
+        {}
       );
-      const currentConfig = configs[tSlug] || DEFAULT_CONFIGS[tSlug];
+      const currentConfig = configs[tSlug];
       if (currentConfig && (currentConfig.status === 'closed' || currentConfig.status === 'completed')) {
         return NextResponse.json(
           {
@@ -818,7 +746,7 @@ export async function POST(req: Request) {
         allAuction,
         rulesContainer,
       ] = await Promise.all([
-        getStoreData<Record<string, TournamentConfig>>('tournament_configs', 'tournament_configs.json', DEFAULT_CONFIGS),
+        getStoreData<Record<string, TournamentConfig>>('tournament_configs', 'tournament_configs.json', {}),
         getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}),
         getStoreData<Record<string, any>>('corporate_organizations', 'organizations.json', {}),
         getStoreData<Record<string, string>>('user_roles', 'roles.json', {}),

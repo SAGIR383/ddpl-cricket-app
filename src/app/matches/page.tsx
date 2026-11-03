@@ -23,7 +23,7 @@ interface MatchDisplay {
 }
 
 export default function MatchesPage() {
-  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
+  const [selectedTournament, setSelectedTournament] = useState<string>('');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [matches, setMatches] = useState<MatchDisplay[]>([]);
   const [tournamentStartDate, setTournamentStartDate] = useState<string | null>(null);
@@ -37,12 +37,11 @@ export default function MatchesPage() {
     async function loadMatchesFromApi() {
       if (matches.length === 0) setLoading(true);
       try {
-        const activeSlug = selectedTournament || 'ddpl';
         const [regData, mData, rulesData, aData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 20000 }),
-          fetchWithCache<any>(`/api/matches?tournament=${activeSlug}`, { ttlMs: 20000 }),
-          fetchWithCache<any>(`/api/admin/rules?tournament=${activeSlug}`, { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 20000 }),
+          fetchWithCache<any>('/api/tournaments/register', { ttlMs: 20000 }),
+          selectedTournament ? fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 20000 }) : Promise.resolve(null),
+          selectedTournament ? fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 30000 }) : Promise.resolve(null),
+          selectedTournament ? fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 20000 }) : Promise.resolve(null),
         ]);
 
         if (!isMounted) return;
@@ -54,6 +53,11 @@ export default function MatchesPage() {
               const exists = regData.tournamentsList.some((t: any) => t.slug === prev);
               return exists && prev ? prev : regData.tournamentsList[0].slug;
             });
+          } else {
+            setSelectedTournament('');
+            setMatches([]);
+            setLoading(false);
+            return;
           }
         }
 

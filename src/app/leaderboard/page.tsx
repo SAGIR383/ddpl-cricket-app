@@ -25,7 +25,7 @@ import {
 
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<'mvp' | 'batting' | 'bowling' | 'sixes'>('mvp');
-  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
+  const [selectedTournament, setSelectedTournament] = useState<string>('');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
 
   const [orangeCap, setOrangeCap] = useState<OrangeCapBatter[]>([]);
@@ -42,11 +42,10 @@ export default function LeaderboardPage() {
     async function loadLeaderboards() {
       setLoading(true);
       try {
-        const activeSlug = selectedTournament || 'ddpl';
         const [regData, analyticsData, auctionData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/analytics/tournament?tournament=${activeSlug}`, { ttlMs: 15000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 20000 }),
+          fetchWithCache<any>('/api/tournaments/register', { ttlMs: 30000 }),
+          selectedTournament ? fetchWithCache<any>(`/api/analytics/tournament?tournament=${selectedTournament}`, { ttlMs: 15000 }) : Promise.resolve(null),
+          selectedTournament ? fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 20000 }) : Promise.resolve(null),
         ]);
 
         if (!isMounted) return;
@@ -58,6 +57,11 @@ export default function LeaderboardPage() {
               const exists = regData.tournamentsList.some((t: any) => t.slug === prev);
               return exists && prev ? prev : regData.tournamentsList[0].slug;
             });
+          } else {
+            setSelectedTournament('');
+            setCompletedMatches(0);
+            setLoading(false);
+            return;
           }
         }
 

@@ -228,7 +228,13 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const { isOrganizer, isSuperAdmin, role, user, profile, signOut, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement' | 'reports' | 'blogs'>('teams');
-  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [selectedTournament, setSelectedTournament] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('cricplus_admin_selected_tournament') || '';
+    }
+    return '';
+  });
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
 
   // Master Super Admin check (Platform Owner vs Tournament Host Admin)
@@ -322,6 +328,9 @@ export default function AdminDashboardPage() {
           setTournamentsList((prev) => [...prev, data.tournament]);
         }
         setSelectedTournament(data.tournament.slug);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('cricplus_admin_selected_tournament', data.tournament.slug);
+        }
         setIsCreateTournamentModalOpen(false);
         showNotification(`🎉 Tournament "${data.tournament.name}" created successfully! All modules initialized.`);
         setNewTournamentForm({
@@ -372,7 +381,12 @@ export default function AdminDashboardPage() {
           ? data.tournamentsList
           : tournamentsList.filter((t) => t.slug !== slug);
         setTournamentsList(updatedList);
-        setSelectedTournament(updatedList.length > 0 ? updatedList[0].slug : '');
+        const nextSlug = updatedList.length > 0 ? updatedList[0].slug : '';
+        setSelectedTournament(nextSlug);
+        if (typeof window !== 'undefined') {
+          if (nextSlug) localStorage.setItem('cricplus_admin_selected_tournament', nextSlug);
+          else localStorage.removeItem('cricplus_admin_selected_tournament');
+        }
         invalidateClientCache();
         showNotification(`Tournament "${name}" permanently deleted.`);
       } else {
@@ -1264,10 +1278,17 @@ export default function AdminDashboardPage() {
                 });
             if (allowedList.length === 0) {
               setSelectedTournament('');
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('cricplus_admin_selected_tournament');
+              }
             } else {
               setSelectedTournament((prev) => {
                 const found = allowedList.some((t: any) => t.slug === prev);
-                return found ? prev : allowedList[0].slug;
+                const chosen = found ? prev : allowedList[0].slug;
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('cricplus_admin_selected_tournament', chosen);
+                }
+                return chosen;
               });
             }
           }
@@ -1397,7 +1418,7 @@ export default function AdminDashboardPage() {
                   teamB: m.teamB?.name || m.teamB,
                   round: m.stage || `Match ${m.matchNumber}`,
                   venue: m.venue || 'Arena Ground 1',
-                  overs: selectedTournament === 'ddpl' ? 10 : 12,
+                  overs: m.overs || 10,
                   matchDate: m.matchDate || null,
                   matchTime: m.matchTime || '10:00 AM',
                   status: m.status || 'upcoming',
@@ -1412,6 +1433,8 @@ export default function AdminDashboardPage() {
         }
       } catch (err) {
         console.error('Failed to load admin data', err);
+      } finally {
+        setIsInitialLoading(false);
       }
     }
     loadAdminData();
@@ -1695,7 +1718,14 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-2">
             <select
               value={selectedTournament}
-              onChange={(e) => setSelectedTournament(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedTournament(val);
+                if (typeof window !== 'undefined') {
+                  if (val) localStorage.setItem('cricplus_admin_selected_tournament', val);
+                  else localStorage.removeItem('cricplus_admin_selected_tournament');
+                }
+              }}
               className="px-4 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-xs font-bold"
             >
               {visibleTournaments.length === 0 ? (
@@ -1809,8 +1839,18 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Empty State Banner (When user has no tournament created/assigned) */}
-      {(!selectedTournament || visibleTournaments.length === 0) ? (
+      {/* Loading / Empty State Banner */}
+      {isInitialLoading ? (
+        <div className="rounded-3xl p-12 bg-[#0D1B2A]/90 border border-[#D8AD55]/30 text-center space-y-4 shadow-2xl animate-pulse">
+          <div className="w-14 h-14 rounded-full bg-[#D8AD55]/10 border border-[#D8AD55]/30 mx-auto flex items-center justify-center">
+            <Trophy className="w-7 h-7 text-[#D8AD55] animate-spin" />
+          </div>
+          <h3 className="font-display font-black text-xl sm:text-2xl text-white">Loading Command Center...</h3>
+          <p className="text-xs sm:text-sm text-[#8793A5] max-w-sm mx-auto">
+            Synchronizing live tournament data, franchises, and fixtures...
+          </p>
+        </div>
+      ) : (!selectedTournament || visibleTournaments.length === 0) ? (
         <div className="rounded-3xl p-8 sm:p-12 bg-[#0D1B2A]/90 border border-[#D8AD55]/30 text-center space-y-4 shadow-2xl">
           <Trophy className="w-14 h-14 text-[#D8AD55] mx-auto animate-pulse" />
           <h3 className="font-display font-black text-2xl sm:text-3xl text-white">No Tournaments Hosted Under This Account</h3>

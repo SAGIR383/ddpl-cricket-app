@@ -175,9 +175,9 @@ export default function AuctionPage() {
     async function loadInitialData() {
       try {
         const [regData, rulesData, auctionData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/admin/rules?tournament=${activeTournament}`, { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${activeTournament}`, { ttlMs: 3000 }),
+          fetchWithCache<any>('/api/tournaments/register', { ttlMs: 30000 }),
+          activeTournament ? fetchWithCache<any>(`/api/admin/rules?tournament=${activeTournament}`, { ttlMs: 30000 }) : Promise.resolve(null),
+          activeTournament ? fetchWithCache<any>(`/api/auction/data?tournament=${activeTournament}`, { ttlMs: 3000 }) : Promise.resolve(null),
         ]);
 
         if (!isMounted) return;
@@ -189,6 +189,8 @@ export default function AuctionPage() {
               const exists = regData.tournamentsList.some((t: any) => t.slug === prev);
               return exists && prev ? prev : regData.tournamentsList[0].slug;
             });
+          } else {
+            setActiveTournament('');
           }
         }
 
@@ -199,8 +201,8 @@ export default function AuctionPage() {
             defaultPlayerBasePrice: rulesData.rules.defaultPlayerBasePrice || 500,
             bidSteps: rulesData.rules.bidSteps || [50, 100, 200, 500],
             maxSquadSize: rulesData.rules.maxSquadSize || 11,
-            matchOvers: rulesData.rules.matchOvers || (activeTournament === 'game-of-run' ? 12 : 10),
-            maxBowlerOvers: rulesData.rules.maxBowlerOvers || (activeTournament === 'game-of-run' ? 3 : 2),
+            matchOvers: rulesData.rules.matchOvers || 10,
+            maxBowlerOvers: rulesData.rules.maxBowlerOvers || 2,
           });
         }
 
