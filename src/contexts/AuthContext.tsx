@@ -71,8 +71,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // Master Super Admin check for platform creators
+      const isMasterEmail =
+        userEmail?.toLowerCase() === 'arindamroyaec2009@gmail.com' ||
+        userEmail?.toLowerCase() === 'mdsagirhossain560@gmail.com' ||
+        userEmail?.toLowerCase() === 'superadmin@cricplus.com' ||
+        userEmail?.toLowerCase() === 'superadmin@cricpluse.com';
+
       // Fetch role assigned by Super Admin in backend
-      const assignedRole = userEmail ? await fetchAssignedRole(userEmail) : 'user';
+      const assignedRole = isMasterEmail
+        ? 'super_admin'
+        : (userEmail ? await fetchAssignedRole(userEmail) : 'user');
 
       if (data && data.full_name) {
         setProfile({

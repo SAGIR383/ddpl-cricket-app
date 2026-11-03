@@ -136,23 +136,38 @@ export async function setStoreData<T>(key: string, value: T, fallbackFileName?: 
 
   let savedToSupabase = false;
 
-  // 2. Persist to Supabase cricpluse_store (upsert)
+  // 2. Persist to Supabase cricpluse_store (resilient Update-first, then Upsert fallback to bypass RLS 42501)
   try {
-    const { error } = await supabaseAdmin
+    // Step A: First attempt an UPDATE (always allowed by Supabase RLS for existing keys like tournament_configs)
+    const { data: updateData, error: updateError } = await supabaseAdmin
       .from('cricpluse_store')
-      .upsert(
-        {
-          key,
-          data: value as any,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'key' }
-      );
+      .update({
+        data: value as any,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('key', key)
+      .select('key');
 
-    if (!error) {
+    if (!updateError && updateData && updateData.length > 0) {
       savedToSupabase = true;
     } else {
-      console.error(`[cricpluse_store] Supabase upsert error for "${key}":`, error);
+      // Step B: If the row does not exist yet, attempt insert/upsert
+      const { error: insertError } = await supabaseAdmin
+        .from('cricpluse_store')
+        .upsert(
+          {
+            key,
+            data: value as any,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'key' }
+        );
+
+      if (!insertError) {
+        savedToSupabase = true;
+      } else {
+        console.error(`[cricpluse_store] Supabase persist error for "${key}":`, insertError);
+      }
     }
   } catch (err) {
     console.error(`[cricpluse_store] Supabase write exception for "${key}":`, err);

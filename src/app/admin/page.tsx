@@ -230,12 +230,27 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<'teams' | 'fixtures' | 'auction' | 'players' | 'rules' | 'roles' | 'announcement' | 'reports' | 'blogs'>('teams');
   const [selectedTournament, setSelectedTournament] = useState<string>(() => {
     if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlT = urlParams.get('tournament');
+      if (urlT) return urlT;
       return localStorage.getItem('cricplus_admin_selected_tournament') || '';
     }
     return '';
   });
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
+
+  // Sync tournament from URL query if present
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlT = urlParams.get('tournament');
+      if (urlT) {
+        setSelectedTournament(urlT);
+        localStorage.setItem('cricplus_admin_selected_tournament', urlT);
+      }
+    }
+  }, []);
 
   // Master Super Admin check (Platform Owner vs Tournament Host Admin)
   const isMasterSuperAdmin =
@@ -1245,6 +1260,19 @@ export default function AdminDashboardPage() {
       return isCreator || isSession || isOrgAdmin;
     });
   }, [tournamentsList, isMasterSuperAdmin, user]);
+
+  // Ensure active tournament is selected automatically when visible tournaments are available
+  useEffect(() => {
+    if (visibleTournaments.length > 0) {
+      if (!selectedTournament || !visibleTournaments.some((t) => t.slug === selectedTournament)) {
+        const nextSlug = visibleTournaments[0].slug;
+        setSelectedTournament(nextSlug);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('cricplus_admin_selected_tournament', nextSlug);
+        }
+      }
+    }
+  }, [visibleTournaments, selectedTournament]);
 
   // Fetch real registered users, backend auction rules, tournament teams, and fixtures schedule
   useEffect(() => {
