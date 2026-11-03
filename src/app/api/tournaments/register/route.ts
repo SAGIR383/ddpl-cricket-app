@@ -94,13 +94,16 @@ export async function GET(req: Request) {
   });
 
   const tournamentsList = Object.values(configs);
+  const requestedConfig = requestedSlug ? (configs[requestedSlug] || null) : null;
+  const isFound = requestedSlug ? Boolean(configs[requestedSlug]) : true;
+
   const activeSlug = requestedSlug && configs[requestedSlug]
     ? requestedSlug
-    : (tournamentsList.length > 0 ? tournamentsList[0].slug : (requestedSlug || ''));
+    : (requestedSlug ? requestedSlug : (tournamentsList.length > 0 ? tournamentsList[0].slug : ''));
 
-  const config = configs[activeSlug] || (tournamentsList.length > 0 ? tournamentsList[0] : null);
+  const config = requestedSlug ? requestedConfig : (tournamentsList.length > 0 ? tournamentsList[0] : null);
 
-  const registrations = activeSlug ? await getStoreData<TournamentPlayerRegistration[]>(
+  const registrations = (activeSlug && isFound) ? await getStoreData<TournamentPlayerRegistration[]>(
     `tournament_registrations_${activeSlug}`,
     `registrations_${activeSlug}.json`,
     []
@@ -109,6 +112,7 @@ export async function GET(req: Request) {
   return NextResponse.json(
     {
       success: true,
+      found: isFound,
       tournament: activeSlug,
       config,
       allConfigs: configs,
@@ -119,7 +123,7 @@ export async function GET(req: Request) {
     },
     {
       headers: {
-        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     }
   );
@@ -1080,18 +1084,39 @@ export async function POST(req: Request) {
         console.warn('Auction cleanup skipped for deleted tournament:', e);
       }
 
-      // 2. Clean up Schedule
+      // 2. Clean up Rules container & schedule
       try {
-        await setStoreData(`tournament_schedule_${targetSlug}`, { tournament: targetSlug, matches: [] }, `schedule_${targetSlug}.json`);
+        const rulesContainer = await getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} });
+        if (rulesContainer?.tournaments?.[targetSlug]) {
+          delete rulesContainer.tournaments[targetSlug];
+          await setStoreData('tournament_rules', rulesContainer, 'rules.json');
+        }
       } catch (e) {
-        console.warn('Schedule cleanup skipped for deleted tournament:', e);
+        console.warn('Tournament rules container cleanup skipped:', e);
       }
 
-      // 3. Clean up Registrations
+      // 2.1 Direct hard delete of all tournament keys from Supabase store
       try {
-        await setStoreData(`tournament_registrations_${targetSlug}`, [], `registrations_${targetSlug}.json`);
+        const { supabaseAdmin } = await import('@/lib/supabase/store');
+        await supabaseAdmin
+          .from('cricpluse_store')
+          .delete()
+          .in('key', [
+            `tournament_rules_${targetSlug}`,
+            `tournament_schedule_${targetSlug}`,
+            `tournament_registrations_${targetSlug}`,
+          ]);
       } catch (e) {
-        console.warn('Registrations cleanup skipped for deleted tournament:', e);
+        console.warn('Direct cricpluse_store rows deletion skipped:', e);
+      }
+
+      // 3. Clean up Schedule & Registrations fallbacks
+      try {
+        await setStoreData(`tournament_schedule_${targetSlug}`, { tournament: targetSlug, matches: [] }, `schedule_${targetSlug}.json`);
+        await setStoreData(`tournament_registrations_${targetSlug}`, [], `registrations_${targetSlug}.json`);
+        await setStoreData(`tournament_rules_${targetSlug}`, null, `rules_${targetSlug}.json`);
+      } catch (e) {
+        console.warn('Schedule & registrations file cleanup skipped:', e);
       }
 
       // 3.1 Clean up from corporate_organizations
@@ -1132,16 +1157,40 @@ export async function POST(req: Request) {
         console.warn('Announcement cleanup skipped for deleted tournament:', e);
       }
 
+      // 3.3 Clean up Super Admin account pointers
+      try {
+        const adminAccounts = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
+        let modifiedAccounts = false;
+        Object.keys(adminAccounts).forEach((email) => {
+          if (adminAccounts[email]?.tournamentSlug?.toLowerCase() === targetSlug) {
+            delete adminAccounts[email].tournamentSlug;
+            delete adminAccounts[email].tournamentName;
+            modifiedAccounts = true;
+          }
+        });
+        if (modifiedAccounts) {
+          await setStoreData('super_admin_accounts', adminAccounts, 'super_admin_accounts.json');
+        }
+      } catch (e) {
+        console.warn('Super admin accounts cleanup skipped:', e);
+      }
+
       // 4. Invalidate server cache so all consumers see the deletion immediately
       invalidateStoreCache();
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         message: `Tournament "${deletedTournamentName}" deleted successfully.`,
         deletedSlug: targetSlug,
         allConfigs: configs,
         tournamentsList: Object.values(configs),
       });
+
+      // Clear any session cookie bound to the deleted tournament
+      response.cookies.delete('cricplus_superadmin');
+      response.cookies.delete('cricpluse_superadmin');
+
+      return response;
     }
 
     // 7. WIPE ALL TOURNAMENTS & CLEAN SLATE

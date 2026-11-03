@@ -116,12 +116,17 @@ export default function JoinTournamentPage() {
         const res = await fetch(`/api/tournaments/register?tournament=${slug}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          if (data.config) {
+          if (data.config && data.config.slug?.toLowerCase() === slug.toLowerCase()) {
             setTournament(data.config);
+          } else {
+            setTournament(null);
           }
+        } else {
+          setTournament(null);
         }
       } catch (err) {
         console.error('Failed to load tournament info:', err);
+        setTournament(null);
       } finally {
         setLoadingTournament(false);
       }
@@ -277,6 +282,32 @@ export default function JoinTournamentPage() {
       setIsSubmitting(false);
     }
   };
+
+  if (!loadingTournament && !tournament) {
+    return (
+      <div className="min-h-[85vh] flex items-center justify-center px-4 py-10 relative z-10 animate-fade-in">
+        <div className="w-full max-w-xl rounded-3xl p-8 sm:p-12 bg-[#0D1B2A]/95 backdrop-blur-xl border border-rose-500/40 shadow-2xl text-center space-y-5">
+          <div className="w-16 h-16 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-xl">
+            <Trophy className="w-8 h-8 opacity-60" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="font-display font-black text-2xl text-white">Tournament Not Found or Removed</h2>
+            <p className="text-xs sm:text-sm text-[#8793A5] max-w-sm mx-auto">
+              This tournament does not exist or has been permanently removed by the organizers.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              href="/tournaments"
+              className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 cursor-pointer"
+            >
+              <span>Explore Active Tournaments</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const currencySymbol = tournament?.currencySymbol || '₹';
 

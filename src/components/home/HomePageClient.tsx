@@ -220,13 +220,29 @@ export function HomePageClient() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('cricplus_my_tournament_meta');
-        if (stored) {
-          setMyTournamentMeta(JSON.parse(stored));
+    const syncMyTournamentMeta = () => {
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('cricplus_my_tournament_meta');
+          if (stored) {
+            setMyTournamentMeta(JSON.parse(stored));
+          } else {
+            setMyTournamentMeta(null);
+          }
+        } catch (e) {
+          setMyTournamentMeta(null);
         }
-      } catch (e) {}
+      }
+    };
+
+    syncMyTournamentMeta();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cricplus_tournament_deleted', syncMyTournamentMeta);
+      window.addEventListener('storage', syncMyTournamentMeta);
+      return () => {
+        window.removeEventListener('cricplus_tournament_deleted', syncMyTournamentMeta);
+        window.removeEventListener('storage', syncMyTournamentMeta);
+      };
     }
   }, [user]);
 
@@ -238,6 +254,29 @@ export function HomePageClient() {
         const regData = await fetchWithCache<any>('/api/tournaments/register', { ttlMs: 15000 });
         const tourneys = Array.isArray(regData?.tournamentsList) ? regData.tournamentsList : [];
         const activeSlug = tourneys.length > 0 ? tourneys[0].slug : '';
+
+        // Validate personal tournament meta against active tournaments registry
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('cricplus_my_tournament_meta');
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              const exists = tourneys.some((t: any) => t.slug?.toLowerCase() === parsed.slug?.toLowerCase());
+              if (!exists) {
+                localStorage.removeItem('cricplus_my_tournament_meta');
+                localStorage.removeItem('cricplus_my_tournament');
+                if (isMounted) setMyTournamentMeta(null);
+              } else {
+                if (isMounted) setMyTournamentMeta(parsed);
+              }
+            } catch (e) {
+              localStorage.removeItem('cricplus_my_tournament_meta');
+              if (isMounted) setMyTournamentMeta(null);
+            }
+          } else {
+            if (isMounted) setMyTournamentMeta(null);
+          }
+        }
 
         const [aData, rulesData, matchesData, annData] = await Promise.all([
           activeSlug ? fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 15000 }) : Promise.resolve(null),

@@ -46,13 +46,9 @@ export default function TournamentDetailPage() {
 
   const [selectedSeason, setSelectedSeason] = useState('2026');
   const [teams, setTeams] = useState<any[]>([]);
-  const [tournamentConfig, setTournamentConfig] = useState<any>({
-    status: 'upcoming',
-    name: formattedSlugName,
-    fullName: formattedSlugName,
-    pursePerTeam: 10000,
-    ownerBasePrice: 500,
-  });
+  const [tournamentConfig, setTournamentConfig] = useState<any>(null);
+  const [tournamentNotFound, setTournamentNotFound] = useState(false);
+  const [isLoadingTournament, setIsLoadingTournament] = useState(true);
 
   const isTournamentSuperAdmin = Boolean(
     isSuperAdmin ||
@@ -136,25 +132,52 @@ export default function TournamentDetailPage() {
     async function loadTournamentData() {
       try {
         const [rulesRes, auctionRes, regRes] = await Promise.all([
-          fetchWithCache<any>(`/api/admin/rules?tournament=${slug}`, { ttlMs: 15000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${slug}`, { ttlMs: 15000 }),
-          fetchWithCache<any>(`/api/tournaments/register?tournament=${slug}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${slug}`, { ttlMs: 5000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${slug}`, { ttlMs: 5000 }),
+          fetchWithCache<any>(`/api/tournaments/register?tournament=${slug}`, { ttlMs: 5000 }),
         ]);
 
         if (!isMounted) return;
 
-        if (rulesRes?.rules) {
-          setRules(rulesRes.rules);
-        }
+        // Check if tournament actually exists in registry
+        const isMatch = Boolean(
+          regRes?.success &&
+          regRes?.config &&
+          regRes.config.slug &&
+          regRes.config.slug.toLowerCase() === slug.toLowerCase()
+        );
 
-        if (regRes) {
-          if (regRes.config) {
-            setTournamentConfig(regRes.config);
-            if (regRes.config.season) {
-              setSelectedSeason(regRes.config.season);
+        if (!isMatch) {
+          setTournamentNotFound(true);
+          setTournamentConfig(null);
+          setIsLoadingTournament(false);
+          if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('cricplus_my_tournament_meta');
+            if (stored) {
+              try {
+                if (JSON.parse(stored)?.slug?.toLowerCase() === slug.toLowerCase()) {
+                  localStorage.removeItem('cricplus_my_tournament_meta');
+                  localStorage.removeItem('cricplus_my_tournament');
+                }
+              } catch (e) {}
             }
           }
-          if (regRes.registrations) setRegistrations(regRes.registrations);
+          return;
+        }
+
+        setTournamentNotFound(false);
+        setTournamentConfig(regRes.config);
+        setIsLoadingTournament(false);
+
+        if (regRes.config.season) {
+          setSelectedSeason(regRes.config.season);
+        }
+        if (regRes.registrations) {
+          setRegistrations(regRes.registrations);
+        }
+
+        if (rulesRes?.rules) {
+          setRules(rulesRes.rules);
         }
 
         if (auctionRes?.data && auctionRes.data.teams) {
@@ -181,6 +204,9 @@ export default function TournamentDetailPage() {
         }
       } catch (err) {
         console.error('Failed to load tournament data:', err);
+        if (isMounted) {
+          setIsLoadingTournament(false);
+        }
       }
     }
 
@@ -356,6 +382,53 @@ export default function TournamentDetailPage() {
     }
   };
 
+  if (isLoadingTournament && !tournamentConfig && !tournamentNotFound) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center space-y-4">
+        <div className="w-14 h-14 rounded-full bg-[#D8AD55]/10 border border-[#D8AD55]/30 mx-auto flex items-center justify-center">
+          <Trophy className="w-7 h-7 text-[#D8AD55] animate-spin" />
+        </div>
+        <h3 className="font-display font-black text-xl text-white">Loading Tournament Hub...</h3>
+        <p className="text-xs text-[#8793A5]">Synchronizing official fixtures, franchises, and live rules...</p>
+      </div>
+    );
+  }
+
+  if (tournamentNotFound || (!isLoadingTournament && !tournamentConfig)) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center space-y-6">
+        <div className="w-20 h-20 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-2xl">
+          <Trophy className="w-10 h-10 opacity-60" />
+        </div>
+        <div className="space-y-2">
+          <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold uppercase tracking-wider border border-rose-500/30">
+            Tournament Not Found or Removed
+          </span>
+          <h1 className="font-display font-black text-3xl sm:text-5xl text-white">
+            {formattedSlugName}
+          </h1>
+          <p className="text-sm sm:text-base text-[#8793A5] max-w-lg mx-auto leading-relaxed">
+            This tournament does not exist or has been permanently removed by the platform administrator. All corresponding fixtures, auction logs, and rosters have been deleted.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
+          <Link
+            href="/tournaments"
+            className="btn-press shimmer-btn px-6 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 cursor-pointer"
+          >
+            ← View All Active Tournaments
+          </Link>
+          <Link
+            href="/"
+            className="btn-press px-6 py-3 rounded-xl border border-[#D8AD55]/30 text-gray-300 hover:text-white hover:bg-[#D8AD55]/10 font-display font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+          >
+            Return to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const statusInfo = getStatusBadge(currentStatus);
 
   const tournament = {
@@ -384,7 +457,7 @@ export default function TournamentDetailPage() {
             <div className="flex items-center gap-4">
               <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#D8AD55]/40 shadow-2xl shrink-0 bg-[#08111F] flex items-center justify-center">
                 <img
-                  src={tournamentConfig.logo || '/images/default-tournament.svg'}
+                  src={tournamentConfig?.logo || '/images/default-tournament.svg'}
                   alt={`${tournament.name} Logo`}
                   className="w-full h-full object-cover object-center"
                 />
@@ -399,7 +472,7 @@ export default function TournamentDetailPage() {
               </div>
             </div>
 
-            {tournamentConfig.organizationName && (
+            {tournamentConfig?.organizationName && (
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                 <span className="text-[#8793A5]">Host Organization:</span>
                 {tournamentConfig.organizationSlug ? (

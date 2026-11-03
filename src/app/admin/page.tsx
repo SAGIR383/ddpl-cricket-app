@@ -414,8 +414,28 @@ export default function AdminDashboardPage() {
         const nextSlug = updatedList.length > 0 ? updatedList[0].slug : '';
         setSelectedTournament(nextSlug);
         if (typeof window !== 'undefined') {
-          if (nextSlug) localStorage.setItem('cricplus_admin_selected_tournament', nextSlug);
-          else localStorage.removeItem('cricplus_admin_selected_tournament');
+          if (nextSlug) {
+            localStorage.setItem('cricplus_admin_selected_tournament', nextSlug);
+          } else {
+            localStorage.removeItem('cricplus_admin_selected_tournament');
+          }
+
+          // Clean up stored personal organization tournament if it was deleted
+          const savedMeta = localStorage.getItem('cricplus_my_tournament_meta');
+          if (savedMeta) {
+            try {
+              const parsed = JSON.parse(savedMeta);
+              if (parsed?.slug?.toLowerCase() === slug.toLowerCase()) {
+                localStorage.removeItem('cricplus_my_tournament_meta');
+              }
+            } catch (e) {}
+          }
+          const savedTourney = localStorage.getItem('cricplus_my_tournament');
+          if (savedTourney?.toLowerCase() === slug.toLowerCase()) {
+            localStorage.removeItem('cricplus_my_tournament');
+          }
+
+          window.dispatchEvent(new Event('cricplus_tournament_deleted'));
         }
         invalidateClientCache();
         showNotification(`Tournament "${name}" permanently deleted.`);

@@ -118,6 +118,12 @@ export default function TournamentsPage() {
       if (data.success) {
         setTournaments([]);
         setWipeModalOpen(false);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('cricplus_my_tournament_meta');
+          localStorage.removeItem('cricplus_my_tournament');
+          localStorage.removeItem('cricplus_admin_selected_tournament');
+          window.dispatchEvent(new Event('cricplus_tournament_deleted'));
+        }
         alert('All test tournaments and data wiped cleanly by Super Admin.');
       } else {
         alert(data.error || 'Failed to wipe tournaments');
@@ -143,6 +149,21 @@ export default function TournamentsPage() {
       const data = await res.json();
       if (data.success) {
         setTournaments((prev) => prev.filter((t) => t.id !== slug));
+        if (typeof window !== 'undefined') {
+          const savedMeta = localStorage.getItem('cricplus_my_tournament_meta');
+          if (savedMeta) {
+            try {
+              if (JSON.parse(savedMeta)?.slug?.toLowerCase() === slug.toLowerCase()) {
+                localStorage.removeItem('cricplus_my_tournament_meta');
+              }
+            } catch (e) {}
+          }
+          const savedTourney = localStorage.getItem('cricplus_my_tournament');
+          if (savedTourney?.toLowerCase() === slug.toLowerCase()) {
+            localStorage.removeItem('cricplus_my_tournament');
+          }
+          window.dispatchEvent(new Event('cricplus_tournament_deleted'));
+        }
       } else {
         alert(data.error || 'Failed to delete tournament');
       }
