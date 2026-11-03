@@ -56,7 +56,7 @@ export default function ProfilePage() {
       if (isSuperAdmin && authUser) {
         setProfile({
           id: authUser.id || 'super-admin-master-id',
-          email: authUser.email || 'superadmin@cricplus.com',
+          email: authUser.email || '',
           full_name: authUser.name || (authUser.email ? authUser.email.split('@')[0] : 'Tournament Host Admin'),
           primary_role: 'All-rounder',
           batting_style: 'Right-hand bat',

@@ -114,8 +114,8 @@ export default function AuctionPage() {
 
   // 30-Second Live Bidding Timer & Auction Automation State
   const [countdown, setCountdown] = useState<number>(30);
-  const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('live');
-  const [biddingAccessEnabled, setBiddingAccessEnabled] = useState<boolean>(true);
+  const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('stopped');
+  const [biddingAccessEnabled, setBiddingAccessEnabled] = useState<boolean>(false);
   const [teamBiddingAccess, setTeamBiddingAccess] = useState<Record<string, boolean>>({});
   const [isAutoTransitioning, setIsAutoTransitioning] = useState<boolean>(false);
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
@@ -1018,9 +1018,9 @@ export default function AuctionPage() {
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 animate-pulse'
                       : auctionStatus === 'paused'
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      : 'bg-slate-500/20 text-slate-300 border-slate-500/40'
                   }`}>
-                    ● Auction {auctionStatus.toUpperCase()}
+                    ● {auctionStatus === 'stopped' ? 'AUCTION NOT STARTED' : `AUCTION ${auctionStatus.toUpperCase()}`}
                   </span>
                 </div>
                 <p className="text-xs text-[#8793A5] mt-1">
@@ -1031,56 +1031,76 @@ export default function AuctionPage() {
 
             {/* Super Admin / Organizer Master Live Toggles */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => {
-                  const newStatus = auctionStatus === 'live' ? 'paused' : 'live';
-                  setAuctionStatus(newStatus);
-                  broadcastAuctionState({ auctionStatus: newStatus });
-                  showToast(`Auction status changed to ${newStatus.toUpperCase()}`);
-                }}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                  auctionStatus === 'live'
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
-                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
-                }`}
-              >
-                {auctionStatus === 'live' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                <span>{auctionStatus === 'live' ? 'Pause Auction' : 'Resume Live'}</span>
-              </button>
+              {auctionStatus === 'stopped' ? (
+                <button
+                  onClick={() => {
+                    setAuctionStatus('live');
+                    broadcastAuctionState({ auctionStatus: 'live', biddingAccessEnabled: true });
+                    if (!currentLot) {
+                      advanceToNextPlayer();
+                    }
+                    showToast('Auction is now LIVE!');
+                  }}
+                  className="btn-press shimmer-btn flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg hover:brightness-110 transition-all cursor-pointer"
+                  title="Activate live auction and board the first player"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>Start Live Auction</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      const newStatus = auctionStatus === 'live' ? 'paused' : 'live';
+                      setAuctionStatus(newStatus);
+                      broadcastAuctionState({ auctionStatus: newStatus });
+                      showToast(`Auction status changed to ${newStatus.toUpperCase()}`);
+                    }}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      auctionStatus === 'live'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                    }`}
+                  >
+                    {auctionStatus === 'live' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                    <span>{auctionStatus === 'live' ? 'Pause Auction' : 'Resume Live'}</span>
+                  </button>
 
-              <button
-                onClick={() => {
-                  const newStatus = auctionStatus === 'stopped' ? 'live' : 'stopped';
-                  setAuctionStatus(newStatus);
-                  broadcastAuctionState({ auctionStatus: newStatus });
-                  showToast(newStatus === 'stopped' ? 'Auction Stopped' : 'Auction Live');
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-white/10 text-gray-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
-              >
-                <Square className="w-3.5 h-3.5" />
-                <span>{auctionStatus === 'stopped' ? 'Start Auction' : 'Stop Auction'}</span>
-              </button>
+                  <button
+                    onClick={() => {
+                      setAuctionStatus('stopped');
+                      broadcastAuctionState({ auctionStatus: 'stopped' });
+                      showToast('Auction Stopped');
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                    title="Stop active auction"
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                    <span>Stop Auction</span>
+                  </button>
 
-              <button
-                onClick={() => advanceToNextPlayer()}
-                className="btn-press shimmer-btn flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-md hover:brightness-110 transition-all cursor-pointer"
-                title="Board next player from pool immediately"
-              >
-                <span>Board Next Player →</span>
-              </button>
+                  <button
+                    onClick={() => advanceToNextPlayer()}
+                    className="btn-press shimmer-btn flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-md hover:brightness-110 transition-all cursor-pointer"
+                    title="Board next player from pool immediately"
+                  >
+                    <span>Board Next Player →</span>
+                  </button>
 
-              <button
-                onClick={() => {
-                  setCountdown(30);
-                  broadcastAuctionState({ countdown: 30 });
-                  showToast('Timer reset to 30s');
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all cursor-pointer"
-                title="Reset 30-second live bidding timer"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-[#D8AD55]" />
-                <span>Reset 30s</span>
-              </button>
+                  <button
+                    onClick={() => {
+                      setCountdown(30);
+                      broadcastAuctionState({ countdown: 30 });
+                      showToast('Timer reset to 30s');
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all cursor-pointer"
+                    title="Reset 30-second live bidding timer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-[#D8AD55]" />
+                    <span>Reset 30s</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : isFranchiseOwner && userTeam ? (
@@ -1659,6 +1679,42 @@ export default function AuctionPage() {
                           Sync Registered Players
                         </button>
                       </div>
+                    </>
+                  ) : auctionStatus === 'stopped' || soldTransactions.length === 0 ? (
+                    <>
+                      <div className="w-16 h-16 rounded-2xl bg-[#D8AD55]/15 text-[#D8AD55] flex items-center justify-center mx-auto border border-[#D8AD55]/30 shadow-xl">
+                        <Gavel className="w-8 h-8" />
+                      </div>
+                      <h3 className="font-display font-black text-2xl sm:text-3xl text-white">
+                        Player Auction Awaiting Activation
+                      </h3>
+                      <p className="text-sm text-[#8793A5] max-w-md mx-auto">
+                        {playerPool.length > 0
+                          ? `${playerPool.length} registered player${playerPool.length === 1 ? '' : 's'} enrolled in the auction pool. Live bidding will begin when Super Admin activates the auction.`
+                          : 'Tournament schedule and player list are being prepared. Enrolled players will populate here for bidding once verified.'}
+                      </p>
+                      {isAccessAllowed && (
+                        <div className="flex flex-wrap justify-center gap-3 pt-2">
+                          <button
+                            onClick={() => {
+                              setAuctionStatus('live');
+                              broadcastAuctionState({ auctionStatus: 'live', biddingAccessEnabled: true });
+                              advanceToNextPlayer();
+                              showToast('Auction is now LIVE!');
+                            }}
+                            className="btn-press shimmer-btn px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer"
+                          >
+                            <Play className="w-4 h-4 inline-block mr-1.5 fill-current" />
+                            <span>Start Live Auction</span>
+                          </button>
+                          <button
+                            onClick={handleSyncRegisteredPlayers}
+                            className="btn-press px-5 py-2.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                          >
+                            Sync Registered Players
+                          </button>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <>

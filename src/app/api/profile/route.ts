@@ -9,8 +9,13 @@ export async function GET(req: NextRequest) {
     let userEmail = '';
     let tournamentSlug = '';
 
-    if (cookieVal === 'active_session') {
-      userEmail = 'superadmin@cricplus.com';
+    if (cookieVal.startsWith('active_session')) {
+      const parts = cookieVal.split(':');
+      if (parts[1]) {
+        try {
+          userEmail = Buffer.from(parts[1], 'base64').toString('utf-8');
+        } catch {}
+      }
     } else if (cookieVal.startsWith('organizer_session:')) {
       const parts = cookieVal.split(':');
       tournamentSlug = parts[1] || '';
@@ -21,7 +26,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const queryEmail = searchParams.get('email');
-    const finalEmail = (queryEmail || userEmail).toLowerCase().trim();
+
+    // 2. Try super_admin_accounts store
+    const adminAccounts = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
+    const fallbackEmail = Object.keys(adminAccounts)[0] || '';
+    const finalEmail = (queryEmail || userEmail || fallbackEmail).toLowerCase().trim();
 
     if (!finalEmail) {
       return NextResponse.json({ success: false, error: 'No authenticated email' }, { status: 401 });
@@ -34,8 +43,6 @@ export async function GET(req: NextRequest) {
       .eq('email', finalEmail)
       .maybeSingle();
 
-    // 2. Try super_admin_accounts store
-    const adminAccounts = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
     const adminAcc = adminAccounts[finalEmail] || {};
 
     // 3. Try tournament_configs
@@ -54,7 +61,7 @@ export async function GET(req: NextRequest) {
       dbProfile?.full_name ||
       adminAcc.name ||
       creatorNameFromConfig ||
-      (finalEmail === 'superadmin@cricplus.com' ? 'Master Super Admin' : finalEmail.split('@')[0]);
+      (finalEmail ? finalEmail.split('@')[0] : 'Super Admin');
 
     return NextResponse.json({
       success: true,
@@ -85,8 +92,13 @@ export async function POST(req: NextRequest) {
     let sessionEmail = '';
     let sessionSlug = '';
 
-    if (cookieVal === 'active_session') {
-      sessionEmail = 'superadmin@cricplus.com';
+    if (cookieVal.startsWith('active_session')) {
+      const parts = cookieVal.split(':');
+      if (parts[1]) {
+        try {
+          sessionEmail = Buffer.from(parts[1], 'base64').toString('utf-8');
+        } catch {}
+      }
     } else if (cookieVal.startsWith('organizer_session:')) {
       const parts = cookieVal.split(':');
       sessionSlug = parts[1] || '';

@@ -24,8 +24,8 @@ import { generateExecutiveTournamentDossierPDF, TournamentDossierData } from '@/
 import { generateTournamentExcelReport } from '@/lib/excelGenerator';
 
 export default function StandingsPage() {
-  const [selectedTournament, setSelectedTournament] = useState<string>('ddpl');
-  const [selectedSeason, setSelectedSeason] = useState('2027');
+  const [selectedTournament, setSelectedTournament] = useState<string>('');
+  const [selectedSeason, setSelectedSeason] = useState('');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [activeTournamentConfig, setActiveTournamentConfig] = useState<any>(null);
   const [activeTournamentRules, setActiveTournamentRules] = useState<any>(null);
@@ -105,12 +105,34 @@ export default function StandingsPage() {
     async function loadTournamentStandings() {
       if (standings.length === 0) setLoading(true);
       try {
-        const activeSlug = selectedTournament || 'ddpl';
+        // 1. Fetch available tournaments from register API
+        const regListRes = await fetchWithCache<any>('/api/tournaments/register', { ttlMs: 10000 });
+        const list = Array.isArray(regListRes?.tournamentsList) ? regListRes.tournamentsList : [];
+        if (!isMounted) return;
+        setTournamentsList(list);
+
+        if (list.length === 0) {
+          setSelectedTournament('');
+          setSelectedSeason('');
+          setActiveTournamentConfig(null);
+          setStandings([]);
+          setLoading(false);
+          return;
+        }
+
+        const activeTournament = list.find((t: any) => t.slug === selectedTournament) || list[0];
+        const activeSlug = activeTournament.slug;
+        if (selectedTournament !== activeSlug) {
+          setSelectedTournament(activeSlug);
+        }
+        const resolvedSeason = activeTournament.season || selectedSeason || new Date().getFullYear().toString();
+        setSelectedSeason(resolvedSeason);
+
         const [regData, analyticsData, auctionData, rulesData] = await Promise.all([
-          fetchWithCache<any>(`/api/tournaments/register?tournament=${activeSlug}`, { ttlMs: 15000 }),
-          fetchWithCache<any>(`/api/analytics/tournament?tournament=${activeSlug}`, { ttlMs: 15000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 20000 }),
-          fetchWithCache<any>(`/api/admin/rules?tournament=${activeSlug}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/tournaments/register?tournament=${activeSlug}`, { ttlMs: 10000 }),
+          fetchWithCache<any>(`/api/analytics/tournament?tournament=${activeSlug}`, { ttlMs: 10000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${activeSlug}`, { ttlMs: 10000 }),
         ]);
 
         if (!isMounted) return;
@@ -123,16 +145,6 @@ export default function StandingsPage() {
         }
         if (rulesData?.rules) {
           setActiveTournamentRules(rulesData.rules);
-        }
-
-        if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
-          setTournamentsList(regData.tournamentsList);
-          if (regData.tournamentsList.length > 0) {
-            setSelectedTournament((prev) => {
-              const exists = regData.tournamentsList.some((t: any) => t.slug === prev);
-              return exists && prev ? prev : regData.tournamentsList[0].slug;
-            });
-          }
         }
 
         const soldTx = auctionData?.data?.soldTransactions || [];
@@ -162,12 +174,12 @@ export default function StandingsPage() {
       } catch (err) {
         console.error('Failed to load tournament standings:', err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
     loadTournamentStandings();
-  }, [selectedTournament, selectedSeason]);
+  }, [selectedTournament]);
 
   // Head-to-Head calculations
   const h2hStats: HeadToHeadStats = useMemo(() => {
@@ -370,24 +382,45 @@ export default function StandingsPage() {
               {tournamentsList[0].name}
             </div>
           )}
-          <select
-            value={selectedSeason}
-            onChange={(e) => setSelectedSeason(e.target.value)}
-            className="px-4 py-2.5 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
-          >
-            <option value="2026">Season 2026 (Active)</option>
-            <option value="2025">Season 2025 (Archive)</option>
-          </select>
+          {tournamentsList.length > 0 && (
+            <div className="px-3.5 py-2 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-bold shadow-md">
+              Season {selectedSeason || activeTournamentConfig?.season || new Date().getFullYear()} (Active)
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Standings Table Card */}
-      <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl overflow-hidden border border-[#D8AD55]/30 shadow-2xl">
-        <div className="p-5 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border-b border-[#D8AD55]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="font-display font-black text-xl text-white">
-              {tournamentsList.find((t) => t.slug === selectedTournament)?.name || selectedTournament.toUpperCase()} — {selectedSeason} Standings
-            </span>
+      {/* When no tournaments are scheduled at all */}
+      {tournamentsList.length === 0 && !loading && (
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl p-12 text-center border border-[#D8AD55]/30 shadow-2xl space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-[#D8AD55]/10 text-[#D8AD55] flex items-center justify-center mx-auto border border-[#D8AD55]/30">
+            <Trophy className="w-8 h-8" />
+          </div>
+          <h3 className="font-display font-black text-2xl text-white">
+            No Active Tournaments Scheduled
+          </h3>
+          <p className="text-sm text-[#8793A5] max-w-md mx-auto leading-relaxed">
+            Points table and standings will automatically populate here once an organizer schedules a tournament and begins matches.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/tournaments/create"
+              className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-bold text-xs uppercase tracking-wider shadow-lg"
+            >
+              <span>+ Host New Tournament</span>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Standings Table Card (only shown when a tournament is configured) */}
+      {tournamentsList.length > 0 && (
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl overflow-hidden border border-[#D8AD55]/30 shadow-2xl">
+          <div className="p-5 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border-b border-[#D8AD55]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="font-display font-black text-xl text-white">
+                {activeTournamentConfig?.name || tournamentsList.find((t) => t.slug === selectedTournament)?.name || selectedTournament.toUpperCase()} — {selectedSeason || activeTournamentConfig?.season || ''} Standings
+              </span>
             <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 text-xs font-bold border border-blue-500/30">
               {completedMatches > 0 ? `${completedMatches} Matches Completed` : 'Live Synced'}
             </span>
@@ -580,6 +613,7 @@ export default function StandingsPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* HEAD-TO-HEAD & AI MATCHUP PREDICTOR */}
       {standings.length >= 2 && (

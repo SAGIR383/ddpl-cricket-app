@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -186,6 +186,18 @@ export default function CreateTournamentPage() {
   const [adminPin, setAdminPin] = useState(() => Math.floor(100000 + Math.random() * 900000).toString());
   const [showPassword, setShowPassword] = useState(false);
   const [copiedPin, setCopiedPin] = useState(false);
+
+  // Auto-sync existing logged-in Super Admin profile into tournament creation form
+  useEffect(() => {
+    const activeEmail = user?.email || profile?.email;
+    if (activeEmail && !organizerEmail) {
+      setOrganizerEmail(activeEmail);
+    }
+    const resolvedName = profile?.full_name || user?.name || user?.user_metadata?.full_name || '';
+    if (resolvedName && !organizerName) {
+      setOrganizerName(resolvedName);
+    }
+  }, [user, profile]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1331,12 +1343,12 @@ export default function CreateTournamentPage() {
               </div>
 
               {isSuperAdmin && (
-                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs flex-wrap">
                   <div className="flex items-center gap-2 text-emerald-300 font-bold">
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span>Active Session: {user?.email}</span>
+                    <span>Active Super Admin: {organizerName ? `${organizerName} (${organizerEmail || user?.email})` : (organizerEmail || user?.email)}</span>
                   </div>
-                  <span className="text-[11px] text-[#8793A5]">Specify your host organizer profile details below</span>
+                  <span className="text-[11px] text-[#8793A5]">Account profile synchronized automatically</span>
                 </div>
               )}
 
@@ -1349,7 +1361,7 @@ export default function CreateTournamentPage() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Sagir Hossain / Sports Head"
+                      placeholder="e.g. Arindam T Roy / Sports Head"
                       value={organizerName}
                       onChange={(e) => setOrganizerName(e.target.value)}
                       className="w-full px-4 py-3 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"
@@ -1372,14 +1384,14 @@ export default function CreateTournamentPage() {
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-gray-200">
-                      Super Admin Password <span className="text-rose-400">*</span>
+                      Super Admin Password {!isSuperAdmin && <span className="text-rose-400">*</span>}
                     </label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
-                        required
+                        required={!isSuperAdmin}
                         minLength={6}
-                        placeholder="Enter secure admin password (min 6 chars)"
+                        placeholder={isSuperAdmin ? "Using active Super Admin session (or enter new password)" : "Enter secure admin password (min 6 chars)"}
                         value={adminPassword}
                         onChange={(e) => setAdminPassword(e.target.value)}
                         className="w-full pl-4 pr-10 py-3 rounded-2xl bg-[#0D1B2A] border border-[#D8AD55]/30 text-white text-xs font-semibold focus:outline-none focus:border-[#D8AD55]"

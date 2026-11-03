@@ -25,24 +25,27 @@ export async function POST(req: NextRequest) {
     );
 
     if (isMasterUser && SUPERADMIN_PASSWORD && providedPass === SUPERADMIN_PASSWORD) {
+      const masterEmail = SUPERADMIN_IDENTIFIER || normalizedUser;
       const response = NextResponse.json({
         success: true,
         user: {
           id: 'super-admin-master-id',
-          email: SUPERADMIN_IDENTIFIER || 'superadmin@cricplus.com',
+          email: masterEmail,
           name: 'Master Super Admin',
           role: 'super_admin',
         },
       });
 
+      const sessionToken = `active_session:${Buffer.from(masterEmail).toString('base64')}`;
+
       // Set cookie for persistence (both cricplus and legacy cricpluse)
-      response.cookies.set('cricplus_superadmin', 'active_session', {
+      response.cookies.set('cricplus_superadmin', sessionToken, {
         path: '/',
         httpOnly: false,
         maxAge: 60 * 60 * 24 * 7,
         sameSite: 'lax',
       });
-      response.cookies.set('cricpluse_superadmin', 'active_session', {
+      response.cookies.set('cricpluse_superadmin', sessionToken, {
         path: '/',
         httpOnly: false,
         maxAge: 60 * 60 * 24 * 7,
@@ -210,17 +213,25 @@ export async function GET(req: NextRequest) {
     Expires: '0',
   };
 
-  if (cookieVal === 'active_session') {
+  if (cookieVal.startsWith('active_session')) {
+    let decodedEmail = '';
+    const parts = cookieVal.split(':');
+    if (parts[1]) {
+      try {
+        decodedEmail = Buffer.from(parts[1], 'base64').toString('utf-8');
+      } catch {}
+    }
     const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
-    const masterAcc = adminAccountsStore['superadmin@cricplus.com'] || {};
+    const masterEmail = decodedEmail || SUPERADMIN_IDENTIFIER || Object.keys(adminAccountsStore)[0] || '';
+    const masterAcc = adminAccountsStore[masterEmail.toLowerCase()] || {};
     const masterName = masterAcc.name || 'Master Super Admin';
 
     return NextResponse.json(
       {
         authenticated: true,
         user: {
-          id: 'super-admin-master-id',
-          email: masterAcc.email || 'superadmin@cricplus.com',
+          id: masterAcc.id || 'super-admin-master-id',
+          email: masterEmail,
           name: masterName,
           role: 'super_admin',
         },
@@ -240,15 +251,15 @@ export async function GET(req: NextRequest) {
     const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
     const cfg = configs[slug] || {};
     const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
-    const resolvedEmail = email || cfg.creatorEmail || 'organizer@cricplus.com';
+    const resolvedEmail = email || cfg.creatorEmail || '';
     const acc = adminAccountsStore[resolvedEmail.toLowerCase()] || {};
-    const resolvedName = acc.name || cfg.creatorName || `${cfg.name || 'Tournament'} Organizer`;
+    const resolvedName = acc.name || cfg.creatorName || (resolvedEmail ? resolvedEmail.split('@')[0] : 'Tournament Organizer');
 
     return NextResponse.json(
       {
         authenticated: true,
         user: {
-          id: `organizer-${slug}`,
+          id: acc.id || `organizer-${slug}`,
           email: resolvedEmail,
           name: resolvedName,
           role: 'super_admin',
