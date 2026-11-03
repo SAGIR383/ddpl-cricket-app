@@ -52,38 +52,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string, userEmail?: string, userMeta?: any) => {
     try {
-      const { data } = await supabase
+      let data: any = null;
+      const { data: byId } = await supabase
         .from('profiles')
         .select('id, full_name, email, avatar_url, phone, employee_id, batting_style, bowling_style, primary_role, system_role, created_at, updated_at')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
+      data = byId;
+
+      if ((!data || !data.full_name) && userEmail) {
+        const { data: byEmail } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url, phone, employee_id, batting_style, bowling_style, primary_role, system_role, created_at, updated_at')
+          .eq('email', userEmail.toLowerCase().trim())
+          .maybeSingle();
+        if (byEmail?.full_name) {
+          data = byEmail;
+        }
+      }
 
       // Fetch role assigned by Super Admin in backend
       const assignedRole = userEmail ? await fetchAssignedRole(userEmail) : 'user';
 
-      if (data) {
+      if (data && data.full_name) {
         setProfile({
           ...(data as Profile),
           system_role: assignedRole || data.system_role || 'user',
         });
         setActiveRole(assignedRole || (data.system_role as SystemRole) || 'user');
       } else {
+        const resolvedName =
+          userMeta?.full_name ||
+          userMeta?.name ||
+          (userEmail ? userEmail.split('@')[0] : 'Tournament Athlete');
         const defaultProfile: Profile = {
           id: userId,
           email: userEmail || '',
-          full_name: userMeta?.full_name || userEmail?.split('@')[0] || 'User',
-          avatar_url: null,
-          employee_id: null,
-          phone: null,
-          batting_style: 'Right-hand bat',
-          bowling_style: 'Right-arm medium',
-          primary_role: 'All-rounder',
-          system_role: assignedRole,
-          created_at: new Date().toISOString(),
+          full_name: resolvedName,
+          avatar_url: data?.avatar_url || null,
+          employee_id: data?.employee_id || null,
+          phone: data?.phone || null,
+          batting_style: data?.batting_style || 'Right-hand bat',
+          bowling_style: data?.bowling_style || 'Right-arm medium',
+          primary_role: data?.primary_role || 'All-rounder',
+          system_role: assignedRole || data?.system_role || 'user',
+          created_at: data?.created_at || new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
         setProfile(defaultProfile);
-        setActiveRole(assignedRole);
+        setActiveRole(assignedRole || data?.system_role || 'user');
       }
     } catch {
       setProfile(null);
@@ -92,15 +109,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    // 1. First check if Super Admin session is active
+    // 1. Regular user Supabase auth session check (Primary source of truth for accounts)
+    try {
+      const { data } = await supabase.auth.getSession();
+      const currentUser = data?.session?.user || null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata);
+        setLoading(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('Session check fallback:', e);
+    }
+
+    // 2. Check if Super Admin session is active
     try {
       const adminRes = await fetch('/api/admin/auth', { cache: 'no-store' });
       if (adminRes.ok) {
         const adminData = await adminRes.json();
         if (adminData.authenticated && adminData.user) {
           const isMaster =
-            adminData.user.email?.toLowerCase() === 'superadmin@cricplus.com' ||
-            adminData.user.email?.toLowerCase() === 'superadmin@cricpluse.com' ||
             adminData.user.id === 'super-admin-master-id' ||
             adminData.user.role === 'super_admin';
           const resolvedRole: SystemRole = isMaster ? 'super_admin' : 'organizer';
@@ -125,28 +155,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-      // Continue to Supabase session check
+      // Continue
     }
 
-    // 2. Regular user Supabase auth session check
-    try {
-      const { data } = await supabase.auth.getSession();
-      const currentUser = data?.session?.user || null;
-      setUser(currentUser);
-
-      if (currentUser) {
-        await fetchProfile(currentUser.id, currentUser.email, currentUser.user_metadata);
-      } else {
-        setProfile(null);
-        setActiveRole('user');
-      }
-    } catch (e) {
-      console.warn('Session check fallback:', e);
-      setProfile(null);
-      setActiveRole('user');
-    } finally {
-      setLoading(false);
-    }
+    setProfile(null);
+    setActiveRole('user');
+    setLoading(false);
   };
 
   useEffect(() => {

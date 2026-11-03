@@ -161,11 +161,10 @@ export async function POST(req: NextRequest) {
       console.warn('Supabase profile update warning:', e);
     }
 
-    // 2. Synchronize super_admin_accounts store
+    // 2. Synchronize super_admin_accounts store without storing any credentials
     const adminAccounts = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
     const existingAcc = adminAccounts[targetEmail] || {};
     adminAccounts[targetEmail] = {
-      ...existingAcc,
       email: targetEmail,
       name: newFullName,
       avatar_url: body.avatar_url || existingAcc.avatar_url,

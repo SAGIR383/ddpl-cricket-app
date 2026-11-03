@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStoreData } from '@/lib/supabase/store';
+import { getStoreData, supabaseAdmin } from '@/lib/supabase/store';
 import { createClient } from '@supabase/supabase-js';
 
 import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
@@ -55,101 +55,20 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    // 2. Check Persistent super_admin_accounts Store
-    const adminAccounts = await getStoreData<Record<string, any>>(
-      'super_admin_accounts',
-      'super_admin_accounts.json',
-      {}
-    );
-    const account = adminAccounts[normalizedUser];
-    if (account) {
-      const passMatch =
-        (account.password && account.password === providedPass) ||
-        (account.pin && account.pin === providedPass) ||
-        Boolean(SUPERADMIN_PASSWORD && providedPass === SUPERADMIN_PASSWORD);
-
-      if (passMatch) {
-        const slug = account.tournamentSlug || 'ddpl';
-        const token = `organizer_session:${slug}:${Buffer.from(account.email).toString('base64')}`;
-        const response = NextResponse.json({
-          success: true,
-          user: {
-            id: `superadmin-${slug}`,
-            email: account.email,
-            name: account.name || 'Super Admin',
-            role: 'organizer',
-            tournamentSlug: slug,
-          },
-          tournamentSlug: slug,
-        });
-
-        response.cookies.set('cricplus_superadmin', token, {
-          path: '/',
-          httpOnly: false,
-          maxAge: 60 * 60 * 24 * 7,
-          sameSite: 'lax',
-        });
-        response.cookies.set('cricpluse_superadmin', token, {
-          path: '/',
-          httpOnly: false,
-          maxAge: 60 * 60 * 24 * 7,
-          sameSite: 'lax',
-        });
-
-        return response;
-      }
-    }
-
-    // 3. Check Tournament Super Admin (Organization / League Creator) credentials in tournament_configs
-    const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
-
-    for (const [slug, cfg] of Object.entries(configs)) {
-      const creatorMatch = cfg.creatorEmail && cfg.creatorEmail.trim().toLowerCase() === normalizedUser;
-      const passMatch =
-        (cfg.adminPassword && cfg.adminPassword === providedPass) ||
-        (cfg.adminPin && cfg.adminPin === providedPass) ||
-        Boolean(SUPERADMIN_PASSWORD && providedPass === SUPERADMIN_PASSWORD);
-
-      if (creatorMatch && passMatch) {
-        const token = `organizer_session:${slug}:${Buffer.from(cfg.creatorEmail).toString('base64')}`;
-        const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
-        const acc = adminAccountsStore[normalizedUser] || {};
-        const resolvedName = cfg.creatorName || (acc.name && !acc.name.includes('Super Admin') ? acc.name : null) || `${cfg.name} Super Admin`;
-
-        const response = NextResponse.json({
-          success: true,
-          user: {
-            id: `organizer-${slug}`,
-            email: cfg.creatorEmail || normalizedUser,
-            name: resolvedName,
-            role: 'organizer',
-            tournamentSlug: slug,
-          },
-          tournamentSlug: slug,
-        });
-
-        response.cookies.set('cricplus_superadmin', token, {
-          path: '/',
-          httpOnly: false,
-          maxAge: 60 * 60 * 24 * 7,
-          sameSite: 'lax',
-        });
-        response.cookies.set('cricpluse_superadmin', token, {
-          path: '/',
-          httpOnly: false,
-          maxAge: 60 * 60 * 24 * 7,
-          sameSite: 'lax',
-        });
-
-        return response;
-      }
-    }
-
-    // 4. Check Supabase Auth credentials for users with assigned super_admin or organizer role
+    // 2. Check Supabase Auth credentials for users with assigned super_admin or organizer role
     try {
       const roles = await getStoreData<Record<string, string>>('user_roles', 'roles.json', {});
       const assignedRole = roles[normalizedUser];
-      if (assignedRole === 'super_admin' || assignedRole === 'organizer') {
+
+      const { data: prof } = await supabaseAdmin
+        .from('profiles')
+        .select('system_role, full_name')
+        .eq('email', normalizedUser)
+        .maybeSingle();
+
+      const userRole = assignedRole || prof?.system_role;
+
+      if (userRole === 'super_admin' || userRole === 'organizer') {
         const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
         const { data: signInData, error: signInErr } = await adminClient.auth.signInWithPassword({
           email: normalizedUser,
@@ -157,14 +76,16 @@ export async function POST(req: NextRequest) {
         });
 
         if (!signInErr && signInData?.user) {
-          const token = `organizer_session:ddpl:${Buffer.from(normalizedUser).toString('base64')}`;
+          const token = `active_session:${Buffer.from(normalizedUser).toString('base64')}`;
+          const resolvedName = prof?.full_name || signInData.user.user_metadata?.full_name || normalizedUser.split('@')[0];
+
           const response = NextResponse.json({
             success: true,
             user: {
               id: signInData.user.id,
               email: normalizedUser,
-              name: signInData.user.user_metadata?.full_name || 'Super Admin',
-              role: 'super_admin',
+              name: resolvedName,
+              role: userRole,
             },
           });
 
@@ -185,7 +106,7 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch (e) {
-      console.warn('Supabase auth check fallback in admin/auth:', e);
+      console.warn('Supabase auth check in admin route failed:', e);
     }
 
     return NextResponse.json(
@@ -221,16 +142,33 @@ export async function GET(req: NextRequest) {
         decodedEmail = Buffer.from(parts[1], 'base64').toString('utf-8');
       } catch {}
     }
-    const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
-    const masterEmail = decodedEmail || SUPERADMIN_IDENTIFIER || Object.keys(adminAccountsStore)[0] || '';
-    const masterAcc = adminAccountsStore[masterEmail.toLowerCase()] || {};
-    const masterName = masterAcc.name || 'Master Super Admin';
+    const masterEmail = (decodedEmail || SUPERADMIN_IDENTIFIER || '').toLowerCase().trim();
+    let masterName = '';
+
+    if (masterEmail) {
+      try {
+        const { data: prof } = await supabaseAdmin
+          .from('profiles')
+          .select('full_name')
+          .eq('email', masterEmail)
+          .maybeSingle();
+        if (prof?.full_name) {
+          masterName = prof.full_name;
+        }
+      } catch (e) {}
+    }
+
+    if (!masterName) {
+      const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
+      const masterAcc = adminAccountsStore[masterEmail] || {};
+      masterName = masterAcc.name || (masterEmail ? masterEmail.split('@')[0] : 'Super Admin');
+    }
 
     return NextResponse.json(
       {
         authenticated: true,
         user: {
-          id: masterAcc.id || 'super-admin-master-id',
+          id: 'super-admin-master-id',
           email: masterEmail,
           name: masterName,
           role: 'super_admin',
@@ -250,16 +188,33 @@ export async function GET(req: NextRequest) {
 
     const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
     const cfg = configs[slug] || {};
-    const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
-    const resolvedEmail = email || cfg.creatorEmail || '';
-    const acc = adminAccountsStore[resolvedEmail.toLowerCase()] || {};
-    const resolvedName = acc.name || cfg.creatorName || (resolvedEmail ? resolvedEmail.split('@')[0] : 'Tournament Organizer');
+    const resolvedEmail = (email || cfg.creatorEmail || '').toLowerCase().trim();
+    let resolvedName = '';
+
+    if (resolvedEmail) {
+      try {
+        const { data: prof } = await supabaseAdmin
+          .from('profiles')
+          .select('full_name')
+          .eq('email', resolvedEmail)
+          .maybeSingle();
+        if (prof?.full_name) {
+          resolvedName = prof.full_name;
+        }
+      } catch (e) {}
+    }
+
+    if (!resolvedName) {
+      const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
+      const acc = adminAccountsStore[resolvedEmail] || {};
+      resolvedName = cfg.creatorName || acc.name || (resolvedEmail ? resolvedEmail.split('@')[0] : 'Tournament Organizer');
+    }
 
     return NextResponse.json(
       {
         authenticated: true,
         user: {
-          id: acc.id || `organizer-${slug}`,
+          id: `organizer-${slug}`,
           email: resolvedEmail,
           name: resolvedName,
           role: 'super_admin',

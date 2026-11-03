@@ -33,14 +33,70 @@ export default function ProfilePage() {
         }
       } catch (e) {}
 
-      // 1. Fetch unified profile via /api/profile endpoint
+      const effectiveEmail = (authUser?.email || authProfile?.email || '').toLowerCase().trim();
+
+      // 1. Direct fetch from Supabase profiles table (fastest & most accurate source of truth)
       try {
-        const queryEmail = authUser?.email || authProfile?.email || '';
+        const { data: sessionData } = await supabase.auth.getSession();
+        const sessionUser = sessionData?.session?.user;
+        const lookupEmail = effectiveEmail || (sessionUser?.email || '').toLowerCase().trim();
+
+        let dbRecord: any = null;
+        if (sessionUser?.id) {
+          const { data: byId } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', sessionUser.id)
+            .maybeSingle();
+          dbRecord = byId;
+        }
+
+        if ((!dbRecord || !dbRecord.full_name) && lookupEmail) {
+          const { data: byEmail } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', lookupEmail)
+            .maybeSingle();
+          if (byEmail?.full_name) {
+            dbRecord = byEmail;
+          }
+        }
+
+        if (dbRecord) {
+          const resolvedName =
+            dbRecord.full_name ||
+            sessionUser?.user_metadata?.full_name ||
+            sessionUser?.user_metadata?.name ||
+            (lookupEmail ? lookupEmail.split('@')[0] : 'Tournament Athlete');
+
+          setProfile({
+            ...dbRecord,
+            full_name: resolvedName,
+          });
+
+          if (dbRecord.avatar_url && dbRecord.avatar_url.startsWith('data:')) {
+            const kb = Math.round(((dbRecord.avatar_url.length - 22) * 0.75) / 1024);
+            setPhotoInfo({ sizeInKb: kb });
+          }
+          setLoading(false);
+          return;
+        }
+      } catch (dbErr) {
+        console.warn('Direct profiles fetch warning:', dbErr);
+      }
+
+      // 2. Fetch unified profile via /api/profile endpoint
+      try {
+        const queryEmail = effectiveEmail || (authUser?.email || authProfile?.email || '');
         const res = await fetch(`/api/profile${queryEmail ? `?email=${encodeURIComponent(queryEmail)}` : ''}`, { cache: 'no-store' });
         if (res.ok) {
           const apiData = await res.json();
           if (apiData?.success && apiData?.profile) {
-            setProfile(apiData.profile);
+            setProfile((prev) => ({
+              ...prev,
+              ...apiData.profile,
+              full_name: apiData.profile.full_name || prev.full_name || '',
+            }));
             if (apiData.profile.avatar_url && apiData.profile.avatar_url.startsWith('data:')) {
               const kb = Math.round(((apiData.profile.avatar_url.length - 22) * 0.75) / 1024);
               setPhotoInfo({ sizeInKb: kb });
@@ -53,64 +109,34 @@ export default function ProfilePage() {
         console.warn('API profile load error, falling back:', err);
       }
 
-      if (isSuperAdmin && authUser) {
+      // 3. Fallback to active AuthContext profile
+      if (authProfile && authProfile.full_name) {
+        setProfile(authProfile);
+        setLoading(false);
+        return;
+      }
+
+      if (authUser) {
+        const fallbackName =
+          (authUser as any).user_metadata?.full_name ||
+          (authUser as any).user_metadata?.name ||
+          (authUser as any).name ||
+          (authUser.email ? authUser.email.split('@')[0] : 'Tournament Athlete');
+
         setProfile({
-          id: authUser.id || 'super-admin-master-id',
+          id: authUser.id || 'profile-user',
           email: authUser.email || '',
-          full_name: authUser.name || (authUser.email ? authUser.email.split('@')[0] : 'Tournament Host Admin'),
+          full_name: fallbackName,
           primary_role: 'All-rounder',
           batting_style: 'Right-hand bat',
           bowling_style: 'Right-arm medium',
-          system_role: 'super_admin',
+          system_role: (authUser as any).role || 'user',
         });
         setLoading(false);
         return;
       }
 
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData?.session) {
-          if (authUser) {
-            setProfile(authProfile || { id: authUser.id, email: authUser.email });
-            setLoading(false);
-            return;
-          }
-          router.push('/auth/login');
-          return;
-        }
-
-        const user = sessionData.session.user;
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (data) {
-          setProfile(data);
-          if (data.avatar_url) {
-            if (data.avatar_url.startsWith('data:')) {
-              const kb = Math.round(((data.avatar_url.length - 22) * 0.75) / 1024);
-              setPhotoInfo({ sizeInKb: kb });
-            }
-          }
-        } else {
-          setProfile({
-            id: user.id,
-            email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
-            primary_role: 'All-rounder',
-            batting_style: 'Right-hand bat',
-            bowling_style: 'Right-arm medium',
-          });
-        }
-      } catch (err) {
-        if (authProfile) {
-          setProfile(authProfile);
-        }
-      } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     }
     loadProfile();
   }, [isSuperAdmin, authUser, authProfile]);
@@ -124,7 +150,7 @@ export default function ProfilePage() {
       const { dataUrl, sizeInKb } = await compressImageUnder100KB(file);
       setProfile((prev) => ({ ...prev, avatar_url: dataUrl }));
       setPhotoInfo({ sizeInKb });
-      setMsg({ type: 'success', text: `Photo optimized (${sizeInKb} KB / 100 KB max). Remember to click "Save Profile" below!` });
+      setMsg({ type: 'success', text: `Photo optimized (${sizeInKb} KB / 100 KB max). Remember to click "Save Changes" below!` });
     } catch (err: any) {
       setMsg({ type: 'error', text: err.message || 'Failed to process photo' });
     } finally {
@@ -138,15 +164,52 @@ export default function ProfilePage() {
     setMsg(null);
 
     try {
-      const targetEmail = profile.email || authUser?.email || '';
+      const targetEmail = (profile.email || authUser?.email || authProfile?.email || '').toLowerCase().trim();
       if (!targetEmail) throw new Error('Not authenticated. Please sign in again.');
 
+      const newFullName = (profile.full_name || '').trim();
+      if (!newFullName) throw new Error('Please enter your full name.');
+
+      // 1. Directly update Supabase user metadata
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: newFullName,
+            name: newFullName,
+          },
+        });
+      } catch (authErr) {
+        console.warn('Could not update Supabase auth metadata:', authErr);
+      }
+
+      // 2. Directly upsert into Supabase profiles table via client
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const currentUserId = sessionData?.session?.user?.id || profile.id || `user-${Date.now()}`;
+        await supabase.from('profiles').upsert({
+          id: currentUserId,
+          email: targetEmail,
+          full_name: newFullName,
+          avatar_url: profile.avatar_url || null,
+          employee_id: profile.employee_id || null,
+          primary_role: profile.primary_role || 'All-rounder',
+          batting_style: profile.batting_style || 'Right-hand bat',
+          bowling_style: profile.bowling_style || 'Right-arm medium',
+          system_role: profile.system_role || 'user',
+          updated_at: new Date().toISOString(),
+        });
+      } catch (upsertErr) {
+        console.warn('Client direct profiles upsert error:', upsertErr);
+      }
+
+      // 3. Post to unified API endpoint to update backend stores & configs
       const res = await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...profile,
           email: targetEmail,
+          full_name: newFullName,
         }),
       });
 
@@ -155,7 +218,12 @@ export default function ProfilePage() {
         throw new Error(data.error || 'Failed to update profile');
       }
 
-      setProfile(data.profile);
+      setProfile((prev) => ({
+        ...prev,
+        ...data.profile,
+        full_name: newFullName,
+      }));
+
       await refreshProfile();
       setMsg({ type: 'success', text: 'Profile successfully updated!' });
     } catch (err: any) {

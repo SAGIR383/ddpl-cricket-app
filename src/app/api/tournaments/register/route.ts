@@ -844,8 +844,6 @@ export async function POST(req: Request) {
         ballsPerOver: Number(ballsPerOver) || 6,
         pitchType: pitchType || undefined,
         formatTitle: formatTitle || undefined,
-        adminPassword: resolvedAdminPassword,
-        adminPin: resolvedAdminPin,
       };
 
       configs[generatedSlug] = newTournamentConfig;
@@ -879,10 +877,7 @@ export async function POST(req: Request) {
         const prevAccount = adminAccounts[creatorEmail.toLowerCase()] || {};
         const resolvedAdminName = creatorName?.trim() || prevAccount.name || `${name.trim()} Super Admin`;
         adminAccounts[creatorEmail.toLowerCase()] = {
-          ...prevAccount,
           email: creatorEmail.toLowerCase(),
-          password: adminPassword || prevAccount.password || '',
-          pin: adminPin || prevAccount.pin || '',
           name: resolvedAdminName,
           role: 'super_admin',
           tournamentSlug: generatedSlug,
