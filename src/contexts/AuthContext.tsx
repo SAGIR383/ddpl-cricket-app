@@ -134,11 +134,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             adminData.user.id === 'super-admin-master-id' ||
             adminData.user.role === 'super_admin';
           const resolvedRole: SystemRole = isMaster ? 'super_admin' : 'organizer';
-          setUser(adminData.user);
+
+          const cleanAdminName =
+            adminData.user.name &&
+            !adminData.user.name.includes('Super Admin') &&
+            !adminData.user.name.includes('DDPL') &&
+            !adminData.user.name.includes('Organizer')
+              ? adminData.user.name
+              : (adminData.user.email ? adminData.user.email.split('@')[0] : 'User');
+
+          setUser({
+            ...adminData.user,
+            name: cleanAdminName,
+          });
           setProfile({
             id: adminData.user.id,
             email: adminData.user.email,
-            full_name: adminData.user.name,
+            full_name: cleanAdminName,
             avatar_url: null,
             employee_id: isMaster ? 'SUPERADMIN-001' : 'ORGANIZER-001',
             phone: null,

@@ -158,10 +158,11 @@ export async function GET(req: NextRequest) {
       } catch (e) {}
     }
 
-    if (!masterName) {
+    if (!masterName || masterName.includes('Super Admin') || masterName.includes('DDPL')) {
       const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
       const masterAcc = adminAccountsStore[masterEmail] || {};
-      masterName = masterAcc.name || (masterEmail ? masterEmail.split('@')[0] : 'Super Admin');
+      const cleanAccName = masterAcc.name && !masterAcc.name.includes('Super Admin') && !masterAcc.name.includes('DDPL') ? masterAcc.name : '';
+      masterName = cleanAccName || (masterEmail ? masterEmail.split('@')[0] : 'User');
     }
 
     return NextResponse.json(
@@ -204,10 +205,12 @@ export async function GET(req: NextRequest) {
       } catch (e) {}
     }
 
-    if (!resolvedName) {
+    if (!resolvedName || resolvedName.includes('Super Admin') || resolvedName.includes('DDPL')) {
       const adminAccountsStore = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
       const acc = adminAccountsStore[resolvedEmail] || {};
-      resolvedName = cfg.creatorName || acc.name || (resolvedEmail ? resolvedEmail.split('@')[0] : 'Tournament Organizer');
+      const cleanAccName = acc.name && !acc.name.includes('Super Admin') && !acc.name.includes('DDPL') ? acc.name : '';
+      const cleanCfgName = cfg.creatorName && !cfg.creatorName.includes('Super Admin') && !cfg.creatorName.includes('DDPL') ? cfg.creatorName : '';
+      resolvedName = cleanCfgName || cleanAccName || (resolvedEmail ? resolvedEmail.split('@')[0] : 'User');
     }
 
     return NextResponse.json(

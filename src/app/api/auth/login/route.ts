@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
           user: {
             id: `superadmin-${slug}`,
             email: adminAcc.email,
-            name: adminAcc.name || 'Super Admin',
+            name: adminAcc.name && !adminAcc.name.includes('Super Admin') ? adminAcc.name : (adminAcc.email ? adminAcc.email.split('@')[0] : 'User'),
             role: 'super_admin',
             tournamentSlug: slug,
           },
@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
           profile: {
             id: `superadmin-${slug}`,
             email: adminAcc.email,
-            full_name: adminAcc.name || 'Super Admin',
+            full_name: adminAcc.name && !adminAcc.name.includes('Super Admin') ? adminAcc.name : (adminAcc.email ? adminAcc.email.split('@')[0] : 'User'),
             system_role: 'super_admin',
             primary_role: 'All-rounder',
           },
@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
               user: {
                 id: `organizer-${slug}`,
                 email: cfg.creatorEmail,
-                name: `${cfg.name} Super Admin`,
+                name: cfg.creatorName && !cfg.creatorName.includes('Super Admin') ? cfg.creatorName : (cfg.creatorEmail ? cfg.creatorEmail.split('@')[0] : 'User'),
                 role: 'super_admin',
                 tournamentSlug: slug,
               },
@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
               profile: {
                 id: `organizer-${slug}`,
                 email: cfg.creatorEmail,
-                full_name: `${cfg.name} Super Admin`,
+                full_name: cfg.creatorName && !cfg.creatorName.includes('Super Admin') ? cfg.creatorName : (cfg.creatorEmail ? cfg.creatorEmail.split('@')[0] : 'User'),
                 system_role: 'super_admin',
                 primary_role: 'All-rounder',
               },

@@ -875,7 +875,7 @@ export async function POST(req: Request) {
         roles[creatorEmail.toLowerCase()] = 'super_admin';
 
         const prevAccount = adminAccounts[creatorEmail.toLowerCase()] || {};
-        const resolvedAdminName = creatorName?.trim() || prevAccount.name || `${name.trim()} Super Admin`;
+        const resolvedAdminName = creatorName?.trim() || (prevAccount.name && !prevAccount.name.includes('Super Admin') ? prevAccount.name : '') || (creatorEmail ? creatorEmail.split('@')[0] : 'Organizer');
         adminAccounts[creatorEmail.toLowerCase()] = {
           email: creatorEmail.toLowerCase(),
           name: resolvedAdminName,
@@ -1006,7 +1006,7 @@ export async function POST(req: Request) {
 
             let uid = existingProfile?.id;
 
-            const adminDisplayName = creatorName?.trim() || `${name.trim()} Super Admin`;
+            const adminDisplayName = creatorName?.trim() || (creatorEmail ? creatorEmail.split('@')[0] : 'Organizer');
 
             if (!uid) {
               const fallbackAdminPass = process.env.SUPERADMIN_PASSWORD || (typeof crypto !== 'undefined' ? crypto.randomUUID() : `P@ss-${Date.now()}`);

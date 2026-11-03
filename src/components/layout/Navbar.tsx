@@ -19,11 +19,18 @@ export function Navbar() {
   const { language, setLanguage, t } = useLanguage();
   const { currentTheme, customLogo } = useCorporateTheme();
 
-  const displayName =
-    profile?.full_name ||
+  const isGenericAdminName = (n?: string | null) =>
+    Boolean(n && (n.includes('Super Admin') || n.includes('Organizer') || n.includes('admin') || n.includes('DDPL')));
+
+  const rawName =
+    (profile?.full_name && !isGenericAdminName(profile.full_name) ? profile.full_name : null) ||
     (user as any)?.user_metadata?.full_name ||
     (user as any)?.user_metadata?.name ||
-    (user as any)?.name ||
+    ((user as any)?.name && !isGenericAdminName((user as any).name) ? (user as any).name : null);
+
+  const displayName =
+    rawName ||
+    (profile?.full_name ? profile.full_name : null) ||
     (user?.email ? user.email.split('@')[0] : 'User');
 
   const displayInitial = (displayName || 'U').charAt(0).toUpperCase();
