@@ -1111,6 +1111,27 @@ export async function POST(req: Request) {
         console.warn('Organization tournament reference cleanup skipped:', e);
       }
 
+      // 3.2 Clean up Announcements for this deleted tournament
+      try {
+        const tournamentMap = await getStoreData<Record<string, any>>('tournament_announcements', 'tournament_announcements.json', {});
+        if (tournamentMap[targetSlug]) {
+          delete tournamentMap[targetSlug];
+          await setStoreData('tournament_announcements', tournamentMap, 'tournament_announcements.json');
+        }
+
+        const feed = await getStoreData<any[]>('live_announcements_feed', 'announcements_feed.json', []);
+        const filteredFeed = feed.filter((a) => a.tournamentSlug?.toLowerCase() !== targetSlug);
+        await setStoreData('live_announcements_feed', filteredFeed, 'announcements_feed.json');
+
+        const primary = await getStoreData<any>('live_announcement', 'announcement.json', null);
+        if (primary && primary.tournamentSlug?.toLowerCase() === targetSlug) {
+          const nextPrimary = filteredFeed.find((a) => a.isActive && a.message?.trim()) || null;
+          await setStoreData('live_announcement', nextPrimary, 'announcement.json');
+        }
+      } catch (e) {
+        console.warn('Announcement cleanup skipped for deleted tournament:', e);
+      }
+
       // 4. Invalidate server cache so all consumers see the deletion immediately
       invalidateStoreCache();
 

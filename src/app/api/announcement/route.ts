@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export interface LiveAnnouncementData {
   id: string;
   tournamentSlug?: string;
@@ -17,24 +20,16 @@ export interface LiveAnnouncementData {
   updatedBy?: string;
 }
 
-const DEFAULT_ANNOUNCEMENT: LiveAnnouncementData = {
-  id: 'ann-default',
-  tournamentName: 'Global Platform',
-  message: '🏏 Welcome to CricPlus24! Global Corporate & Club Cricket Platform with Live Multiplayer Auctions & Ball-by-Ball Scoring.',
-  type: 'championship',
-  isActive: true,
-  linkText: 'Explore Tournaments',
-  linkUrl: '/tournaments',
-  updatedAt: new Date().toISOString(),
-  updatedBy: 'Master Super Admin',
-};
-
 // GET /api/announcement
-// Supports ?tournament=<slug> for admin management and unscoped for public multi-league ticker
+// Supports:
+// - ?all=true -> returns all announcements (both active and paused) for admin management
+// - ?tournament=<slug> -> returns announcement for specific tournament
+// - default -> returns only active, non-empty announcements for public ticker
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const requestedTournament = searchParams.get('tournament')?.trim().toLowerCase();
+    const returnAll = searchParams.get('all') === 'true';
 
     // 1. Load tournament-scoped announcements map
     const tournamentMap = await getStoreData<Record<string, LiveAnnouncementData>>(
@@ -56,21 +51,48 @@ export async function GET(req: NextRequest) {
       []
     );
 
-    // SCENARIO A: Admin requested a specific tournament's broadcast settings
+    // Gather all unique stored announcements
+    const allStoredMap = new Map<string, LiveAnnouncementData>();
+
+    // Add feed items
+    (Array.isArray(feed) ? feed : []).forEach((item) => {
+      if (item && item.id) allStoredMap.set(item.id, item);
+    });
+
+    // Add tournament map items
+    Object.values(tournamentMap || {}).forEach((item) => {
+      if (item && item.id) allStoredMap.set(item.id, item);
+      else if (item && item.tournamentSlug) allStoredMap.set(`ann-${item.tournamentSlug}`, item);
+    });
+
+    // Add primary item
+    if (primary && primary.id) {
+      allStoredMap.set(primary.id, primary);
+    }
+
+    const allList = Array.from(allStoredMap.values());
+
+    // SCENARIO A: Admin requests full list of all announcements (active & paused)
+    if (returnAll) {
+      return NextResponse.json({
+        success: true,
+        allAnnouncements: allList,
+        activeAnnouncements: allList.filter((a) => a.isActive && a.message?.trim()),
+      });
+    }
+
+    // SCENARIO B: Admin requested a specific tournament's broadcast settings
     if (requestedTournament) {
       let announcement: LiveAnnouncementData | undefined = tournamentMap[requestedTournament];
 
-      // Fallback check against primary if matching slug
       if (!announcement && primary && primary.tournamentSlug?.toLowerCase() === requestedTournament) {
         announcement = primary;
       }
 
-      // Fallback check against feed
       if (!announcement) {
         announcement = feed.find((a) => a.tournamentSlug?.toLowerCase() === requestedTournament);
       }
 
-      // If no announcement exists yet for this specific tournament, return a clean blank template
       if (!announcement) {
         announcement = {
           id: `ann-${requestedTournament}`,
@@ -79,7 +101,7 @@ export async function GET(req: NextRequest) {
           organizationName: '',
           message: '',
           type: 'championship',
-          isActive: false, // Inactive by default
+          isActive: false,
           linkText: 'Register Now',
           linkUrl: `/tournaments/${requestedTournament}`,
           link: `/tournaments/${requestedTournament}`,
@@ -93,7 +115,8 @@ export async function GET(req: NextRequest) {
           success: true,
           tournament: requestedTournament,
           announcement,
-          announcements: announcement.isActive ? [announcement] : [],
+          announcements: announcement.isActive && announcement.message?.trim() ? [announcement] : [],
+          allAnnouncements: allList,
         },
         {
           headers: {
@@ -103,99 +126,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // SCENARIO B: Public request for website / app broadcast ticker
-    // Gather all active announcements from the tournament map
-    const activeTourneyAnnouncements = Object.values(tournamentMap).filter(
-      (a) => a.isActive === true && typeof a.message === 'string' && a.message.trim().length > 0
-    );
-
-    const candidateList: LiveAnnouncementData[] = [...activeTourneyAnnouncements];
-
-    // Check primary announcement if active and not already represented or explicitly paused
-    if (
-      primary &&
-      primary.isActive === true &&
-      primary.message?.trim() &&
-      !candidateList.some(
-        (c) => c.id === primary.id || (c.tournamentSlug && c.tournamentSlug === primary.tournamentSlug)
-      )
-    ) {
-      const isExplicitlyPaused =
-        primary.tournamentSlug && tournamentMap[primary.tournamentSlug.toLowerCase()]?.isActive === false;
-      if (!isExplicitlyPaused) {
-        candidateList.push(primary);
-      }
-    }
-
-    // Check feed items: only active, not paused in tournamentMap, not already present
-    feed.forEach((f) => {
-      if (
-        f.isActive === true &&
-        f.message?.trim() &&
-        !candidateList.some(
-          (c) => c.id === f.id || (c.tournamentSlug && f.tournamentSlug && c.tournamentSlug === f.tournamentSlug)
-        )
-      ) {
-        const isExplicitlyPaused =
-          f.tournamentSlug && tournamentMap[f.tournamentSlug.toLowerCase()]?.isActive === false;
-        if (!isExplicitlyPaused) {
-          candidateList.push(f);
-        }
-      }
-    });
-
-    // Auto-generate tournament status announcement ONLY if tournament status is active
-    // AND the tournament admin has NOT explicitly paused broadcasts (isActive === false)
-    const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
-    Object.values(configs).forEach((cfg: any) => {
-      const slug = cfg?.slug?.toLowerCase();
-      if (!slug) return;
-
-      // Respect organizer's decision: if explicitly paused, NEVER generate auto-announcements!
-      if (tournamentMap[slug]?.isActive === false) {
-        return;
-      }
-
-      // If tournament already has an active manual announcement, don't duplicate
-      if (candidateList.some((c) => c.tournamentSlug?.toLowerCase() === slug)) {
-        return;
-      }
-
-      if (cfg?.status === 'open' || cfg?.status === 'auction' || cfg?.status === 'ongoing') {
-        const statusText =
-          cfg.status === 'open'
-            ? 'Player registrations are officially open! Join the live player auction pool.'
-            : cfg.status === 'auction'
-            ? 'Live Multiplayer Franchise Auction is in progress! Watch the bidding war live.'
-            : 'Tournament matches are currently underway. Follow ball-by-ball action live.';
-
-        candidateList.push({
-          id: `ann-auto-${cfg.slug}`,
-          tournamentSlug: cfg.slug,
-          tournamentName: cfg.name || cfg.slug.toUpperCase(),
-          organizationName: cfg.organizationName || 'Corporate League',
-          message: `${cfg.name}: ${statusText}`,
-          type: cfg.status === 'auction' ? 'live' : 'championship',
-          isActive: true,
-          linkText: cfg.status === 'auction' ? 'Live Auction Room' : 'View Tournament',
-          linkUrl: cfg.status === 'auction' ? `/auction?tournament=${cfg.slug}` : `/tournaments/${cfg.slug}`,
-          link: cfg.status === 'auction' ? `/auction?tournament=${cfg.slug}` : `/tournaments/${cfg.slug}`,
-          updatedAt: cfg.createdAt || new Date().toISOString(),
-          updatedBy: cfg.organizationName || 'Tournament Host',
-        });
-      }
-    });
-
-    // Strict filter: only active, non-empty announcements
-    const finalAnnouncements = candidateList.filter(
+    // SCENARIO C: Public request for website & app ticker
+    // STRICT RULE: Only return explicitly published announcements that are active and non-empty.
+    // Zero auto-generated fake announcements!
+    const activeAnnouncements = allList.filter(
       (a) => a.isActive === true && typeof a.message === 'string' && a.message.trim().length > 0
     );
 
     return NextResponse.json(
       {
         success: true,
-        announcement: finalAnnouncements[0] || null,
-        announcements: finalAnnouncements,
+        announcement: activeAnnouncements[0] || null,
+        announcements: activeAnnouncements,
+        allAnnouncements: allList,
       },
       {
         headers: {
@@ -209,6 +152,7 @@ export async function GET(req: NextRequest) {
         success: false,
         announcement: null,
         announcements: [],
+        allAnnouncements: [],
         error: err.message,
       },
       { status: 500 }
@@ -222,6 +166,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const {
+      id,
+      action,
       message,
       type = 'championship',
       badge,
@@ -233,7 +179,12 @@ export async function POST(req: NextRequest) {
       organizationName,
     } = body;
 
-    const slug = (tournamentSlug || 'ddpl').trim().toLowerCase();
+    // Handle action: 'delete' inside POST for convenience
+    if (action === 'delete') {
+      return executeDelete(body);
+    }
+
+    const slug = (tournamentSlug || '').trim().toLowerCase();
     const resolvedLinkUrl = (body.linkUrl || body.link || (slug ? `/tournaments/${slug}` : '')).trim();
 
     if (!message || !message.trim()) {
@@ -243,18 +194,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const annId = id || `ann-${slug || 'global'}-${Date.now()}`;
+
     const updatedAnnouncement: LiveAnnouncementData = {
-      id: `ann-${slug}-${Date.now()}`,
-      tournamentSlug: slug,
-      tournamentName: tournamentName || slug.toUpperCase(),
+      id: annId,
+      tournamentSlug: slug || undefined,
+      tournamentName: tournamentName || (slug ? slug.toUpperCase() : 'Global'),
       organizationName: organizationName || undefined,
       badge: badge?.trim() || undefined,
       message: message.trim(),
       type: ['breaking', 'live', 'championship', 'alert'].includes(type) ? type : 'championship',
       isActive: Boolean(isActive),
       linkText: linkText?.trim() || 'View League',
-      linkUrl: resolvedLinkUrl || `/tournaments/${slug}`,
-      link: resolvedLinkUrl || `/tournaments/${slug}`,
+      linkUrl: resolvedLinkUrl || (slug ? `/tournaments/${slug}` : '/tournaments'),
+      link: resolvedLinkUrl || (slug ? `/tournaments/${slug}` : '/tournaments'),
       updatedAt: new Date().toISOString(),
       updatedBy: updatedBy || 'Super Admin',
     };
@@ -265,8 +218,10 @@ export async function POST(req: NextRequest) {
       'tournament_announcements.json',
       {}
     );
-    tournamentMap[slug] = updatedAnnouncement;
-    await setStoreData('tournament_announcements', tournamentMap, 'tournament_announcements.json');
+    if (slug) {
+      tournamentMap[slug] = updatedAnnouncement;
+      await setStoreData('tournament_announcements', tournamentMap, 'tournament_announcements.json');
+    }
 
     // 2. Update multi-league feed
     const existingFeed = await getStoreData<LiveAnnouncementData[]>(
@@ -275,16 +230,14 @@ export async function POST(req: NextRequest) {
       []
     );
 
-    // Remove any previous entry for this tournament
+    // Remove any previous entry for this announcement ID or tournament
     const filteredFeed = existingFeed.filter((a) => {
-      const aSlug = a.tournamentSlug?.toLowerCase();
-      if (aSlug && aSlug === slug) return false;
-      // Also purge legacy un-slugged global entries if this is ddpl
-      if (!aSlug && slug === 'ddpl' && a.id?.startsWith('ann-global')) return false;
+      if (a.id === annId) return false;
+      if (slug && a.tournamentSlug?.toLowerCase() === slug) return false;
       return true;
     });
 
-    // If active, prepend; if paused, it stays removed from active feed
+    // If active, prepend; if paused, it stays out of active feed
     const updatedFeed = updatedAnnouncement.isActive
       ? [updatedAnnouncement, ...filteredFeed].slice(0, 20)
       : filteredFeed;
@@ -295,15 +248,9 @@ export async function POST(req: NextRequest) {
     if (updatedAnnouncement.isActive) {
       await setStoreData('live_announcement', updatedAnnouncement, 'announcement.json');
     } else {
-      // If paused, switch primary to another active tournament announcement if one exists
-      const otherActive = Object.values(tournamentMap).find(
-        (a) => a.tournamentSlug?.toLowerCase() !== slug && a.isActive === true && a.message?.trim().length > 0
-      );
-      if (otherActive) {
-        await setStoreData('live_announcement', otherActive, 'announcement.json');
-      } else {
-        await setStoreData('live_announcement', updatedAnnouncement, 'announcement.json');
-      }
+      // If paused, switch primary to another active announcement or null
+      const otherActive = updatedFeed.find((a) => a.isActive && a.message?.trim());
+      await setStoreData('live_announcement', otherActive || null, 'announcement.json');
     }
 
     // 4. Invalidate memory cache
@@ -313,13 +260,125 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      message: updatedAnnouncement.isActive ? 'Broadcast published and live!' : 'Broadcast saved and paused.',
       announcement: updatedAnnouncement,
-      announcements: Object.values(tournamentMap).filter((a) => a.isActive),
+      announcements: updatedFeed.filter((a) => a.isActive),
     });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || 'Internal error' },
       { status: 500 }
     );
+  }
+}
+
+// Helper to execute clean deletion of an announcement
+async function executeDelete(params: { id?: string; tournamentSlug?: string; action?: string }) {
+  const { id, tournamentSlug, action } = params;
+
+  // Option A: Delete all broadcasts completely
+  if (action === 'delete_all') {
+    await Promise.all([
+      setStoreData('tournament_announcements', {}, 'tournament_announcements.json'),
+      setStoreData('live_announcements_feed', [], 'announcements_feed.json'),
+      setStoreData('live_announcement', null, 'announcement.json'),
+    ]);
+
+    invalidateStoreCache('tournament_announcements');
+    invalidateStoreCache('live_announcement');
+    invalidateStoreCache('live_announcements_feed');
+
+    return NextResponse.json({
+      success: true,
+      message: 'All live broadcasts deleted permanently.',
+      allAnnouncements: [],
+      announcements: [],
+    });
+  }
+
+  const targetId = id?.trim();
+  const targetSlug = tournamentSlug?.trim().toLowerCase();
+
+  if (!targetId && !targetSlug) {
+    return NextResponse.json({ success: false, error: 'Broadcast ID or Tournament Slug required for deletion' }, { status: 400 });
+  }
+
+  // 1. Clean tournament map
+  const tournamentMap = await getStoreData<Record<string, LiveAnnouncementData>>(
+    'tournament_announcements',
+    'tournament_announcements.json',
+    {}
+  );
+
+  if (targetSlug && tournamentMap[targetSlug]) {
+    delete tournamentMap[targetSlug];
+  }
+  Object.keys(tournamentMap).forEach((k) => {
+    if (tournamentMap[k]?.id === targetId || (targetSlug && tournamentMap[k]?.tournamentSlug?.toLowerCase() === targetSlug)) {
+      delete tournamentMap[k];
+    }
+  });
+
+  await setStoreData('tournament_announcements', tournamentMap, 'tournament_announcements.json');
+
+  // 2. Clean feed
+  const existingFeed = await getStoreData<LiveAnnouncementData[]>(
+    'live_announcements_feed',
+    'announcements_feed.json',
+    []
+  );
+
+  const updatedFeed = existingFeed.filter((a) => {
+    if (targetId && a.id === targetId) return false;
+    if (targetSlug && a.tournamentSlug?.toLowerCase() === targetSlug) return false;
+    return true;
+  });
+
+  await setStoreData('live_announcements_feed', updatedFeed, 'announcements_feed.json');
+
+  // 3. Clean primary
+  const primary = await getStoreData<LiveAnnouncementData | null>(
+    'live_announcement',
+    'announcement.json',
+    null
+  );
+
+  if (primary && (primary.id === targetId || (targetSlug && primary.tournamentSlug?.toLowerCase() === targetSlug))) {
+    const nextPrimary = updatedFeed.find((a) => a.isActive && a.message?.trim()) || null;
+    await setStoreData('live_announcement', nextPrimary, 'announcement.json');
+  }
+
+  invalidateStoreCache('tournament_announcements');
+  invalidateStoreCache('live_announcement');
+  invalidateStoreCache('live_announcements_feed');
+
+  return NextResponse.json({
+    success: true,
+    message: 'Broadcast deleted permanently.',
+    announcements: updatedFeed.filter((a) => a.isActive),
+    allAnnouncements: updatedFeed,
+  });
+}
+
+// DELETE /api/announcement
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const tournamentSlug = searchParams.get('tournament');
+    const action = searchParams.get('action');
+
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {}
+
+    const resolvedId = id || body.id;
+    const resolvedSlug = tournamentSlug || body.tournamentSlug || body.slug;
+    const resolvedAction = action || body.action;
+
+    return executeDelete({ id: resolvedId, tournamentSlug: resolvedSlug, action: resolvedAction });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

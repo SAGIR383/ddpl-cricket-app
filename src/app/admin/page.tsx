@@ -252,6 +252,16 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
+  // Auto-fetch announcements when switching to announcement tab
+  useEffect(() => {
+    if (activeTab === 'announcement') {
+      loadAllBroadcasts();
+      if (selectedTournament) {
+        loadAnnouncement(selectedTournament);
+      }
+    }
+  }, [activeTab, selectedTournament]);
+
   // Master Super Admin check (Platform Owner vs Tournament Host Admin)
   const isMasterSuperAdmin =
     isSuperAdmin ||
@@ -281,6 +291,9 @@ export default function AdminDashboardPage() {
     linkUrl: '/tournaments',
   });
   const [savingAnnouncement, setSavingAnnouncement] = useState(false);
+  const [allBroadcasts, setAllBroadcasts] = useState<any[]>([]);
+  const [loadingBroadcasts, setLoadingBroadcasts] = useState(false);
+  const [deletingBroadcastId, setDeletingBroadcastId] = useState<string | null>(null);
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [isCreateTournamentModalOpen, setIsCreateTournamentModalOpen] = useState(false);
   const [isCreatingTournament, setIsCreatingTournament] = useState(false);
@@ -333,6 +346,8 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           action: 'create_tournament',
           ...newTournamentForm,
+          creatorEmail: user?.email || (isMasterSuperAdmin ? 'arindamroyaec2009@gmail.com' : ''),
+          creatorName: (user as any)?.name || 'Arindam T Roy',
         }),
       });
       const data = await res.json();
@@ -432,6 +447,102 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const loadAllBroadcasts = async () => {
+    setLoadingBroadcasts(true);
+    try {
+      const res = await fetch('/api/announcement?all=true');
+      if (res.ok) {
+        const d = await res.json();
+        if (Array.isArray(d.allAnnouncements)) {
+          setAllBroadcasts(d.allAnnouncements);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load all broadcasts:', e);
+    } finally {
+      setLoadingBroadcasts(false);
+    }
+  };
+
+  const handleDeleteBroadcast = async (annId: string, slug?: string) => {
+    if (!confirm('Are you sure you want to permanently delete this broadcast? It will immediately stop running and disappear from the website and app.')) {
+      return;
+    }
+    setDeletingBroadcastId(annId);
+    try {
+      const res = await fetch('/api/announcement', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: annId, tournamentSlug: slug }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAllBroadcasts((prev) => prev.filter((b) => b.id !== annId && (!slug || b.tournamentSlug !== slug)));
+        showNotification('Live broadcast permanently deleted!');
+        if (selectedTournament) loadAnnouncement(selectedTournament);
+        loadAllBroadcasts();
+      } else {
+        alert(data.error || 'Failed to delete broadcast');
+      }
+    } catch (err: any) {
+      alert(`Error deleting broadcast: ${err.message}`);
+    } finally {
+      setDeletingBroadcastId(null);
+    }
+  };
+
+  const handleDeleteAllBroadcasts = async () => {
+    if (!confirm('Are you sure you want to permanently delete ALL live broadcasts from the website? The announcement marquee will be completely cleared.')) {
+      return;
+    }
+    setDeletingBroadcastId('all');
+    try {
+      const res = await fetch('/api/announcement?action=delete_all', {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAllBroadcasts([]);
+        setAdminAnnouncement((prev: any) => ({ ...prev, isActive: false, message: '' }));
+        showNotification('All live broadcasts permanently removed from website!');
+        if (selectedTournament) loadAnnouncement(selectedTournament);
+      } else {
+        alert(data.error || 'Failed to delete all broadcasts');
+      }
+    } catch (err: any) {
+      alert(`Error deleting all broadcasts: ${err.message}`);
+    } finally {
+      setDeletingBroadcastId(null);
+    }
+  };
+
+  const handleToggleBroadcast = async (broadcast: any) => {
+    const newActive = !broadcast.isActive;
+    try {
+      const res = await fetch('/api/announcement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...broadcast,
+          isActive: newActive,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAllBroadcasts((prev) =>
+          prev.map((b) => (b.id === broadcast.id ? { ...b, isActive: newActive } : b))
+        );
+        showNotification(newActive ? 'Broadcast activated and live on website!' : 'Broadcast paused and hidden from website.');
+        if (selectedTournament) loadAnnouncement(selectedTournament);
+        loadAllBroadcasts();
+      } else {
+        alert(data.error || 'Failed to toggle broadcast');
+      }
+    } catch (err: any) {
+      alert(`Error updating broadcast: ${err.message}`);
+    }
+  };
+
   const handleSaveAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingAnnouncement(true);
@@ -461,6 +572,7 @@ export default function AdminDashboardPage() {
         } else {
           showNotification(`⏸️ Broadcast paused and completely stopped for ${(currentTourney?.name || selectedTournament.toUpperCase())}.`);
         }
+        loadAllBroadcasts();
       } else {
         alert(data.error || 'Failed to update announcement');
       }
@@ -1879,21 +1991,35 @@ export default function AdminDashboardPage() {
           </p>
         </div>
       ) : (!selectedTournament || visibleTournaments.length === 0) ? (
-        <div className="rounded-3xl p-8 sm:p-12 bg-[#0D1B2A]/90 border border-[#D8AD55]/30 text-center space-y-4 shadow-2xl">
+        <div className="rounded-3xl p-8 sm:p-12 bg-[#0D1B2A]/90 border border-[#D8AD55]/30 text-center space-y-5 shadow-2xl">
           <Trophy className="w-14 h-14 text-[#D8AD55] mx-auto animate-pulse" />
-          <h3 className="font-display font-black text-2xl sm:text-3xl text-white">No Tournaments Hosted Under This Account</h3>
-          <p className="text-xs sm:text-sm text-[#8793A5] max-w-lg mx-auto leading-relaxed">
-            You are signed in as an Organizer. You do not currently have ownership of any active tournament.
-            Launch your company or club&apos;s tournament using the button below, or request the tournament super admin to add your email ({user?.email}) as an organizer.
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push('/tournaments/create')}
-            className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>+ Host &amp; Launch New Tournament</span>
-          </button>
+          <div className="space-y-1">
+            <h3 className="font-display font-black text-2xl sm:text-3xl text-white">
+              {isMasterSuperAdmin ? 'No Active Tournaments Found' : 'No Tournaments Hosted Under This Account'}
+            </h3>
+            <p className="text-xs sm:text-sm text-[#8793A5] max-w-lg mx-auto leading-relaxed">
+              {isMasterSuperAdmin
+                ? `You are signed in as Platform Super Admin (${user?.email || 'Platform Owner'}). Launch a new tournament below to initialize teams, fixtures, live auction, and scoring.`
+                : `You are signed in as an Organizer. You do not currently have ownership of any active tournament. Launch your company or club's tournament using the button below, or request the tournament super admin to add your email (${user?.email}) as an organizer.`}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsCreateTournamentModalOpen(true)}
+              className="btn-press shimmer-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>+ Quick Create Tournament</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/tournaments/create')}
+              className="btn-press inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-[#D8AD55]/40 text-[#F2D69A] hover:bg-[#D8AD55]/10 font-display font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              <span>Custom Tournament Wizard →</span>
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -4159,6 +4285,140 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
+          {/* Active & Scheduled Broadcasts Management */}
+          <div className="rounded-3xl bg-[#0D1B2A]/90 border border-[#D8AD55]/30 p-6 sm:p-8 shadow-xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D8AD55]/20 pb-4">
+              <div className="flex items-center gap-2.5">
+                <Radio className="w-5 h-5 text-[#D8AD55] animate-pulse" />
+                <div>
+                  <h3 className="font-display font-bold text-lg text-white flex items-center gap-2">
+                    <span>Live Running Broadcasts</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40 font-mono">
+                      {allBroadcasts.filter(b => b.isActive).length} Active / {allBroadcasts.length} Total
+                    </span>
+                  </h3>
+                  <p className="text-xs text-[#8793A5]">
+                    Only enabled broadcasts appear on the public website ticker. When you delete or pause a broadcast, it disappears instantly.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadAllBroadcasts}
+                  disabled={loadingBroadcasts}
+                  className="px-3 py-1.5 rounded-xl border border-[#D8AD55]/30 text-xs font-bold text-[#F2D69A] hover:bg-[#D8AD55]/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingBroadcasts ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+                {allBroadcasts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllBroadcasts}
+                    disabled={deletingBroadcastId === 'all'}
+                    className="px-3 py-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 text-xs font-bold text-rose-300 hover:bg-rose-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Clear All Broadcasts</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {loadingBroadcasts ? (
+              <div className="py-8 text-center text-xs text-[#8793A5] flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-[#D8AD55]" />
+                <span>Loading running broadcasts...</span>
+              </div>
+            ) : allBroadcasts.length === 0 ? (
+              <div className="py-6 px-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/15 text-center space-y-1">
+                <p className="text-xs font-semibold text-gray-300">
+                  No live broadcasts are currently running.
+                </p>
+                <p className="text-[11px] text-[#8793A5]">
+                  Use the Broadcast Settings form below to create and publish a new announcement ticker whenever needed.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {allBroadcasts.map((b) => {
+                  const isDeleting = deletingBroadcastId === b.id;
+                  return (
+                    <div
+                      key={b.id || b.tournamentSlug}
+                      className="p-4 rounded-2xl bg-[#08111F] border border-[#D8AD55]/25 hover:border-[#D8AD55]/50 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-0.5 rounded-md bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40 text-[11px] font-bold uppercase tracking-wider font-mono">
+                            {b.tournamentName || b.tournamentSlug?.toUpperCase() || 'GLOBAL'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1 ${
+                            b.isActive
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${b.isActive ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
+                            {b.isActive ? 'Active on Website' : 'Paused / Hidden'}
+                          </span>
+                          {b.badge && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                              {b.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs sm:text-sm font-medium text-white truncate max-w-xl">
+                          {b.message || '(Empty message)'}
+                        </p>
+                        {b.linkUrl && (
+                          <div className="text-[11px] text-[#8793A5] font-mono flex items-center gap-1 truncate">
+                            <span className="text-[#D8AD55]">Link:</span>
+                            <span className="truncate">{b.linkUrl}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBroadcast(b)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            b.isActive
+                              ? 'bg-amber-500/10 border-amber-500/40 text-amber-300 hover:bg-amber-500/20'
+                              : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20'
+                          }`}
+                        >
+                          {b.isActive ? (
+                            <>
+                              <Pause className="w-3.5 h-3.5" />
+                              <span>Pause</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5" />
+                              <span>Stream Live</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBroadcast(b.id, b.tournamentSlug)}
+                          disabled={isDeleting}
+                          className="px-3 py-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                          <span>{isDeleting ? 'Deleting...' : 'Delete Broadcast'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Configuration Form */}
           <form onSubmit={handleSaveAnnouncement} className="rounded-3xl bg-[#0D1B2A]/90 border border-[#D8AD55]/20 p-6 sm:p-8 shadow-xl space-y-6">
             <div className="flex items-center justify-between border-b border-[#D8AD55]/15 pb-4">
@@ -4398,8 +4658,20 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Submit / Save Button */}
-            <div className="flex justify-end pt-2">
+            {/* Submit / Save & Delete Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              {adminAnnouncement.id ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteBroadcast(adminAnnouncement.id, selectedTournament)}
+                  disabled={deletingBroadcastId === adminAnnouncement.id}
+                  className="px-4 py-2.5 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                  <span>{deletingBroadcastId === adminAnnouncement.id ? 'Deleting...' : 'Delete This Broadcast'}</span>
+                </button>
+              ) : <div />}
+
               <button
                 type="submit"
                 disabled={savingAnnouncement}
