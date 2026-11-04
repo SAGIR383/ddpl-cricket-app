@@ -173,7 +173,8 @@ export default function CreateTournamentPage() {
   const [showAdvancedTuning, setShowAdvancedTuning] = useState(false);
 
   const [pursePerTeam, setPursePerTeam] = useState(10000);
-  const [ownerBasePrice, setOwnerBasePrice] = useState(500);
+  const [ownerBasePrice, setOwnerBasePrice] = useState(100);
+  const [defaultPlayerBasePrice, setDefaultPlayerBasePrice] = useState(100);
   const [maxSquad, setMaxSquad] = useState(11);
   const [minSquad, setMinSquad] = useState(7);
   const [startDate, setStartDate] = useState('');
@@ -334,7 +335,8 @@ export default function CreateTournamentPage() {
         pitchType: isCustom ? customPitchType : undefined,
         formatTitle: isCustom ? customFormatName : selectedFormat.name,
         pursePerTeam: tournamentType === 'direct_groups' ? 0 : (Number(pursePerTeam) || 10000),
-        ownerBasePrice: tournamentType === 'direct_groups' ? 0 : (Number(ownerBasePrice) || 500),
+        ownerBasePrice: tournamentType === 'direct_groups' ? 0 : (Number(ownerBasePrice) || 100),
+        defaultPlayerBasePrice: tournamentType === 'direct_groups' ? 0 : (Number(defaultPlayerBasePrice) || Number(ownerBasePrice) || 100),
         maxSquad: Number(maxSquad) || 11,
         minSquad: Number(minSquad) || 7,
         bannerColor: selectedTheme.banner,
@@ -1223,10 +1225,24 @@ export default function CreateTournamentPage() {
                     </label>
                     <input
                       type="number"
-                      min={100}
+                      min={50}
                       step={50}
                       value={ownerBasePrice}
                       onChange={(e) => setOwnerBasePrice(Number(e.target.value))}
+                      className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-gray-200">
+                      Default Player Base Price ({selectedCountry.symbol})
+                    </label>
+                    <input
+                      type="number"
+                      min={50}
+                      step={50}
+                      value={defaultPlayerBasePrice}
+                      onChange={(e) => setDefaultPlayerBasePrice(Number(e.target.value))}
                       className="w-full px-4 py-3 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 text-white text-xs font-bold focus:outline-none focus:border-[#D8AD55]"
                     />
                   </div>

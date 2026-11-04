@@ -19,6 +19,7 @@ export interface TournamentPlayerRegistration {
   registeredAt: string;
   isOwner?: boolean;
   franchiseTeam?: string;
+  basePrice?: number;
 }
 
 export interface TournamentConfig {
@@ -40,6 +41,7 @@ export interface TournamentConfig {
   status: 'upcoming' | 'open' | 'closed' | 'auction' | 'ongoing' | 'completed';
   pursePerTeam: number;
   ownerBasePrice: number;
+  defaultPlayerBasePrice?: number;
   maxSquad: number;
   minSquad: number;
   startDate?: string | null;
@@ -221,9 +223,11 @@ export async function POST(req: Request) {
         []
       );
 
-      // Check for duplicate registration by email
+      // Check for duplicate registration by email or player name
       const isAlreadyRegistered = existingRegistrations.some(
-        (r) => r.email.toLowerCase() === registration.email.toLowerCase()
+        (r) =>
+          (registration.email && r.email?.toLowerCase() === registration.email.toLowerCase()) ||
+          r.name?.trim().toLowerCase() === registration.name?.trim().toLowerCase()
       );
 
       let updatedRegistrations: TournamentPlayerRegistration[];
@@ -231,7 +235,8 @@ export async function POST(req: Request) {
       if (isAlreadyRegistered) {
         // Update existing registration details (e.g. updated photo or role)
         updatedRegistrations = existingRegistrations.map((r) =>
-          r.email.toLowerCase() === registration.email.toLowerCase()
+          (registration.email && r.email?.toLowerCase() === registration.email.toLowerCase()) ||
+          r.name?.trim().toLowerCase() === registration.name?.trim().toLowerCase()
             ? { ...r, ...registration, registeredAt: r.registeredAt || new Date().toISOString() }
             : r
         );
@@ -280,6 +285,14 @@ export async function POST(req: Request) {
 
         // If not an assigned franchise owner, auto-add or update in auction player pool
         if (!isOwner) {
+          const [rulesContainer, configs] = await Promise.all([
+            getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+            getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+          ]);
+          const currentRules = rulesContainer?.tournaments?.[tSlug] || {};
+          const currentConf = configs?.[tSlug] || {};
+          const defaultBase = currentRules.defaultPlayerBasePrice || currentConf.defaultPlayerBasePrice || currentRules.ownerBlockedPrice || currentConf.ownerBasePrice || 100;
+
           const playerIdx = existingPool.findIndex(
             (p: any) => p.name?.toLowerCase() === registration.name.trim().toLowerCase()
           );
@@ -288,7 +301,7 @@ export async function POST(req: Request) {
             id: playerIdx >= 0 ? existingPool[playerIdx].id : `p-reg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             name: registration.name.trim(),
             role: registration.role || 'All Rounder',
-            basePrice: 500,
+            basePrice: registration.basePrice || defaultBase,
             avatarUrl: registration.avatarUrl || null,
             battingStyle: registration.battingStyle || 'Right-hand bat',
             bowlingStyle: registration.bowlingStyle || 'Right-arm medium',
@@ -301,13 +314,22 @@ export async function POST(req: Request) {
             existingPool.push(playerEntry);
           }
 
-          currentTourneyData.playerPool = existingPool;
+          // Deduplicate pool by name
+          const seenPoolNames = new Set<string>();
+          const dedupedPool = existingPool.filter((p: any) => {
+            const key = p.name?.trim().toLowerCase();
+            if (!key || seenPoolNames.has(key)) return false;
+            seenPoolNames.add(key);
+            return true;
+          });
+
+          currentTourneyData.playerPool = dedupedPool;
 
           // If there is currently no active lot on the auction block, board this first player
-          if (!currentTourneyData.currentLot && existingPool.length > 0) {
+          if (!currentTourneyData.currentLot && dedupedPool.length > 0) {
             currentTourneyData.currentLot = {
-              ...existingPool[0],
-              currentBid: existingPool[0].basePrice || 500,
+              ...dedupedPool[0],
+              currentBid: dedupedPool[0].basePrice || defaultBase,
               leadingTeam: null,
               history: [],
             };
@@ -655,11 +677,29 @@ export async function POST(req: Request) {
       // Filter out franchise owners (they are already in their teams)
       const nonOwners = registrations.filter((r) => !r.isOwner);
 
-      const newPool = nonOwners.map((r, idx) => ({
+      // Deduplicate non-owners by name to prevent duplicate player cards in the auction pool
+      const seenRegNames = new Set<string>();
+      const uniqueNonOwners = nonOwners.filter((r) => {
+        const norm = r.name?.trim().toLowerCase();
+        if (!norm || seenRegNames.has(norm)) return false;
+        seenRegNames.add(norm);
+        return true;
+      });
+
+      // Get default base price from tournament rules or configs
+      const [allRulesContainer, allConfigs] = await Promise.all([
+        getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+      ]);
+      const currentRules = allRulesContainer?.tournaments?.[tSlug] || {};
+      const currentConf = allConfigs?.[tSlug] || {};
+      const defaultBase = currentRules.defaultPlayerBasePrice || currentConf.defaultPlayerBasePrice || currentRules.ownerBlockedPrice || currentConf.ownerBasePrice || 100;
+
+      const newPool = uniqueNonOwners.map((r, idx) => ({
         id: `p-reg-${idx + 1}`,
-        name: r.name,
+        name: r.name.trim(),
         role: r.role,
-        basePrice: 500,
+        basePrice: r.basePrice || defaultBase,
         avatarUrl: r.avatarUrl,
         battingStyle: r.battingStyle,
         bowlingStyle: r.bowlingStyle,
@@ -670,7 +710,7 @@ export async function POST(req: Request) {
       if (newPool.length > 0 && !currentTourneyData.currentLot) {
         currentTourneyData.currentLot = {
           ...newPool[0],
-          currentBid: 500,
+          currentBid: newPool[0].basePrice || defaultBase,
           leadingTeam: null,
           history: [],
         };
@@ -708,7 +748,8 @@ export async function POST(req: Request) {
         pitchType,
         formatTitle,
         pursePerTeam = 10000,
-        ownerBasePrice = 500,
+        ownerBasePrice = 100,
+        defaultPlayerBasePrice = 100,
         maxSquad = 11,
         minSquad = 7,
         logo,
@@ -812,7 +853,8 @@ export async function POST(req: Request) {
         logo: resolvedLogo,
         status: status || 'open',
         pursePerTeam: Number(pursePerTeam) || 10000,
-        ownerBasePrice: Number(ownerBasePrice) || 500,
+        ownerBasePrice: Number(ownerBasePrice) || 100,
+        defaultPlayerBasePrice: Number(defaultPlayerBasePrice) || Number(ownerBasePrice) || 100,
         maxSquad: Number(maxSquad) || 11,
         minSquad: Number(minSquad) || 7,
         startDate: startDate || null,
@@ -923,11 +965,11 @@ export async function POST(req: Request) {
 
       // Prepare Tournament Rules
       const rules = {
-        basePurse: newTournamentConfig.pursePerTeam,
-        ownerBlockedPrice: newTournamentConfig.ownerBasePrice,
-        defaultPlayerBasePrice: newTournamentConfig.ownerBasePrice,
-        maxSquadSize: newTournamentConfig.maxSquad,
-        minSquadSize: newTournamentConfig.minSquad,
+        basePurse: newTournamentConfig.pursePerTeam || 10000,
+        ownerBlockedPrice: newTournamentConfig.ownerBasePrice || 100,
+        defaultPlayerBasePrice: Number(defaultPlayerBasePrice) || Number(newTournamentConfig.defaultPlayerBasePrice) || Number(newTournamentConfig.ownerBasePrice) || 100,
+        maxSquadSize: newTournamentConfig.maxSquad || 11,
+        minSquadSize: newTournamentConfig.minSquad || 7,
         matchOvers: newTournamentConfig.overs,
         maxBowlerOvers: newTournamentConfig.maxBowlerOvers || Math.max(1, Math.ceil(newTournamentConfig.overs! / 5)),
         ballsPerOver: newTournamentConfig.ballsPerOver || 6,

@@ -74,8 +74,8 @@ export default function TournamentDetailPage() {
 
   const [rules, setRules] = useState<any>({
     basePurse: 10000,
-    ownerBlockedPrice: 500,
-    defaultPlayerBasePrice: 500,
+    ownerBlockedPrice: 100,
+    defaultPlayerBasePrice: 100,
     maxSquadSize: 11,
     minSquadSize: 7,
   });
@@ -778,7 +778,7 @@ export default function TournamentDetailPage() {
           </div>
           <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
             <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Base Price</div>
-            <div className="font-display font-bold text-base sm:text-lg text-white">₹{rules.defaultPlayerBasePrice || '500'}</div>
+            <div className="font-display font-bold text-base sm:text-lg text-white">₹{rules.defaultPlayerBasePrice !== undefined ? rules.defaultPlayerBasePrice : '100'}</div>
           </div>
           <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
             <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Points / Win</div>

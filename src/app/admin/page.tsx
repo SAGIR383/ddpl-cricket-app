@@ -1300,25 +1300,121 @@ export default function AdminDashboardPage() {
   // Quick Player Addition
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerRole, setNewPlayerRole] = useState('All-rounder');
-  const [newPlayerBase, setNewPlayerBase] = useState(500);
+  const [newPlayerBase, setNewPlayerBase] = useState(100);
 
-  const handleAddPlayer = (e: React.FormEvent) => {
+  const handleAddPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlayerName.trim()) return;
 
+    const trimmedName = newPlayerName.trim();
+    const nameLower = trimmedName.toLowerCase();
+
+    // Prevent duplicate player name in auction pool
+    if (players.some((p) => p.name.trim().toLowerCase() === nameLower)) {
+      alert(`Player "${trimmedName}" is already present in the auction pool.`);
+      return;
+    }
+
+    const assignedBasePrice = Number(newPlayerBase) || auctionRules.defaultPlayerBasePrice || 100;
+
     const newP: PlayerItem = {
       id: `p-${Date.now()}`,
-      name: newPlayerName.trim(),
+      name: trimmedName,
       role: newPlayerRole,
       batting: 'Right-hand bat',
       bowling: 'Right-arm medium',
-      basePrice: newPlayerBase,
+      basePrice: assignedBasePrice,
       status: 'approved',
     };
 
-    setPlayers([...players, newP]);
+    const updatedPlayers = [...players, newP];
+    setPlayers(updatedPlayers);
     setNewPlayerName('');
-    showNotification(`Player "${newP.name}" added to auction pool.`);
+    showNotification(`Player "${newP.name}" (₹${newP.basePrice}) added to auction pool.`);
+
+    // Persist directly to backend auction data so live auction receives this player
+    try {
+      const mappedPool = updatedPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        role: p.role,
+        basePrice: p.basePrice,
+        batting: p.batting,
+        bowling: p.bowling,
+        status: p.status,
+      }));
+
+      await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerPool: mappedPool }),
+      });
+    } catch (saveErr) {
+      console.error('Failed to sync added player to server:', saveErr);
+    }
+  };
+
+  const handleDeletePlayer = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to remove "${name}" from the auction pool?`)) return;
+
+    const updatedPlayers = players.filter((p) => p.id !== id);
+    setPlayers(updatedPlayers);
+    showNotification(`Player "${name}" removed from auction pool.`);
+
+    try {
+      const mappedPool = updatedPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        role: p.role,
+        basePrice: p.basePrice,
+        batting: p.batting,
+        bowling: p.bowling,
+        status: p.status,
+      }));
+
+      await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerPool: mappedPool }),
+      });
+    } catch (saveErr) {
+      console.error('Failed to delete player from server:', saveErr);
+    }
+  };
+
+  const handleCleanDuplicatePlayers = async () => {
+    const seen = new Set<string>();
+    const deduped: PlayerItem[] = [];
+    for (const p of players) {
+      const norm = p.name.trim().toLowerCase();
+      if (norm && !seen.has(norm)) {
+        seen.add(norm);
+        deduped.push(p);
+      }
+    }
+    const removedCount = players.length - deduped.length;
+    setPlayers(deduped);
+    showNotification(`Removed ${removedCount} duplicate player entry(s).`);
+
+    try {
+      const mappedPool = deduped.map((p) => ({
+        id: p.id,
+        name: p.name,
+        role: p.role,
+        basePrice: p.basePrice,
+        batting: p.batting,
+        bowling: p.bowling,
+        status: p.status,
+      }));
+
+      await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerPool: mappedPool }),
+      });
+    } catch (saveErr) {
+      console.error('Failed to sync deduplicated pool:', saveErr);
+    }
   };
 
   // --- 4. USER ROLES & PERMISSIONS MANAGEMENT STATE ---
@@ -1330,8 +1426,8 @@ export default function AdminDashboardPage() {
   // Tournament Rules & Playing Conditions State (Controlled by Super Admin & Organizer)
   const [auctionRules, setAuctionRules] = useState({
     basePurse: 10000,
-    ownerBlockedPrice: 500,
-    defaultPlayerBasePrice: 500,
+    ownerBlockedPrice: 100,
+    defaultPlayerBasePrice: 100,
     maxSquadSize: 11,
     minSquadSize: 7,
     matchOvers: 10,
@@ -1486,10 +1582,11 @@ export default function AdminDashboardPage() {
               },
             ];
 
+            const resolvedDefaultBase = data.rules.defaultPlayerBasePrice !== undefined ? data.rules.defaultPlayerBasePrice : 100;
             setAuctionRules({
               basePurse: data.rules.basePurse || 10000,
-              ownerBlockedPrice: data.rules.ownerBlockedPrice || 500,
-              defaultPlayerBasePrice: data.rules.defaultPlayerBasePrice || 500,
+              ownerBlockedPrice: data.rules.ownerBlockedPrice !== undefined ? data.rules.ownerBlockedPrice : 100,
+              defaultPlayerBasePrice: resolvedDefaultBase,
               maxSquadSize: data.rules.maxSquadSize || 11,
               minSquadSize: data.rules.minSquadSize || 7,
               matchOvers: rOvers,
@@ -1507,6 +1604,7 @@ export default function AdminDashboardPage() {
               stages: Array.isArray(data.rules.stages) && data.rules.stages.length > 0 ? data.rules.stages : defaultStages,
               qualificationRule: data.rules.qualificationRule || 'Top 4 franchises secure direct playoff qualification based on points and Net Run Rate (NRR).',
             });
+            setNewPlayerBase(resolvedDefaultBase);
           }
         }
 
@@ -1539,17 +1637,25 @@ export default function AdminDashboardPage() {
               setSoldTransactions([]);
             }
 
-            // 2. Sync Registered Players Queue (Auction Pool) directly from active auction state
+            // 2. Sync Registered Players Queue (Auction Pool) directly from active auction state with deduplication
             if (aData.data.playerPool && Array.isArray(aData.data.playerPool) && aData.data.playerPool.length > 0) {
-              const mappedPoolPlayers: PlayerItem[] = aData.data.playerPool.map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                role: p.role || 'All-rounder',
-                batting: 'Right-hand bat',
-                bowling: 'Right-arm medium',
-                basePrice: p.basePrice || 500,
-                status: 'approved',
-              }));
+              const seenPoolNames = new Set<string>();
+              const mappedPoolPlayers: PlayerItem[] = [];
+              for (const p of aData.data.playerPool) {
+                const normName = p.name?.trim().toLowerCase();
+                if (normName && !seenPoolNames.has(normName)) {
+                  seenPoolNames.add(normName);
+                  mappedPoolPlayers.push({
+                    id: p.id || `p-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                    name: p.name?.trim(),
+                    role: p.role || 'All-rounder',
+                    batting: p.batting || 'Right-hand bat',
+                    bowling: p.bowling || 'Right-arm medium',
+                    basePrice: p.basePrice || (rulesRes.ok ? auctionRules.defaultPlayerBasePrice : 100) || 100,
+                    status: 'approved',
+                  });
+                }
+              }
               setPlayers(mappedPoolPlayers);
             } else {
               setPlayers([]);
@@ -1623,6 +1729,15 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         invalidateClientCache();
+        setNewPlayerBase(auctionRules.defaultPlayerBasePrice);
+
+        // Also update all player items in the local pool that had default base price
+        const updatedPoolPlayers = players.map((p) => ({
+          ...p,
+          basePrice: p.basePrice === 500 || p.basePrice === 100 || !p.basePrice ? auctionRules.defaultPlayerBasePrice : p.basePrice,
+        }));
+        setPlayers(updatedPoolPlayers);
+
         showNotification(`Rules & Playing Conditions for "${selectedTournament.toUpperCase()}" saved successfully!`);
       } else {
         alert(data.error || 'Failed to save rules');
@@ -3344,12 +3459,28 @@ export default function AdminDashboardPage() {
 
           {/* Players Approval Table */}
           <div className="glass-card overflow-hidden border border-cricket-border shadow-2xl">
-            <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <span className="font-display font-bold text-xl text-white">
-                  Registered Players Queue ({players.length} in Auction Pool)
-                </span>
-                <span className="block text-xs text-cricket-teal font-semibold">
+                <div className="flex items-center gap-3">
+                  <span className="font-display font-bold text-xl text-white">
+                    Registered Players Queue ({players.length} in Auction Pool)
+                  </span>
+                  {(() => {
+                    const names = players.map((p) => p.name.trim().toLowerCase());
+                    const dupCount = names.length - new Set(names).size;
+                    return dupCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={handleCleanDuplicatePlayers}
+                        className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Remove duplicate player entries by name"
+                      >
+                        <span>⚠️ Clean {dupCount} Duplicate{dupCount > 1 ? 's' : ''}</span>
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
+                <span className="block text-xs text-cricket-teal font-semibold mt-0.5">
                   Excludes {teams.length} Retained Franchise Owners (Owner-players are assigned under Franchise &amp; Teams)
                 </span>
               </div>
@@ -3391,24 +3522,34 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-right">
-                        {p.status === 'pending' ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleUpdatePlayerStatus(p.id, 'approved')}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs transition-colors"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleUpdatePlayerStatus(p.id, 'rejected')}
-                              className="px-2.5 py-1 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 font-bold text-xs transition-colors"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-cricket-muted italic">Ready</span>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {p.status === 'pending' ? (
+                            <>
+                              <button
+                                onClick={() => handleUpdatePlayerStatus(p.id, 'approved')}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs transition-colors"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleUpdatePlayerStatus(p.id, 'rejected')}
+                                className="px-2.5 py-1 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 font-bold text-xs transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-cricket-muted italic">Ready</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePlayer(p.id, p.name)}
+                            className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                            title={`Remove "${p.name}" from auction pool`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

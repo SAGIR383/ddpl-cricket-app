@@ -6,8 +6,8 @@ export const revalidate = 0;
 
 const DEFAULT_DDPL_RULES = {
   basePurse: 10000,
-  ownerBlockedPrice: 500,
-  defaultPlayerBasePrice: 500,
+  ownerBlockedPrice: 100,
+  defaultPlayerBasePrice: 100,
   bidSteps: [50, 100, 200, 500],
   maxSquadSize: 11,
   minSquadSize: 7,
@@ -46,8 +46,8 @@ const DEFAULT_DDPL_RULES = {
 
 const DEFAULT_GOR_RULES = {
   basePurse: 10000,
-  ownerBlockedPrice: 500,
-  defaultPlayerBasePrice: 500,
+  ownerBlockedPrice: 100,
+  defaultPlayerBasePrice: 100,
   bidSteps: [50, 100, 200, 500],
   maxSquadSize: 11,
   minSquadSize: 7,
@@ -123,7 +123,8 @@ export async function GET(req: Request) {
         ...DEFAULT_DDPL_RULES,
         matchOvers: currentConfig.overs || 10,
         basePurse: currentConfig.pursePerTeam || 10000,
-        ownerBlockedPrice: currentConfig.ownerBasePrice || 500,
+        ownerBlockedPrice: currentConfig.ownerBasePrice || 100,
+        defaultPlayerBasePrice: currentConfig.defaultPlayerBasePrice || currentConfig.ownerBasePrice || 100,
         maxSquadSize: currentConfig.maxSquad || 11,
         minSquadSize: currentConfig.minSquad || 7,
       };
@@ -150,7 +151,7 @@ export async function GET(req: Request) {
         ...targetRules,
         matchOvers,
         maxBowlerOvers: defaultBowlerLimit,
-        effectivePurse: (targetRules.basePurse || 10000) - (targetRules.ownerBlockedPrice || 500),
+        effectivePurse: (targetRules.basePurse || 10000) - (targetRules.ownerBlockedPrice || 100),
       },
     },
     {
@@ -209,11 +210,15 @@ export async function POST(req: Request) {
       ? Number(maxBowlerOvers)
       : (currentRules.maxBowlerOvers || Math.max(1, Math.ceil(parsedMatchOvers / 5)));
 
+    const resolvedBasePurse = Number(basePurse) || currentRules.basePurse || Number(currentConfig?.pursePerTeam) || 10000;
+    const resolvedOwnerBase = ownerBlockedPrice !== undefined ? Number(ownerBlockedPrice) : (currentRules.ownerBlockedPrice || Number(currentConfig?.ownerBasePrice) || 100);
+    const resolvedDefaultBase = defaultPlayerBasePrice !== undefined ? Number(defaultPlayerBasePrice) : (currentRules.defaultPlayerBasePrice || 100);
+
     const updated = {
       ...currentRules,
-      basePurse: Number(basePurse) || currentRules.basePurse || Number(currentConfig?.pursePerTeam) || 10000,
-      ownerBlockedPrice: Number(ownerBlockedPrice) || currentRules.ownerBlockedPrice || Number(currentConfig?.ownerBasePrice) || 500,
-      defaultPlayerBasePrice: Number(defaultPlayerBasePrice) || currentRules.defaultPlayerBasePrice || 500,
+      basePurse: resolvedBasePurse,
+      ownerBlockedPrice: resolvedOwnerBase,
+      defaultPlayerBasePrice: resolvedDefaultBase,
       bidSteps: Array.isArray(bidSteps) ? bidSteps : currentRules.bidSteps,
       maxSquadSize: Number(maxSquadSize) || currentRules.maxSquadSize || Number(currentConfig?.maxSquad) || 11,
       minSquadSize: Number(minSquadSize) || currentRules.minSquadSize || Number(currentConfig?.minSquad) || 7,
@@ -241,6 +246,7 @@ export async function POST(req: Request) {
       configs[tournament].overs = parsedMatchOvers;
       configs[tournament].pursePerTeam = updated.basePurse;
       configs[tournament].ownerBasePrice = updated.ownerBlockedPrice;
+      configs[tournament].defaultPlayerBasePrice = updated.defaultPlayerBasePrice;
       configs[tournament].maxSquad = updated.maxSquadSize;
       configs[tournament].minSquad = updated.minSquadSize;
       configs[tournament].pointsPerWin = updated.pointsPerWin;
@@ -249,6 +255,43 @@ export async function POST(req: Request) {
       configs[tournament].pathwayBadge = updated.pathwayBadge;
       configs[tournament].stages = updated.stages;
       configs[tournament].qualificationRule = updated.qualificationRule;
+    }
+
+    // AUTO-SYNC TO AUCTION STATE:
+    // Update auction_data_ddpl for this tournament so live auction immediately uses the new default player base price
+    try {
+      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      if (allAuction?.tournaments?.[tournament]) {
+        const tourneyAuction = allAuction.tournaments[tournament];
+        let auctionChanged = false;
+
+        if (Array.isArray(tourneyAuction.playerPool)) {
+          tourneyAuction.playerPool = tourneyAuction.playerPool.map((p: any) => {
+            if (!p.basePrice || p.basePrice === 500 || p.basePrice === currentRules.defaultPlayerBasePrice) {
+              auctionChanged = true;
+              return { ...p, basePrice: updated.defaultPlayerBasePrice };
+            }
+            return p;
+          });
+        }
+
+        if (tourneyAuction.currentLot && !tourneyAuction.currentLot.leadingTeam) {
+          tourneyAuction.currentLot = {
+            ...tourneyAuction.currentLot,
+            basePrice: updated.defaultPlayerBasePrice,
+            currentBid: updated.defaultPlayerBasePrice,
+          };
+          auctionChanged = true;
+        }
+
+        if (auctionChanged) {
+          tourneyAuction.lastUpdated = new Date().toISOString();
+          await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+          invalidateStoreCache('auction_data_ddpl');
+        }
+      }
+    } catch (auctionSyncErr) {
+      console.error('Failed to auto-sync auction base prices:', auctionSyncErr);
     }
 
     // Persist all data simultaneously

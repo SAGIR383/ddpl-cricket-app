@@ -87,8 +87,8 @@ export default function AuctionPage() {
   // Dynamic Auction Rules (from /api/admin/rules)
   const [rules, setRules] = useState({
     basePurse: 10000,
-    ownerBlockedPrice: 500,
-    defaultPlayerBasePrice: 500,
+    ownerBlockedPrice: 100,
+    defaultPlayerBasePrice: 100,
     bidSteps: [50, 100, 200, 500],
     maxSquadSize: 11,
     matchOvers: 10,
@@ -194,11 +194,12 @@ export default function AuctionPage() {
           }
         }
 
+        const resolvedDefaultBase = rulesData?.rules?.defaultPlayerBasePrice !== undefined ? rulesData.rules.defaultPlayerBasePrice : 100;
         if (rulesData?.success && rulesData.rules) {
           setRules({
             basePurse: rulesData.rules.basePurse || 10000,
-            ownerBlockedPrice: rulesData.rules.ownerBlockedPrice || 500,
-            defaultPlayerBasePrice: rulesData.rules.defaultPlayerBasePrice || 500,
+            ownerBlockedPrice: rulesData.rules.ownerBlockedPrice !== undefined ? rulesData.rules.ownerBlockedPrice : 100,
+            defaultPlayerBasePrice: resolvedDefaultBase,
             bidSteps: rulesData.rules.bidSteps || [50, 100, 200, 500],
             maxSquadSize: rulesData.rules.maxSquadSize || 11,
             matchOvers: rulesData.rules.matchOvers || 10,
@@ -209,23 +210,45 @@ export default function AuctionPage() {
         if (auctionData?.success && auctionData.data) {
           const d = auctionData.data;
           setTeams(Array.isArray(d.teams) ? d.teams : []);
-          setPlayerPool(Array.isArray(d.playerPool) ? d.playerPool : []);
+
+          // Deduplicate player pool by trimmed lowercase name to prevent same player appearing twice
+          const rawPool: ParsedPlayer[] = Array.isArray(d.playerPool) ? d.playerPool : [];
+          const seenNames = new Set<string>();
+          const dedupedPool: ParsedPlayer[] = [];
+          for (const p of rawPool) {
+            const key = p.name?.trim().toLowerCase();
+            if (key && !seenNames.has(key)) {
+              seenNames.add(key);
+              dedupedPool.push({
+                ...p,
+                basePrice: p.basePrice || resolvedDefaultBase,
+              });
+            }
+          }
+
+          setPlayerPool(dedupedPool);
           setSoldTransactions(Array.isArray(d.soldTransactions) ? d.soldTransactions : []);
           setUnsoldPlayers(Array.isArray(d.unsoldPlayers) ? d.unsoldPlayers : []);
           if (d.auctionStatus) setAuctionStatus(d.auctionStatus);
           if (d.biddingAccessEnabled !== undefined) setBiddingAccessEnabled(d.biddingAccessEnabled);
           if (d.teamBiddingAccess) setTeamBiddingAccess(d.teamBiddingAccess);
           if (d.timerSeconds !== undefined) setCountdown(d.timerSeconds);
-          if (d.currentLot !== undefined) {
-            setCurrentLot(d.currentLot);
-          } else if (d.playerPool && d.playerPool.length > 0) {
-            const p0 = d.playerPool[0];
+
+          if (d.currentLot !== undefined && d.currentLot !== null) {
+            const curLotBase = d.currentLot.basePrice || resolvedDefaultBase;
+            setCurrentLot({
+              ...d.currentLot,
+              basePrice: curLotBase,
+              currentBid: d.currentLot.currentBid || curLotBase,
+            });
+          } else if (dedupedPool.length > 0) {
+            const p0 = dedupedPool[0];
             setCurrentLot({
               id: p0.id,
               name: p0.name,
               role: p0.role,
-              basePrice: p0.basePrice || 500,
-              currentBid: p0.basePrice || 500,
+              basePrice: p0.basePrice || resolvedDefaultBase,
+              currentBid: p0.basePrice || resolvedDefaultBase,
               leadingTeam: null,
               history: [],
             });
@@ -716,7 +739,7 @@ export default function AuctionPage() {
 
     const reAuctionPool: ParsedPlayer[] = unsoldPlayers.map((name, idx) => {
       const existing = playerPool.find((p) => p.name === name);
-      const rawBase = existing?.basePrice || rules.defaultPlayerBasePrice || 500;
+      const rawBase = existing?.basePrice || rules.defaultPlayerBasePrice || 100;
       const basePrice = discount50Percent ? Math.max(100, Math.floor(rawBase / 2)) : rawBase;
       return {
         id: `p-accel-${idx + 1}`,

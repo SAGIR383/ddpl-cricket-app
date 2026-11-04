@@ -93,6 +93,29 @@ export async function POST(req: Request) {
     let updatedTeams = body.teams || currentTournamentData.teams;
     let updatedSold = body.soldTransactions || currentTournamentData.soldTransactions;
 
+    // Deduplicate player pool by trimmed lowercase name
+    let updatedPlayerPool = body.playerPool !== undefined ? body.playerPool : currentTournamentData.playerPool;
+    if (Array.isArray(updatedPlayerPool)) {
+      const seenNames = new Set<string>();
+      updatedPlayerPool = updatedPlayerPool.filter((p: any) => {
+        const key = p.name?.trim().toLowerCase();
+        if (!key || seenNames.has(key)) return false;
+        seenNames.add(key);
+        return true;
+      });
+    }
+
+    let updatedUnsold = body.unsoldPlayers !== undefined ? body.unsoldPlayers : currentTournamentData.unsoldPlayers;
+    if (Array.isArray(updatedUnsold)) {
+      const seenUnsold = new Set<string>();
+      updatedUnsold = updatedUnsold.filter((name: any) => {
+        const key = String(name).trim().toLowerCase();
+        if (!key || seenUnsold.has(key)) return false;
+        seenUnsold.add(key);
+        return true;
+      });
+    }
+
     if (body.updateTeamLeadership) {
       const { teamId, captain, viceCaptain } = body.updateTeamLeadership;
       updatedTeams = (currentTournamentData.teams || []).map((t: any) =>
@@ -115,7 +138,9 @@ export async function POST(req: Request) {
       ...currentTournamentData,
       ...body,
       teams: updatedTeams,
+      playerPool: updatedPlayerPool,
       soldTransactions: updatedSold,
+      unsoldPlayers: updatedUnsold,
       lastUpdated: new Date().toISOString(),
     };
 

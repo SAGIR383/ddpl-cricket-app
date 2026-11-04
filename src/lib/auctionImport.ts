@@ -31,8 +31,8 @@ export function parseAuctionWorkbook(
   arrayBuffer: ArrayBuffer,
   rules: AuctionImportRules = {
     basePurse: 10000,
-    ownerBlockedPrice: 500,
-    defaultPlayerBasePrice: 500,
+    ownerBlockedPrice: 100,
+    defaultPlayerBasePrice: 100,
     maxSquadSize: 11,
   }
 ) {
