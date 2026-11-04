@@ -39,11 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = createClient();
 
-  // Helper to fetch backend assigned role for any email (cached for 60s)
+  // Helper to fetch backend assigned role for any email
   const fetchAssignedRole = async (email: string): Promise<SystemRole> => {
     try {
-      const data = await fetchWithCache<any>(`/api/roles/me?email=${encodeURIComponent(email)}`, { ttlMs: 60000 });
-      if (data?.role) return data.role as SystemRole;
+      const res = await fetch(`/api/roles/me?email=${encodeURIComponent(email)}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.role) return data.role as SystemRole;
+      }
     } catch (err) {
       console.error('Error fetching assigned role:', err);
     }
@@ -78,8 +81,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         userEmail?.toLowerCase() === 'superadmin@cricplus.com' ||
         userEmail?.toLowerCase() === 'superadmin@cricpluse.com';
 
+      const hasAdminCookie =
+        typeof document !== 'undefined' &&
+        (document.cookie.includes('cricplus_superadmin=') || document.cookie.includes('cricpluse_superadmin='));
+
       // Fetch role assigned by Super Admin in backend
-      const assignedRole = isMasterEmail
+      const assignedRole = (isMasterEmail || hasAdminCookie)
         ? 'super_admin'
         : (userEmail ? await fetchAssignedRole(userEmail) : 'user');
 

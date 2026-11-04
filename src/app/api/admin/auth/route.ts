@@ -55,7 +55,75 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    // 2. Check Supabase Auth credentials for users with assigned super_admin or organizer role
+    // 2. Check Tournament Host & Super Admin accounts store (Direct verification for hosted leagues)
+    try {
+      const [adminAccounts, configs, roles] = await Promise.all([
+        getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+        getStoreData<Record<string, string>>('user_roles', 'roles.json', {}),
+      ]);
+
+      const acc = adminAccounts[normalizedUser];
+      let matchedConfig: any = null;
+
+      // Also search tournament configs for creator email
+      for (const cfg of Object.values(configs)) {
+        if (
+          cfg.creatorEmail?.toLowerCase() === normalizedUser ||
+          (Array.isArray(cfg.adminEmails) && cfg.adminEmails.some((e: string) => e.toLowerCase() === normalizedUser))
+        ) {
+          matchedConfig = cfg;
+          break;
+        }
+      }
+
+      const expectedPassword = acc?.password || matchedConfig?.adminPassword;
+      const expectedPin = acc?.pin || matchedConfig?.adminPin;
+
+      if (
+        (expectedPassword && providedPass === expectedPassword) ||
+        (expectedPin && providedPass === expectedPin)
+      ) {
+        const resolvedEmail = normalizedUser;
+        const resolvedName = acc?.name || matchedConfig?.creatorName || normalizedUser.split('@')[0];
+        const assignedRole = roles[normalizedUser] || acc?.role || 'super_admin';
+        const targetSlug = acc?.tournamentSlug || matchedConfig?.slug || '';
+
+        const token = `active_session:${Buffer.from(resolvedEmail).toString('base64')}`;
+
+        const response = NextResponse.json({
+          success: true,
+          user: {
+            id: `super-admin-${Buffer.from(resolvedEmail).toString('hex').slice(0, 8)}`,
+            email: resolvedEmail,
+            name: resolvedName,
+            role: assignedRole,
+            tournamentSlug: targetSlug,
+          },
+          tournamentSlug: targetSlug,
+        });
+
+        // Set session cookies for both active domain & subdomains
+        response.cookies.set('cricplus_superadmin', token, {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+        response.cookies.set('cricpluse_superadmin', token, {
+          path: '/',
+          httpOnly: false,
+          maxAge: 60 * 60 * 24 * 7,
+          sameSite: 'lax',
+        });
+
+        return response;
+      }
+    } catch (storeAuthErr) {
+      console.warn('Super admin accounts store check failed:', storeAuthErr);
+    }
+
+    // 3. Check Supabase Auth credentials for users with assigned super_admin or organizer role
     try {
       const roles = await getStoreData<Record<string, string>>('user_roles', 'roles.json', {});
       const assignedRole = roles[normalizedUser];

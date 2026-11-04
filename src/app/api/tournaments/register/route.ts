@@ -867,6 +867,8 @@ export async function POST(req: Request) {
         currencySymbol: currencySymbol?.trim() || '₹',
         creatorEmail: creatorEmail?.trim() || undefined,
         creatorName: creatorName?.trim() || undefined,
+        adminPassword: resolvedAdminPassword,
+        adminPin: resolvedAdminPin,
         isPublic: Boolean(isPublic),
         maxBowlerOvers: Number(maxBowlerOvers) || Math.max(1, Math.ceil(resolvedOvers / 5)),
         ballsPerOver: Number(ballsPerOver) || 6,
@@ -908,6 +910,8 @@ export async function POST(req: Request) {
           email: creatorEmail.toLowerCase(),
           name: resolvedAdminName,
           role: 'super_admin',
+          password: resolvedAdminPassword,
+          pin: resolvedAdminPin,
           tournamentSlug: generatedSlug,
           tournamentName: name.trim(),
           updatedAt: new Date().toISOString(),
@@ -1083,7 +1087,7 @@ export async function POST(req: Request) {
       });
 
       if (creatorEmail) {
-        const token = `organizer_session:${generatedSlug}:${Buffer.from(creatorEmail).toString('base64')}`;
+        const token = `active_session:${Buffer.from(creatorEmail.toLowerCase().trim()).toString('base64')}`;
         response.cookies.set('cricplus_superadmin', token, {
           path: '/',
           httpOnly: false,

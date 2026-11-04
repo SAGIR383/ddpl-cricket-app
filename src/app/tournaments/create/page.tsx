@@ -131,7 +131,7 @@ const FORMAT_OPTIONS = [
 
 export default function CreateTournamentPage() {
   const router = useRouter();
-  const { user, isSuperAdmin, profile } = useAuth();
+  const { user, isSuperAdmin, profile, refreshProfile } = useAuth();
 
   // Wizard Step
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -374,6 +374,21 @@ export default function CreateTournamentPage() {
 
       if (res.ok && data?.success && data?.tournament) {
         setCreatedResult(data.tournament);
+
+        // Immediately set authentication cookies and selected tournament in client
+        if (typeof document !== 'undefined') {
+          const authEmail = organizerEmail.toLowerCase().trim();
+          const token = `active_session:${btoa(authEmail)}`;
+          document.cookie = `cricplus_superadmin=${token}; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `cricpluse_superadmin=${token}; path=/; max-age=604800; SameSite=Lax`;
+          localStorage.setItem('cricplus_admin_selected_tournament', data.tournament.slug);
+        }
+
+        if (refreshProfile) {
+          try {
+            await refreshProfile();
+          } catch {}
+        }
       } else {
         alert(data?.error || `Failed to create tournament (Status: ${res.status}). Please try again.`);
       }
@@ -1592,9 +1607,9 @@ export default function CreateTournamentPage() {
 
             {/* Launchpad Quick Action Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <Link
+              <a
                 href={`/admin?tournament=${createdResult.slug}`}
-                className="p-3.5 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-purple-500/40 hover:border-purple-400 transition-all flex items-center justify-between text-white group sm:col-span-2 shadow-lg"
+                className="p-3.5 rounded-2xl bg-[#08111F] hover:bg-[#111D2D] border border-purple-500/40 hover:border-purple-400 transition-all flex items-center justify-between text-white group sm:col-span-2 shadow-lg cursor-pointer"
               >
                 <div>
                   <div className="font-bold text-purple-300 text-sm flex items-center gap-1.5">
@@ -1604,7 +1619,7 @@ export default function CreateTournamentPage() {
                   <div className="text-[11px] text-[#8793A5]">Manage Teams, Assign Owners, Approvals &amp; Run Live Auction</div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
+              </a>
 
               <Link
                 href={`/tournaments/${createdResult.slug}`}
@@ -1667,7 +1682,9 @@ export default function CreateTournamentPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => router.push(`/admin?tournament=${createdResult.slug}`)}
+                onClick={() => {
+                  window.location.href = `/admin?tournament=${createdResult.slug}`;
+                }}
                 className="btn-press px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-bold text-xs uppercase tracking-wider shadow-lg cursor-pointer"
               >
                 Go to Super Admin Console →

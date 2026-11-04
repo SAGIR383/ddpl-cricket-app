@@ -1852,6 +1852,9 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        if (data.tournamentSlug && typeof window !== 'undefined') {
+          localStorage.setItem('cricplus_admin_selected_tournament', data.tournamentSlug);
+        }
         if (refreshProfile) {
           await refreshProfile();
         }
