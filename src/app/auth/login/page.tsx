@@ -41,10 +41,49 @@ export default function LoginPage() {
 
   // Common UI state
   const [loading, setLoading] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const supabase = createClient();
+
+  // Read error param from URL on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlErr = params.get('error') || params.get('error_description');
+      if (urlErr) {
+        setErrorMsg(decodeURIComponent(urlErr));
+      }
+    }
+  }, []);
+
+  async function handleResendVerification(targetEmail?: string) {
+    const emailToUse = (targetEmail || email || resetEmail).trim().toLowerCase();
+    if (!emailToUse) {
+      setErrorMsg('Please enter your email address to resend the verification link.');
+      return;
+    }
+    setResendingVerification(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToUse }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to resend verification email.');
+      }
+      setSuccessMsg(data.message || 'Verification link sent! Please check your email inbox.');
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Failed to resend verification email.');
+    } finally {
+      setResendingVerification(false);
+    }
+  }
 
   // Timer for OTP resend
   useEffect(() => {
@@ -331,9 +370,24 @@ export default function LoginPage() {
 
         {/* Status Alerts */}
         {errorMsg && (
-          <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-xs text-red-300">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{errorMsg}</span>
+          <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex flex-col gap-2 text-xs text-red-300">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+            {(errorMsg.toLowerCase().includes('confirm') ||
+              errorMsg.toLowerCase().includes('expired') ||
+              errorMsg.toLowerCase().includes('invalid')) && (
+              <button
+                type="button"
+                onClick={() => handleResendVerification()}
+                disabled={resendingVerification}
+                className="self-start mt-1 px-3 py-1.5 rounded-lg bg-[#D8AD55]/20 hover:bg-[#D8AD55]/30 border border-[#D8AD55]/40 text-[#F2D69A] font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>{resendingVerification ? 'Sending fresh link...' : '✉️ Resend Verification Link'}</span>
+              </button>
+            )}
           </div>
         )}
 

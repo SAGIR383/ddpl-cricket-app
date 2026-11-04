@@ -40,6 +40,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Resolve real working origin so verification links always redirect back to the live app
+    const requestOrigin =
+      req.headers.get('origin') ||
+      (req.headers.get('x-forwarded-host')
+        ? `https://${req.headers.get('x-forwarded-host')}`
+        : null) ||
+      req.nextUrl.origin ||
+      'https://cricplus24.vercel.app';
+
+    const redirectUrl = `${requestOrigin}/auth/callback?next=/profile`;
+
     const { data: signUpData, error: signUpError } = await ssrClient.auth.signUp({
       email: cleanEmail,
       password,
@@ -47,6 +58,7 @@ export async function POST(req: NextRequest) {
         data: {
           full_name: cleanName,
         },
+        emailRedirectTo: redirectUrl,
       },
     });
 
