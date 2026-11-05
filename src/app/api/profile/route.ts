@@ -31,11 +31,11 @@ export async function GET(req: NextRequest) {
     const userProfiles = await getStoreData<Record<string, any>>('user_profiles', 'user_profiles.json', {});
     const adminAccounts = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
 
-    const fallbackEmail = Object.keys(adminAccounts)[0] || '';
-    const finalEmail = (queryEmail || userEmail || fallbackEmail).toLowerCase().trim();
+    // Strictly require a specific email - NEVER fall back to another user's or super admin's account
+    const finalEmail = (queryEmail || userEmail || '').toLowerCase().trim();
 
     if (!finalEmail) {
-      return NextResponse.json({ success: false, error: 'No authenticated email' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'No authenticated email provided' }, { status: 400 });
     }
 
     const userProf = userProfiles[finalEmail] || {};

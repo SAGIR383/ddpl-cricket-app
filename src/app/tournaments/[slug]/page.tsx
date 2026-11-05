@@ -241,25 +241,32 @@ export default function TournamentDetailPage() {
 
       const activeProfile = fetchedProfile || profile;
 
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const isEmailMatch = (activeProfile?.email || '').toLowerCase().trim() === userEmail;
+
       const resolvedName =
-        activeProfile?.full_name ||
+        (isEmailMatch && activeProfile?.full_name ? activeProfile.full_name : null) ||
         user.user_metadata?.full_name ||
         user.user_metadata?.name ||
         (user as any).name ||
         user.email?.split('@')[0] ||
         '';
 
-      const resolvedEmail = activeProfile?.email || user.email || '';
-      const resolvedPhone = activeProfile?.phone || '';
-      const resolvedRole = activeProfile?.primary_role || 'All Rounder';
-      const resolvedBatting = activeProfile?.batting_style || 'Right-hand bat';
-      const resolvedBowling = activeProfile?.bowling_style || 'Right-arm medium';
-      const targetEmail = (activeProfile?.email || user.email || '').toLowerCase().trim();
+      const resolvedEmail = userEmail;
+      const resolvedPhone = (isEmailMatch && activeProfile?.phone) || '';
+      const resolvedRole = (isEmailMatch && activeProfile?.primary_role) || 'All Rounder';
+      const resolvedBatting = (isEmailMatch && activeProfile?.batting_style) || 'Right-hand bat';
+      const resolvedBowling = (isEmailMatch && activeProfile?.bowling_style) || 'Right-arm medium';
+
       const localCachedAvatar =
-        typeof window !== 'undefined' && targetEmail
-          ? localStorage.getItem(`cricplus_avatar_${targetEmail}`)
+        typeof window !== 'undefined' && userEmail
+          ? localStorage.getItem(`cricplus_avatar_${userEmail}`)
           : null;
-      const resolvedAvatar = activeProfile?.avatar_url || user.user_metadata?.avatar_url || localCachedAvatar || '';
+
+      const resolvedAvatar =
+        (isEmailMatch && activeProfile?.avatar_url) ||
+        localCachedAvatar ||
+        '';
 
       setRegForm({
         name: resolvedName,

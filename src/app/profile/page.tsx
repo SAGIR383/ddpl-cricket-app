@@ -116,29 +116,31 @@ export default function ProfilePage() {
         console.warn('Direct profiles fetch warning:', dbErr);
       }
 
-      // 2. Fetch unified profile via /api/profile endpoint
+      // 2. Fetch unified profile via /api/profile endpoint (strictly for this user's email)
       try {
-        const queryEmail = effectiveEmail || (authUser?.email || authProfile?.email || '');
-        const res = await fetch(`/api/profile${queryEmail ? `?email=${encodeURIComponent(queryEmail)}` : ''}`, { cache: 'no-store' });
-        if (res.ok) {
-          const apiData = await res.json();
-          if (apiData?.success && apiData?.profile) {
-            const finalAvatar = apiData.profile.avatar_url || localCachedAvatar || null;
-            setProfile((prev) => ({
-              ...prev,
-              ...apiData.profile,
-              avatar_url: finalAvatar,
-              full_name: apiData.profile.full_name || prev.full_name || '',
-            }));
-            if (finalAvatar && queryEmail && typeof window !== 'undefined') {
-              localStorage.setItem(`cricplus_avatar_${queryEmail}`, finalAvatar);
+        const queryEmail = (effectiveEmail || authUser?.email || authProfile?.email || '').toLowerCase().trim();
+        if (queryEmail) {
+          const res = await fetch(`/api/profile?email=${encodeURIComponent(queryEmail)}`, { cache: 'no-store' });
+          if (res.ok) {
+            const apiData = await res.json();
+            if (apiData?.success && apiData?.profile && apiData.profile.email?.toLowerCase().trim() === queryEmail) {
+              const finalAvatar = apiData.profile.avatar_url || localCachedAvatar || null;
+              setProfile((prev) => ({
+                ...prev,
+                ...apiData.profile,
+                avatar_url: finalAvatar,
+                full_name: apiData.profile.full_name || prev.full_name || '',
+              }));
+              if (finalAvatar && typeof window !== 'undefined') {
+                localStorage.setItem(`cricplus_avatar_${queryEmail}`, finalAvatar);
+              }
+              if (finalAvatar && finalAvatar.startsWith('data:')) {
+                const kb = Math.round(((finalAvatar.length - 22) * 0.75) / 1024);
+                setPhotoInfo({ sizeInKb: kb });
+              }
+              setLoading(false);
+              return;
             }
-            if (finalAvatar && finalAvatar.startsWith('data:')) {
-              const kb = Math.round(((finalAvatar.length - 22) * 0.75) / 1024);
-              setPhotoInfo({ sizeInKb: kb });
-            }
-            setLoading(false);
-            return;
           }
         }
       } catch (err) {
