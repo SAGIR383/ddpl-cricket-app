@@ -22,11 +22,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ email, role: 'super_admin' });
   }
 
-  // 2. Fetch parallel store records
+  // 2. Fetch parallel store records with real-time freshness
   const [superAdminAccounts, configs, roles] = await Promise.all([
-    getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}),
-    getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
-    getStoreData<Record<string, string>>('user_roles', 'roles.json', {}),
+    getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}, true),
+    getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}, true),
+    getStoreData<Record<string, string>>('user_roles', 'roles.json', {}, true),
   ]);
 
   if (superAdminAccounts[email]?.role === 'super_admin') {

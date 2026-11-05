@@ -156,8 +156,17 @@ export default function LoginPage() {
 
         setSuccessMsg('Signed in successfully! Launching CricPlus24…');
 
+        if (result.tournamentSlug && typeof window !== 'undefined') {
+          localStorage.setItem('cricplus_admin_selected_tournament', result.tournamentSlug);
+        }
+
         // Instant redirect with zero delay - cookies are already set by HTTP response
-        const targetUrl = result.role === 'super_admin' ? '/admin' : '/';
+        const targetUrl =
+          result.role === 'super_admin' || result.role === 'organizer'
+            ? result.tournamentSlug
+              ? `/admin?tournament=${result.tournamentSlug}`
+              : '/admin'
+            : '/';
         window.location.href = targetUrl;
       }
     } catch (err: any) {

@@ -377,7 +377,7 @@ export default function CreateTournamentPage() {
 
         // Immediately set authentication cookies and selected tournament in client
         if (typeof document !== 'undefined') {
-          const authEmail = organizerEmail.toLowerCase().trim();
+          const authEmail = (finalEmail || organizerEmail || user?.email || '').toLowerCase().trim();
           const token = `active_session:${btoa(authEmail)}`;
           document.cookie = `cricplus_superadmin=${token}; path=/; max-age=604800; SameSite=Lax`;
           document.cookie = `cricpluse_superadmin=${token}; path=/; max-age=604800; SameSite=Lax`;

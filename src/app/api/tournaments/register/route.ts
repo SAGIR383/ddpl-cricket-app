@@ -907,11 +907,12 @@ export async function POST(req: Request) {
         const prevAccount = adminAccounts[creatorEmail.toLowerCase()] || {};
         const resolvedAdminName = creatorName?.trim() || (prevAccount.name && !prevAccount.name.includes('Super Admin') ? prevAccount.name : '') || (creatorEmail ? creatorEmail.split('@')[0] : 'Organizer');
         adminAccounts[creatorEmail.toLowerCase()] = {
+          ...prevAccount,
           email: creatorEmail.toLowerCase(),
           name: resolvedAdminName,
           role: 'super_admin',
-          password: resolvedAdminPassword,
-          pin: resolvedAdminPin,
+          password: resolvedAdminPassword || prevAccount.password,
+          pin: resolvedAdminPin || prevAccount.pin,
           tournamentSlug: generatedSlug,
           tournamentName: name.trim(),
           updatedAt: new Date().toISOString(),

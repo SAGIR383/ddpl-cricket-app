@@ -58,9 +58,9 @@ export async function POST(req: NextRequest) {
     // 2. Check Tournament Host & Super Admin accounts store (Direct verification for hosted leagues)
     try {
       const [adminAccounts, configs, roles] = await Promise.all([
-        getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}),
-        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
-        getStoreData<Record<string, string>>('user_roles', 'roles.json', {}),
+        getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}, true),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}, true),
+        getStoreData<Record<string, string>>('user_roles', 'roles.json', {}, true),
       ]);
 
       const acc = adminAccounts[normalizedUser];
