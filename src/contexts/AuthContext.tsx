@@ -74,16 +74,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Master Super Admin check for platform creators
+      // Master Super Admin check strictly for platform owners
       const isMasterEmail =
         userEmail?.toLowerCase() === 'arindamroyaec2009@gmail.com' ||
-        userEmail?.toLowerCase() === 'mdsagirhossain560@gmail.com' ||
         userEmail?.toLowerCase() === 'superadmin@cricplus.com' ||
         userEmail?.toLowerCase() === 'superadmin@cricpluse.com';
 
-      const hasAdminCookie =
-        typeof document !== 'undefined' &&
-        (document.cookie.includes('cricplus_superadmin=') || document.cookie.includes('cricpluse_superadmin='));
+      // Verify admin session cookie belongs strictly to the currently authenticated user
+      let hasAdminCookie = false;
+      if (typeof document !== 'undefined' && userEmail) {
+        const cookies = document.cookie.split(';');
+        for (const c of cookies) {
+          const [k, v] = c.trim().split('=');
+          if ((k === 'cricplus_superadmin' || k === 'cricpluse_superadmin') && v) {
+            if (v.startsWith('active_session:')) {
+              try {
+                const b64 = v.split(':')[1];
+                const cookieEmail = atob(b64).toLowerCase().trim();
+                if (cookieEmail === userEmail.toLowerCase().trim()) {
+                  hasAdminCookie = true;
+                }
+              } catch {}
+            }
+          }
+        }
+      }
 
       // Fetch role assigned by Super Admin in backend
       const assignedRole = (isMasterEmail || hasAdminCookie)

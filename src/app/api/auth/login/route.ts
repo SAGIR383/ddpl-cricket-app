@@ -164,7 +164,6 @@ export async function POST(req: NextRequest) {
 
       const isMasterEmail =
         normalized === 'arindamroyaec2009@gmail.com' ||
-        normalized === 'mdsagirhossain560@gmail.com' ||
         normalized === 'superadmin@cricplus.com' ||
         normalized === 'superadmin@cricpluse.com';
 

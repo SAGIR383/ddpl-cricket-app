@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
   // 1. Platform Master Super Admin emails
   const isMaster =
     email === 'arindamroyaec2009@gmail.com' ||
-    email === 'mdsagirhossain560@gmail.com' ||
     email === 'superadmin@cricplus.com' ||
     email === 'superadmin@cricpluse.com';
 

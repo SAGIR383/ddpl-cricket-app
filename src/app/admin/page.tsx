@@ -269,7 +269,6 @@ export default function AdminDashboardPage() {
     (user as any)?.role === 'super_admin' ||
     (user as any)?.system_role === 'super_admin' ||
     user?.email?.toLowerCase() === 'arindamroyaec2009@gmail.com' ||
-    user?.email?.toLowerCase() === 'mdsagirhossain560@gmail.com' ||
     user?.email?.toLowerCase() === 'superadmin@cricplus.com' ||
     user?.email?.toLowerCase() === 'superadmin@cricpluse.com' ||
     user?.id === 'super-admin-master-id';
