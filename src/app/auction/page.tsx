@@ -123,11 +123,20 @@ export default function AuctionPage() {
   // Audio, Projector & RTM State
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
   const [isAcceleratedRound, setIsAcceleratedRound] = useState<boolean>(false);
+  const isAcceleratedRoundRef = useRef<boolean>(false);
+  isAcceleratedRoundRef.current = isAcceleratedRound;
   const [isRtmModalOpen, setIsRtmModalOpen] = useState<boolean>(false);
   const [rtmSelectedTeam, setRtmSelectedTeam] = useState<string>('');
 
   const currentTourneyMeta = tournamentsList.find((t) => t.slug === activeTournament);
   const currencySymbol = currentTourneyMeta?.currencySymbol || '₹';
+
+  // Preload 3D Boy Mascot FBX assets in the background on auction room mount
+  useEffect(() => {
+    import('@/lib/mascot/fbxMascotLoader')
+      .then((m) => m.loadFbxMascotData())
+      .catch((err) => console.warn('[Auction] 3D Mascot preload error:', err));
+  }, []);
 
   useEffect(() => {
     setIsAudioMuted(auctionAudio.isMuted());
@@ -229,6 +238,10 @@ export default function AuctionPage() {
           setPlayerPool(dedupedPool);
           setSoldTransactions(Array.isArray(d.soldTransactions) ? d.soldTransactions : []);
           setUnsoldPlayers(Array.isArray(d.unsoldPlayers) ? d.unsoldPlayers : []);
+          if (d.isAcceleratedRound !== undefined) {
+            setIsAcceleratedRound(Boolean(d.isAcceleratedRound));
+            isAcceleratedRoundRef.current = Boolean(d.isAcceleratedRound);
+          }
           if (d.auctionStatus) setAuctionStatus(d.auctionStatus);
           if (d.biddingAccessEnabled !== undefined) setBiddingAccessEnabled(d.biddingAccessEnabled);
           if (d.teamBiddingAccess) setTeamBiddingAccess(d.teamBiddingAccess);
@@ -290,6 +303,10 @@ export default function AuctionPage() {
           if (data.soldTransactions !== undefined) setSoldTransactions(data.soldTransactions);
           if (data.unsoldPlayers !== undefined) setUnsoldPlayers(data.unsoldPlayers);
           if (data.playerPool !== undefined) setPlayerPool(data.playerPool);
+          if (data.isAcceleratedRound !== undefined) {
+            setIsAcceleratedRound(Boolean(data.isAcceleratedRound));
+            isAcceleratedRoundRef.current = Boolean(data.isAcceleratedRound);
+          }
           if (data.countdown !== undefined) setCountdown(data.countdown);
           if (data.auctionStatus !== undefined) setAuctionStatus(data.auctionStatus);
           if (data.biddingAccessEnabled !== undefined) setBiddingAccessEnabled(data.biddingAccessEnabled);
@@ -577,7 +594,7 @@ export default function AuctionPage() {
 
     if (remaining.length > 0) {
       const next = remaining[0];
-      const newLot: PlayerLot = {
+      const newLot: any = {
         id: next.id,
         name: next.name,
         role: next.role,
@@ -585,17 +602,22 @@ export default function AuctionPage() {
         currentBid: next.basePrice,
         leadingTeam: null,
         history: [],
+        avatarUrl: (next as any)?.avatarUrl || (next as any)?.photo,
+        isDiscounted: (next as any)?.isDiscounted,
       };
       setCurrentLot(newLot);
       setIsOpeningAtBase(true);
       setSelectedIncrement(100);
-      setCountdown(30);
-      broadcastAuctionState({ currentLot: newLot, countdown: 30 });
+      const roundTimer = isAcceleratedRoundRef.current ? 15 : 30;
+      setCountdown(roundTimer);
+      broadcastAuctionState({ currentLot: newLot, countdown: roundTimer });
       return newLot;
     } else {
       setCurrentLot(null);
       setIsOpeningAtBase(true);
-      broadcastAuctionState({ currentLot: null });
+      setIsAcceleratedRound(false);
+      isAcceleratedRoundRef.current = false;
+      broadcastAuctionState({ currentLot: null, isAcceleratedRound: false });
       return null;
     }
   }
@@ -660,7 +682,7 @@ export default function AuctionPage() {
       advanceToNextPlayer(newSold, unsoldPlayers);
       setIsAutoTransitioning(false);
       setTransitionMessage(null);
-      setCountdown(30);
+      setCountdown(isAcceleratedRoundRef.current ? 15 : 30);
     }, 4000);
   }
 
@@ -699,7 +721,7 @@ export default function AuctionPage() {
       advanceToNextPlayer(soldTransactions, newUnsold);
       setIsAutoTransitioning(false);
       setTransitionMessage(null);
-      setCountdown(30);
+      setCountdown(isAcceleratedRoundRef.current ? 15 : 30);
     }, 4000);
   }
 
@@ -738,18 +760,21 @@ export default function AuctionPage() {
     }
 
     const reAuctionPool: ParsedPlayer[] = unsoldPlayers.map((name, idx) => {
-      const existing = playerPool.find((p) => p.name === name);
+      const existing = playerPool.find((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
       const rawBase = existing?.basePrice || rules.defaultPlayerBasePrice || 100;
-      const basePrice = discount50Percent ? Math.max(100, Math.floor(rawBase / 2)) : rawBase;
+      const basePrice = discount50Percent ? Math.max(50, Math.floor(rawBase / 2)) : rawBase;
       return {
         id: `p-accel-${idx + 1}`,
         name,
-        role: existing?.role || 'All Rounder',
+        role: existing?.role || 'All-rounder',
         basePrice,
-      };
+        avatarUrl: (existing as any)?.avatarUrl || (existing as any)?.photo,
+        style: (existing as any)?.style || '',
+        isDiscounted: discount50Percent,
+      } as any;
     });
 
-    const firstLot: PlayerLot = {
+    const firstLot: any = {
       id: reAuctionPool[0].id,
       name: reAuctionPool[0].name,
       role: reAuctionPool[0].role,
@@ -757,9 +782,12 @@ export default function AuctionPage() {
       currentBid: reAuctionPool[0].basePrice,
       leadingTeam: null,
       history: [],
+      avatarUrl: (reAuctionPool[0] as any).avatarUrl,
+      isDiscounted: discount50Percent,
     };
 
     setIsAcceleratedRound(true);
+    isAcceleratedRoundRef.current = true;
     setPlayerPool(reAuctionPool);
     setUnsoldPlayers([]);
     setCurrentLot(firstLot);
@@ -773,7 +801,11 @@ export default function AuctionPage() {
       isAcceleratedRound: true,
     });
 
-    showToast(`⚡ Accelerated Round Started with ${reAuctionPool.length} players (15s fast timer)!`);
+    showToast(
+      discount50Percent
+        ? `⚡ Accelerated Round Started with 50% Base Price Discount (${reAuctionPool.length} players, 15s timer)!`
+        : `⚡ Accelerated Round Started with ${reAuctionPool.length} players (15s fast timer)!`
+    );
   }
 
   // Manual Super Admin Hammer: Sold
@@ -1302,6 +1334,12 @@ export default function AuctionPage() {
                     </div>
 
                     <div>
+                      {isAcceleratedRound && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/50 text-purple-200 text-[10px] font-black uppercase tracking-wider mb-2 shadow-lg animate-pulse">
+                          <Zap className="w-3.5 h-3.5 text-pink-400" />
+                          <span>⚡ Accelerated Round (15s Blitz{(currentLot as any)?.isDiscounted ? ' • 50% Off Base' : ''})</span>
+                        </div>
+                      )}
                       <h2 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight">
                         {currentLot.name}
                       </h2>
@@ -1698,9 +1736,9 @@ export default function AuctionPage() {
 
                             <button
                               onClick={() => handleStartAcceleratedRound(true)}
-                              className="btn-press px-5 py-3.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-display font-black text-xs uppercase tracking-wider border border-purple-500/40 shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                              className="btn-press px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-700/60 via-pink-600/60 to-purple-800/60 hover:from-purple-600 hover:to-pink-600 text-white font-display font-black text-xs uppercase tracking-wider border border-pink-400/50 shadow-xl shadow-purple-900/40 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                             >
-                              <Flame className="w-4 h-4 text-purple-400" />
+                              <Flame className="w-4 h-4 text-pink-300" />
                               <span>⚡ Accelerated Round (50% Base Price Discount)</span>
                             </button>
                           </>
