@@ -27,8 +27,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const queryEmail = searchParams.get('email');
 
-    // 2. Try super_admin_accounts store
+    // 1. Try unified user_profiles store (fastest, guaranteed persistent)
+    const userProfiles = await getStoreData<Record<string, any>>('user_profiles', 'user_profiles.json', {});
     const adminAccounts = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {});
+
     const fallbackEmail = Object.keys(adminAccounts)[0] || '';
     const finalEmail = (queryEmail || userEmail || fallbackEmail).toLowerCase().trim();
 
@@ -36,16 +38,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'No authenticated email' }, { status: 401 });
     }
 
-    // 1. Try Supabase profiles table
-    const { data: dbProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('email', finalEmail)
-      .maybeSingle();
-
+    const userProf = userProfiles[finalEmail] || {};
     const adminAcc = adminAccounts[finalEmail] || {};
 
-    // 3. Try tournament_configs
+    // 2. Try Supabase profiles table
+    let dbProfile: any = null;
+    try {
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('email', finalEmail)
+        .maybeSingle();
+      dbProfile = data;
+    } catch (e) {
+      console.warn('Supabase profile fetch error:', e);
+    }
+
+    // 3. Try tournament_configs for creator name
     const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
     let creatorNameFromConfig = '';
     for (const cfg of Object.values(configs)) {
@@ -58,24 +67,31 @@ export async function GET(req: NextRequest) {
     }
 
     const resolvedFullName =
+      userProf.full_name ||
       dbProfile?.full_name ||
       adminAcc.name ||
       creatorNameFromConfig ||
-      (finalEmail ? finalEmail.split('@')[0] : 'Super Admin');
+      (finalEmail ? finalEmail.split('@')[0] : 'Athlete');
+
+    const resolvedAvatar =
+      userProf.avatar_url ||
+      adminAcc.avatar_url ||
+      dbProfile?.avatar_url ||
+      null;
 
     return NextResponse.json({
       success: true,
       profile: {
-        id: dbProfile?.id || adminAcc.id || `profile-${finalEmail.replace(/[^a-z0-9]/g, '-')}`,
+        id: userProf.id || dbProfile?.id || adminAcc.id || `profile-${finalEmail.replace(/[^a-z0-9]/g, '-')}`,
         email: finalEmail,
         full_name: resolvedFullName,
-        avatar_url: dbProfile?.avatar_url || adminAcc.avatar_url || null,
-        employee_id: dbProfile?.employee_id || adminAcc.employee_id || null,
-        phone: dbProfile?.phone || adminAcc.phone || null,
-        primary_role: dbProfile?.primary_role || 'All-rounder',
-        batting_style: dbProfile?.batting_style || 'Right-hand bat',
-        bowling_style: dbProfile?.bowling_style || 'Right-arm medium',
-        system_role: dbProfile?.system_role || adminAcc.role || 'super_admin',
+        avatar_url: resolvedAvatar,
+        employee_id: userProf.employee_id || dbProfile?.employee_id || adminAcc.employee_id || null,
+        phone: userProf.phone || dbProfile?.phone || adminAcc.phone || null,
+        primary_role: userProf.primary_role || dbProfile?.primary_role || 'All-rounder',
+        batting_style: userProf.batting_style || dbProfile?.batting_style || 'Right-hand bat',
+        bowling_style: userProf.bowling_style || dbProfile?.bowling_style || 'Right-arm medium',
+        system_role: userProf.system_role || dbProfile?.system_role || adminAcc.role || 'user',
       },
     });
   } catch (err: any) {
@@ -114,8 +130,49 @@ export async function POST(req: NextRequest) {
 
     const newFullName = body.full_name?.trim() || targetEmail.split('@')[0];
 
-    // 1. Update or upsert into Supabase profiles table
-    let profileId = body.id;
+    // 1. Fetch existing stores to avoid overwriting existing fields
+    const userProfiles = await getStoreData<Record<string, any>>('user_profiles', 'user_profiles.json', {}, true);
+    const existingUserProf = userProfiles[targetEmail] || {};
+
+    const adminAccounts = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}, true);
+    const existingAdminAcc = adminAccounts[targetEmail];
+
+    const resolvedAvatar = body.avatar_url !== undefined ? body.avatar_url : (existingUserProf.avatar_url || existingAdminAcc?.avatar_url || null);
+
+    // 2. Persist to universal user_profiles store in cricpluse_store (100% resilient across all roles)
+    userProfiles[targetEmail] = {
+      ...existingUserProf,
+      id: body.id || existingUserProf.id || `profile-${Date.now()}`,
+      email: targetEmail,
+      full_name: newFullName,
+      avatar_url: resolvedAvatar,
+      employee_id: body.employee_id !== undefined ? body.employee_id : (existingUserProf.employee_id || null),
+      phone: body.phone !== undefined ? body.phone : (existingUserProf.phone || null),
+      primary_role: body.primary_role || existingUserProf.primary_role || 'All-rounder',
+      batting_style: body.batting_style || existingUserProf.batting_style || 'Right-hand bat',
+      bowling_style: body.bowling_style || existingUserProf.bowling_style || 'Right-arm medium',
+      system_role: body.system_role || existingUserProf.system_role || (existingAdminAcc ? 'super_admin' : 'user'),
+      updated_at: new Date().toISOString(),
+    };
+    await setStoreData('user_profiles', userProfiles, 'user_profiles.json');
+    invalidateStoreCache('user_profiles');
+
+    // 3. Synchronize super_admin_accounts store if user is an admin
+    if (existingAdminAcc) {
+      adminAccounts[targetEmail] = {
+        ...existingAdminAcc,
+        name: newFullName,
+        avatar_url: resolvedAvatar || existingAdminAcc.avatar_url,
+        employee_id: body.employee_id || existingAdminAcc.employee_id,
+        phone: body.phone || existingAdminAcc.phone,
+        updatedAt: new Date().toISOString(),
+      };
+      await setStoreData('super_admin_accounts', adminAccounts, 'super_admin_accounts.json');
+      invalidateStoreCache('super_admin_accounts');
+    }
+
+    // 4. Update Supabase profiles table
+    let profileId = body.id || existingUserProf.id;
     try {
       const { data: existingProfile } = await supabaseAdmin
         .from('profiles')
@@ -129,7 +186,7 @@ export async function POST(req: NextRequest) {
           .from('profiles')
           .update({
             full_name: newFullName,
-            avatar_url: body.avatar_url,
+            avatar_url: resolvedAvatar,
             employee_id: body.employee_id,
             phone: body.phone,
             primary_role: body.primary_role || 'All-rounder',
@@ -146,13 +203,13 @@ export async function POST(req: NextRequest) {
             id: profileId,
             email: targetEmail,
             full_name: newFullName,
-            avatar_url: body.avatar_url,
+            avatar_url: resolvedAvatar,
             employee_id: body.employee_id,
             phone: body.phone,
             primary_role: body.primary_role || 'All-rounder',
             batting_style: body.batting_style || 'Right-hand bat',
             bowling_style: body.bowling_style || 'Right-arm medium',
-            system_role: body.system_role || 'super_admin',
+            system_role: body.system_role || (existingAdminAcc ? 'super_admin' : 'user'),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
@@ -161,22 +218,40 @@ export async function POST(req: NextRequest) {
       console.warn('Supabase profile update warning:', e);
     }
 
-    // 2. Synchronize super_admin_accounts store while strictly preserving existing credentials and role
-    const adminAccounts = await getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}, true);
-    const existingAcc = adminAccounts[targetEmail] || {};
-    adminAccounts[targetEmail] = {
-      ...existingAcc,
-      email: targetEmail,
-      name: newFullName,
-      avatar_url: body.avatar_url || existingAcc.avatar_url,
-      employee_id: body.employee_id || existingAcc.employee_id,
-      phone: body.phone || existingAcc.phone,
-      updatedAt: new Date().toISOString(),
-    };
-    await setStoreData('super_admin_accounts', adminAccounts, 'super_admin_accounts.json');
-    invalidateStoreCache('super_admin_accounts');
+    // 5. Synchronize avatar and athlete details into all tournament_registrations_* in cricpluse_store
+    try {
+      const allStores = await supabaseAdmin.from('cricpluse_store').select('key, data').like('key', 'tournament_registrations_%');
+      if (allStores.data && allStores.data.length > 0) {
+        for (const item of allStores.data) {
+          if (Array.isArray(item.data)) {
+            let regUpdated = false;
+            const updatedRegs = item.data.map((reg: any) => {
+              if (reg.email && reg.email.toLowerCase().trim() === targetEmail) {
+                regUpdated = true;
+                return {
+                  ...reg,
+                  name: newFullName,
+                  avatarUrl: resolvedAvatar || reg.avatarUrl,
+                  role: body.primary_role || reg.role,
+                  battingStyle: body.batting_style || reg.battingStyle,
+                  bowlingStyle: body.bowling_style || reg.bowlingStyle,
+                  employeeId: body.employee_id !== undefined ? body.employee_id : reg.employeeId,
+                };
+              }
+              return reg;
+            });
+            if (regUpdated) {
+              await setStoreData(item.key, updatedRegs);
+              invalidateStoreCache(item.key);
+            }
+          }
+        }
+      }
+    } catch (regErr) {
+      console.warn('Tournament registration sync warning:', regErr);
+    }
 
-    // 3. Synchronize tournament_configs creatorName for all tournaments created by this user
+    // 6. Synchronize tournament_configs creatorName for all tournaments created by this user
     const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
     let configsUpdated = false;
     for (const [slug, cfg] of Object.entries(configs)) {
@@ -197,24 +272,25 @@ export async function POST(req: NextRequest) {
       id: profileId,
       email: targetEmail,
       full_name: newFullName,
-      avatar_url: body.avatar_url,
-      employee_id: body.employee_id,
-      phone: body.phone,
-      primary_role: body.primary_role || 'All-rounder',
-      batting_style: body.batting_style || 'Right-hand bat',
-      bowling_style: body.bowling_style || 'Right-arm medium',
-      system_role: body.system_role || 'super_admin',
+      avatar_url: resolvedAvatar,
+      employee_id: body.employee_id || existingUserProf.employee_id || null,
+      phone: body.phone || existingUserProf.phone || null,
+      primary_role: body.primary_role || existingUserProf.primary_role || 'All-rounder',
+      batting_style: body.batting_style || existingUserProf.batting_style || 'Right-hand bat',
+      bowling_style: body.bowling_style || existingUserProf.bowling_style || 'Right-arm medium',
+      system_role: body.system_role || existingUserProf.system_role || (existingAdminAcc ? 'super_admin' : 'user'),
       updated_at: new Date().toISOString(),
     };
 
     return NextResponse.json({
       success: true,
-      message: 'Profile updated successfully across all databases and tournament configurations!',
+      message: 'Profile and avatar successfully updated across all databases and tournament configurations!',
       profile: updatedProfile,
       user: {
         id: profileId,
         email: targetEmail,
         name: newFullName,
+        avatar_url: resolvedAvatar,
       },
     });
   } catch (err: any) {

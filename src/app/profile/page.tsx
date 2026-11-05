@@ -35,7 +35,12 @@ export default function ProfilePage() {
 
       const effectiveEmail = (authUser?.email || authProfile?.email || '').toLowerCase().trim();
 
-      // 1. Direct fetch from Supabase profiles table (fastest & most accurate source of truth)
+      const localCachedAvatar =
+        typeof window !== 'undefined' && effectiveEmail
+          ? localStorage.getItem(`cricplus_avatar_${effectiveEmail}`)
+          : null;
+
+      // 1. Direct fetch from Supabase profiles table
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const sessionUser = sessionData?.session?.user;
@@ -62,6 +67,31 @@ export default function ProfilePage() {
           }
         }
 
+        let resolvedAvatar =
+          dbRecord?.avatar_url ||
+          sessionUser?.user_metadata?.avatar_url ||
+          sessionUser?.user_metadata?.picture ||
+          authProfile?.avatar_url ||
+          localCachedAvatar ||
+          null;
+
+        // If avatar is not in direct profiles table, query /api/profile which checks user_profiles and super_admin_accounts
+        if (!resolvedAvatar && lookupEmail) {
+          try {
+            const apiRes = await fetch(`/api/profile?email=${encodeURIComponent(lookupEmail)}`, { cache: 'no-store' });
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData?.profile?.avatar_url) {
+                resolvedAvatar = apiData.profile.avatar_url;
+              }
+            }
+          } catch {}
+        }
+
+        if (resolvedAvatar && lookupEmail && typeof window !== 'undefined') {
+          localStorage.setItem(`cricplus_avatar_${lookupEmail}`, resolvedAvatar);
+        }
+
         if (dbRecord) {
           const resolvedName =
             dbRecord.full_name ||
@@ -72,10 +102,11 @@ export default function ProfilePage() {
           setProfile({
             ...dbRecord,
             full_name: resolvedName,
+            avatar_url: resolvedAvatar,
           });
 
-          if (dbRecord.avatar_url && dbRecord.avatar_url.startsWith('data:')) {
-            const kb = Math.round(((dbRecord.avatar_url.length - 22) * 0.75) / 1024);
+          if (resolvedAvatar && resolvedAvatar.startsWith('data:')) {
+            const kb = Math.round(((resolvedAvatar.length - 22) * 0.75) / 1024);
             setPhotoInfo({ sizeInKb: kb });
           }
           setLoading(false);
@@ -92,13 +123,18 @@ export default function ProfilePage() {
         if (res.ok) {
           const apiData = await res.json();
           if (apiData?.success && apiData?.profile) {
+            const finalAvatar = apiData.profile.avatar_url || localCachedAvatar || null;
             setProfile((prev) => ({
               ...prev,
               ...apiData.profile,
+              avatar_url: finalAvatar,
               full_name: apiData.profile.full_name || prev.full_name || '',
             }));
-            if (apiData.profile.avatar_url && apiData.profile.avatar_url.startsWith('data:')) {
-              const kb = Math.round(((apiData.profile.avatar_url.length - 22) * 0.75) / 1024);
+            if (finalAvatar && queryEmail && typeof window !== 'undefined') {
+              localStorage.setItem(`cricplus_avatar_${queryEmail}`, finalAvatar);
+            }
+            if (finalAvatar && finalAvatar.startsWith('data:')) {
+              const kb = Math.round(((finalAvatar.length - 22) * 0.75) / 1024);
               setPhotoInfo({ sizeInKb: kb });
             }
             setLoading(false);
@@ -111,7 +147,15 @@ export default function ProfilePage() {
 
       // 3. Fallback to active AuthContext profile
       if (authProfile && authProfile.full_name) {
-        setProfile(authProfile);
+        const finalAvatar = authProfile.avatar_url || localCachedAvatar || null;
+        setProfile({
+          ...authProfile,
+          avatar_url: finalAvatar,
+        });
+        if (finalAvatar && finalAvatar.startsWith('data:')) {
+          const kb = Math.round(((finalAvatar.length - 22) * 0.75) / 1024);
+          setPhotoInfo({ sizeInKb: kb });
+        }
         setLoading(false);
         return;
       }
@@ -123,15 +167,26 @@ export default function ProfilePage() {
           (authUser as any).name ||
           (authUser.email ? authUser.email.split('@')[0] : 'Tournament Athlete');
 
+        const fallbackAvatar =
+          (authUser as any).user_metadata?.avatar_url ||
+          (authUser as any).user_metadata?.picture ||
+          localCachedAvatar ||
+          null;
+
         setProfile({
           id: authUser.id || 'profile-user',
           email: authUser.email || '',
           full_name: fallbackName,
+          avatar_url: fallbackAvatar,
           primary_role: 'All-rounder',
           batting_style: 'Right-hand bat',
           bowling_style: 'Right-arm medium',
           system_role: (authUser as any).role || 'user',
         });
+        if (fallbackAvatar && fallbackAvatar.startsWith('data:')) {
+          const kb = Math.round(((fallbackAvatar.length - 22) * 0.75) / 1024);
+          setPhotoInfo({ sizeInKb: kb });
+        }
         setLoading(false);
         return;
       }
@@ -150,7 +205,55 @@ export default function ProfilePage() {
       const { dataUrl, sizeInKb } = await compressImageUnder100KB(file);
       setProfile((prev) => ({ ...prev, avatar_url: dataUrl }));
       setPhotoInfo({ sizeInKb });
-      setMsg({ type: 'success', text: `Photo optimized (${sizeInKb} KB / 100 KB max). Remember to click "Save Changes" below!` });
+
+      const targetEmail = (profile.email || authUser?.email || authProfile?.email || '').toLowerCase().trim();
+      if (typeof window !== 'undefined' && targetEmail) {
+        localStorage.setItem(`cricplus_avatar_${targetEmail}`, dataUrl);
+      }
+
+      // Auto-save photo immediately across Supabase Auth metadata, profiles table, and universal store
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const currentUserId = sessionData?.session?.user?.id || profile.id;
+
+        // 1. Supabase auth user metadata
+        await supabase.auth.updateUser({
+          data: {
+            avatar_url: dataUrl,
+            picture: dataUrl,
+          },
+        });
+
+        // 2. Direct profiles table update
+        if (currentUserId) {
+          await supabase
+            .from('profiles')
+            .update({
+              avatar_url: dataUrl,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', currentUserId);
+        }
+
+        // 3. Backend store sync & tournament registration sync
+        if (targetEmail) {
+          await fetch('/api/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...profile,
+              email: targetEmail,
+              avatar_url: dataUrl,
+            }),
+          });
+        }
+
+        await refreshProfile();
+        setMsg({ type: 'success', text: `Profile photo uploaded and saved successfully! (${sizeInKb} KB / 100 KB max)` });
+      } catch (autoSaveErr) {
+        console.warn('Auto-save photo fallback, will fully commit on Save Changes:', autoSaveErr);
+        setMsg({ type: 'success', text: `Photo ready (${sizeInKb} KB). Click "Save Changes" below to commit all details!` });
+      }
     } catch (err: any) {
       setMsg({ type: 'error', text: err.message || 'Failed to process photo' });
     } finally {
@@ -176,30 +279,55 @@ export default function ProfilePage() {
           data: {
             full_name: newFullName,
             name: newFullName,
+            avatar_url: profile.avatar_url || null,
+            picture: profile.avatar_url || null,
           },
         });
       } catch (authErr) {
         console.warn('Could not update Supabase auth metadata:', authErr);
       }
 
-      // 2. Directly upsert into Supabase profiles table via client
+      // 2. Directly update Supabase profiles table via client (UPDATE first to avoid 42501 RLS error)
       try {
         const { data: sessionData } = await supabase.auth.getSession();
-        const currentUserId = sessionData?.session?.user?.id || profile.id || `user-${Date.now()}`;
-        await supabase.from('profiles').upsert({
-          id: currentUserId,
-          email: targetEmail,
-          full_name: newFullName,
-          avatar_url: profile.avatar_url || null,
-          employee_id: profile.employee_id || null,
-          primary_role: profile.primary_role || 'All-rounder',
-          batting_style: profile.batting_style || 'Right-hand bat',
-          bowling_style: profile.bowling_style || 'Right-arm medium',
-          system_role: profile.system_role || 'user',
-          updated_at: new Date().toISOString(),
-        });
-      } catch (upsertErr) {
-        console.warn('Client direct profiles upsert error:', upsertErr);
+        const currentUserId = sessionData?.session?.user?.id || profile.id;
+        if (currentUserId) {
+          const { error: updateErr } = await supabase
+            .from('profiles')
+            .update({
+              full_name: newFullName,
+              avatar_url: profile.avatar_url || null,
+              employee_id: profile.employee_id || null,
+              primary_role: profile.primary_role || 'All-rounder',
+              batting_style: profile.batting_style || 'Right-hand bat',
+              bowling_style: profile.bowling_style || 'Right-arm medium',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', currentUserId);
+
+          if (updateErr) {
+            console.warn('Profiles update error, attempting email match:', updateErr);
+            await supabase
+              .from('profiles')
+              .update({
+                full_name: newFullName,
+                avatar_url: profile.avatar_url || null,
+                employee_id: profile.employee_id || null,
+                primary_role: profile.primary_role || 'All-rounder',
+                batting_style: profile.batting_style || 'Right-hand bat',
+                bowling_style: profile.bowling_style || 'Right-arm medium',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('email', targetEmail);
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Client direct profiles update error:', dbErr);
+      }
+
+      // Cache locally
+      if (typeof window !== 'undefined' && targetEmail && profile.avatar_url) {
+        localStorage.setItem(`cricplus_avatar_${targetEmail}`, profile.avatar_url);
       }
 
       // 3. Post to unified API endpoint to update backend stores & configs
@@ -210,6 +338,7 @@ export default function ProfilePage() {
           ...profile,
           email: targetEmail,
           full_name: newFullName,
+          avatar_url: profile.avatar_url,
         }),
       });
 
@@ -222,10 +351,11 @@ export default function ProfilePage() {
         ...prev,
         ...data.profile,
         full_name: newFullName,
+        avatar_url: profile.avatar_url || data.profile?.avatar_url || prev.avatar_url,
       }));
 
       await refreshProfile();
-      setMsg({ type: 'success', text: 'Profile successfully updated!' });
+      setMsg({ type: 'success', text: 'Profile successfully updated and photo saved!' });
     } catch (err: any) {
       setMsg({ type: 'error', text: err.message || 'Failed to update profile' });
     } finally {

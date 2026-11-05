@@ -3520,7 +3520,22 @@ export default function AdminDashboardPage() {
                 <tbody className="divide-y divide-cricket-border">
                   {players.map((p) => (
                     <tr key={p.id} className="hover:bg-cricket-card/40 transition-colors">
-                      <td className="px-4 py-3.5 font-bold text-white">{p.name}</td>
+                      <td className="px-4 py-3.5 font-bold text-white">
+                        <div className="flex items-center gap-2.5">
+                          {(p as any).photo || (p as any).avatarUrl ? (
+                            <img
+                              src={(p as any).photo || (p as any).avatarUrl}
+                              alt={p.name}
+                              className="w-7 h-7 rounded-lg object-cover border border-[#D8AD55]/40 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-lg bg-[#08111F] border border-[#D8AD55]/30 flex items-center justify-center text-xs font-bold text-[#F2D69A] shrink-0">
+                              {p.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="truncate">{p.name}</span>
+                        </div>
+                      </td>
                       <td className="px-4 py-3.5 text-xs text-cricket-teal font-semibold">{p.role}</td>
                       <td className="px-4 py-3.5 text-xs text-gray-300">{p.batting} • {p.bowling}</td>
                       <td className="px-4 py-3.5 text-right font-display font-bold text-cricket-gold">₹{p.basePrice}</td>

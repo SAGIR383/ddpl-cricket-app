@@ -174,8 +174,12 @@ export function Navbar() {
                   className="btn-press flex items-center gap-2 px-2.5 xl:px-3 py-1 rounded-full bg-[#111D2D] hover:bg-[#111D2D]/80 border border-[#D8AD55]/30 text-xs font-bold text-white shadow-sm shrink-0"
                   title={`View Profile (${displayName})`}
                 >
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-black text-[10px] shadow-sm shrink-0">
-                    {displayInitial}
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-black text-[10px] shadow-sm shrink-0 overflow-hidden">
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      displayInitial
+                    )}
                   </div>
                   <span className="max-w-[100px] xl:max-w-[150px] truncate text-gray-200 text-xs font-semibold">{displayName}</span>
                 </Link>
@@ -209,7 +213,13 @@ export function Navbar() {
                 href="/profile"
                 className="btn-press flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold shadow-sm"
               >
-                <User className="w-3.5 h-3.5 text-[#D8AD55]" />
+                <div className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-[#D8AD55]/20 shrink-0">
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-3.5 h-3.5 text-[#D8AD55]" />
+                  )}
+                </div>
                 <span className="max-w-[80px] truncate">{displayName}</span>
               </Link>
             ) : (

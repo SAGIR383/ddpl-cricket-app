@@ -1287,9 +1287,17 @@ export default function AuctionPage() {
                       </div>
                     )}
 
-                    <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-tr from-[#D8AD55] via-[#F2D69A] to-[#0D1B2A] p-[2px] shadow-2xl">
-                      <div className="w-full h-full bg-[#08111F] rounded-[22px] flex items-center justify-center font-display font-black text-3xl text-[#F2D69A]">
-                        {currentLot.name.charAt(0)}
+                    <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-tr from-[#D8AD55] via-[#F2D69A] to-[#0D1B2A] p-[2px] shadow-2xl overflow-hidden">
+                      <div className="w-full h-full bg-[#08111F] rounded-[22px] flex items-center justify-center font-display font-black text-3xl text-[#F2D69A] overflow-hidden">
+                        {(currentLot as any).avatarUrl || (currentLot as any).photo ? (
+                          <img
+                            src={(currentLot as any).avatarUrl || (currentLot as any).photo}
+                            alt={currentLot.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          currentLot.name.charAt(0)
+                        )}
                       </div>
                     </div>
 

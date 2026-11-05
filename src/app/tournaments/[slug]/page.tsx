@@ -254,7 +254,12 @@ export default function TournamentDetailPage() {
       const resolvedRole = activeProfile?.primary_role || 'All Rounder';
       const resolvedBatting = activeProfile?.batting_style || 'Right-hand bat';
       const resolvedBowling = activeProfile?.bowling_style || 'Right-arm medium';
-      const resolvedAvatar = activeProfile?.avatar_url || '';
+      const targetEmail = (activeProfile?.email || user.email || '').toLowerCase().trim();
+      const localCachedAvatar =
+        typeof window !== 'undefined' && targetEmail
+          ? localStorage.getItem(`cricplus_avatar_${targetEmail}`)
+          : null;
+      const resolvedAvatar = activeProfile?.avatar_url || user.user_metadata?.avatar_url || localCachedAvatar || '';
 
       setRegForm({
         name: resolvedName,

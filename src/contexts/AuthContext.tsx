@@ -105,9 +105,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ? 'super_admin'
         : (userEmail ? await fetchAssignedRole(userEmail) : 'user');
 
+      const localCachedAvatar =
+        typeof window !== 'undefined' && userEmail
+          ? localStorage.getItem(`cricplus_avatar_${userEmail.toLowerCase().trim()}`)
+          : null;
+
+      const resolvedAvatar =
+        data?.avatar_url ||
+        userMeta?.avatar_url ||
+        userMeta?.picture ||
+        localCachedAvatar ||
+        null;
+
       if (data && data.full_name) {
         setProfile({
           ...(data as Profile),
+          avatar_url: resolvedAvatar,
           system_role: assignedRole || data.system_role || 'user',
         });
         setActiveRole(assignedRole || (data.system_role as SystemRole) || 'user');
@@ -120,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: userId,
           email: userEmail || '',
           full_name: resolvedName,
-          avatar_url: data?.avatar_url || null,
+          avatar_url: resolvedAvatar,
           employee_id: data?.employee_id || null,
           phone: data?.phone || null,
           batting_style: data?.batting_style || 'Right-hand bat',
@@ -174,15 +187,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               ? adminData.user.name
               : (adminData.user.email ? adminData.user.email.split('@')[0] : 'User');
 
+          const adminEmail = (adminData.user.email || '').toLowerCase().trim();
+          const adminAvatar =
+            adminData.user.avatar_url ||
+            (typeof window !== 'undefined' && adminEmail
+              ? localStorage.getItem(`cricplus_avatar_${adminEmail}`)
+              : null) ||
+            null;
+
           setUser({
             ...adminData.user,
             name: cleanAdminName,
+            avatar_url: adminAvatar,
           });
           setProfile({
             id: adminData.user.id,
             email: adminData.user.email,
             full_name: cleanAdminName,
-            avatar_url: null,
+            avatar_url: adminAvatar,
             employee_id: isMaster ? 'SUPERADMIN-001' : 'ORGANIZER-001',
             phone: null,
             batting_style: 'Right-hand bat',
