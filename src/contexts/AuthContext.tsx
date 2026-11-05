@@ -110,10 +110,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? localStorage.getItem(`cricplus_avatar_${userEmail.toLowerCase().trim()}`)
           : null;
 
+      const metaAvatar =
+        userMeta?.avatar_url && !userMeta.avatar_url.startsWith('data:')
+          ? userMeta.avatar_url
+          : null;
+
       const resolvedAvatar =
         data?.avatar_url ||
-        userMeta?.avatar_url ||
-        userMeta?.picture ||
+        metaAvatar ||
         localCachedAvatar ||
         null;
 

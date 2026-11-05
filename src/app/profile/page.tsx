@@ -216,11 +216,11 @@ export default function ProfilePage() {
         const { data: sessionData } = await supabase.auth.getSession();
         const currentUserId = sessionData?.session?.user?.id || profile.id;
 
-        // 1. Supabase auth user metadata
+        // 1. Supabase auth user metadata (Keep metadata lightweight to prevent 494 REQUEST_HEADER_TOO_LARGE cookie bloat)
         await supabase.auth.updateUser({
           data: {
-            avatar_url: dataUrl,
-            picture: dataUrl,
+            avatar_url: null,
+            picture: null,
           },
         });
 
@@ -273,14 +273,14 @@ export default function ProfilePage() {
       const newFullName = (profile.full_name || '').trim();
       if (!newFullName) throw new Error('Please enter your full name.');
 
-      // 1. Directly update Supabase user metadata
+      // 1. Directly update Supabase user metadata (Keep metadata lightweight - avatars live in database & localStorage to prevent 494 REQUEST_HEADER_TOO_LARGE cookie bloat)
       try {
         await supabase.auth.updateUser({
           data: {
             full_name: newFullName,
             name: newFullName,
-            avatar_url: profile.avatar_url || null,
-            picture: profile.avatar_url || null,
+            avatar_url: null,
+            picture: null,
           },
         });
       } catch (authErr) {
