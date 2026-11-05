@@ -1090,48 +1090,32 @@ export async function POST(req: Request) {
       if (creatorEmail) {
         (async () => {
           try {
-            const { getServiceRoleKey } = await import('@/lib/supabase/serviceKey');
             const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
-            const SUPABASE_SERVICE_KEY = getServiceRoleKey();
+            const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_OTwkrFMSeuzq_QbWS6htWQ_FicJF8Tf';
             const { createClient } = await import('@supabase/supabase-js');
-            const adminAuth = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
-
-            const { data: existingProfile } = await adminAuth
-              .from('profiles')
-              .select('id')
-              .eq('email', creatorEmail.toLowerCase())
-              .maybeSingle();
-
-            let uid = existingProfile?.id;
+            const authClient = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
 
             const adminDisplayName = creatorName?.trim() || (creatorEmail ? creatorEmail.split('@')[0] : 'Organizer');
+            const targetPass = adminPassword || process.env.SUPERADMIN_PASSWORD || `P@ss-${Date.now()}`;
 
-            if (!uid) {
-              const fallbackAdminPass = process.env.SUPERADMIN_PASSWORD || (typeof crypto !== 'undefined' ? crypto.randomUUID() : `P@ss-${Date.now()}`);
-              const { data: newUser } = await adminAuth.auth.admin.createUser({
-                email: creatorEmail.toLowerCase(),
-                password: adminPassword || fallbackAdminPass,
-                email_confirm: true,
-                user_metadata: {
+            // Ensure the tournament host is provisioned directly in Supabase Authentication (auth.users)
+            const { data: signUpRes } = await authClient.auth.signUp({
+              email: creatorEmail.toLowerCase().trim(),
+              password: targetPass,
+              options: {
+                data: {
                   full_name: adminDisplayName,
                   role: 'super_admin',
                 },
-              });
-              uid = newUser?.user?.id;
-            } else if (adminPassword) {
-              await adminAuth.auth.admin.updateUserById(uid, {
-                password: adminPassword,
-                user_metadata: {
-                  full_name: adminDisplayName,
-                  role: 'super_admin',
-                },
-              });
-            }
+              },
+            });
+
+            const uid = signUpRes?.user?.id;
 
             if (uid) {
-              await adminAuth.from('profiles').upsert({
+              await authClient.from('profiles').upsert({
                 id: uid,
-                email: creatorEmail.toLowerCase(),
+                email: creatorEmail.toLowerCase().trim(),
                 full_name: adminDisplayName,
                 system_role: 'super_admin',
                 primary_role: 'All-rounder',

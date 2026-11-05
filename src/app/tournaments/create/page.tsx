@@ -32,6 +32,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 
 interface CountryCurrencyOption {
   country: string;
@@ -132,6 +133,7 @@ const FORMAT_OPTIONS = [
 export default function CreateTournamentPage() {
   const router = useRouter();
   const { user, isSuperAdmin, profile, refreshProfile } = useAuth();
+  const supabase = createClient();
 
   // Wizard Step
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -353,6 +355,24 @@ export default function CreateTournamentPage() {
         logo: customLogo || '/images/default-tournament.svg',
         isPublic: true,
       };
+
+      // Ensure the tournament host account exists directly in Supabase Authentication (auth.users)
+      if (finalEmail && adminPassword.trim()) {
+        try {
+          await supabase.auth.signUp({
+            email: finalEmail.toLowerCase().trim(),
+            password: adminPassword.trim(),
+            options: {
+              data: {
+                full_name: finalName.trim() || finalEmail.split('@')[0],
+                role: 'super_admin',
+              },
+            },
+          });
+        } catch (authErr) {
+          console.warn('[HostLeague] Supabase Auth registration note:', authErr);
+        }
+      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 45000);
