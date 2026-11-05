@@ -593,6 +593,71 @@ export async function POST(req: Request) {
       });
     }
 
+    // 3.1 DELETE PLAYER FROM TOURNAMENT (Super Admin / Organizer)
+    if (action === 'delete_player' || action === 'remove_player') {
+      const { playerId, playerName, email: playerEmail } = body;
+      const normName = (playerName || '').trim().toLowerCase();
+      const normEmail = (playerEmail || '').trim().toLowerCase();
+      const pId = playerId || '';
+
+      const registrations = await getStoreData<TournamentPlayerRegistration[]>(
+        `tournament_registrations_${tSlug}`,
+        `registrations_${tSlug}.json`,
+        [],
+        true
+      );
+
+      const updatedRegistrations = registrations.filter((r) => {
+        if (pId && r.id === pId) return false;
+        if (normEmail && r.email?.toLowerCase() === normEmail) return false;
+        if (normName && r.name?.trim().toLowerCase() === normName) return false;
+        return true;
+      });
+
+      await setStoreData(
+        `tournament_registrations_${tSlug}`,
+        updatedRegistrations,
+        `registrations_${tSlug}.json`
+      );
+      invalidateStoreCache(`tournament_registrations_${tSlug}`);
+
+      // Also clean up from Auction Data (playerPool, unsoldPlayers, and currentLot if matching)
+      try {
+        const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }, true);
+        if (allAuction.tournaments?.[tSlug]) {
+          const tAuction = allAuction.tournaments[tSlug];
+          if (Array.isArray(tAuction.playerPool)) {
+            tAuction.playerPool = tAuction.playerPool.filter((p: any) => {
+              if (pId && p.id === pId) return false;
+              if (normName && p.name?.trim().toLowerCase() === normName) return false;
+              return true;
+            });
+          }
+          if (Array.isArray(tAuction.unsoldPlayers)) {
+            tAuction.unsoldPlayers = tAuction.unsoldPlayers.filter((p: any) => {
+              if (pId && p.id === pId) return false;
+              if (normName && p.name?.trim().toLowerCase() === normName) return false;
+              return true;
+            });
+          }
+          if (tAuction.currentLot && normName && tAuction.currentLot.name?.trim().toLowerCase() === normName) {
+            tAuction.currentLot = null;
+          }
+          await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+          invalidateStoreCache('auction_data_ddpl');
+        }
+      } catch (auctionErr) {
+        console.warn('Auction cleanup skipped for deleted player:', auctionErr);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Player "${playerName || playerId}" removed from tournament registrations and auction pool.`,
+        registrations: updatedRegistrations,
+        count: updatedRegistrations.length,
+      });
+    }
+
     // 3.2 RESET ALL TOURNAMENT DATA (Super Admin Clean Slate)
     if (action === 'reset_tournament_data') {
       const { resetRegistrations = false } = body;

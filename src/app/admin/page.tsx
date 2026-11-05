@@ -1355,13 +1355,27 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeletePlayer = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to remove "${name}" from the auction pool?`)) return;
+    if (!confirm(`Are you sure you want to remove "${name}" from tournament registrations and the auction pool?`)) return;
 
     const updatedPlayers = players.filter((p) => p.id !== id);
     setPlayers(updatedPlayers);
-    showNotification(`Player "${name}" removed from auction pool.`);
+    setTournamentRegistrations((prev) => prev.filter((r) => r.id !== id && r.name.toLowerCase() !== name.toLowerCase()));
+    showNotification(`Player "${name}" removed from tournament registrations & auction pool.`);
 
     try {
+      // 1. Delete from tournament registrations (sync with Tournament Hub)
+      await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete_player',
+          tournament: selectedTournament,
+          playerId: id,
+          playerName: name,
+        }),
+      });
+
+      // 2. Sync with auction pool state
       const mappedPool = updatedPlayers.map((p) => ({
         id: p.id,
         name: p.name,
