@@ -18,6 +18,13 @@ export interface ParsedPlayer {
   name: string;
   role: string;
   basePrice: number;
+  avatarUrl?: string | null;
+  photo?: string | null;
+  style?: string;
+  batting?: string;
+  bowling?: string;
+  phone?: string;
+  isDiscounted?: boolean;
 }
 
 export interface AuctionImportRules {

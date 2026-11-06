@@ -38,6 +38,7 @@ function AuctionProjectorContent() {
   });
 
   const [currentLot, setCurrentLot] = useState<any | null>(null);
+  const [photoMap, setPhotoMap] = useState<Record<string, string>>({});
   const [teams, setTeams] = useState<any[]>([]);
   const [soldTransactions, setSoldTransactions] = useState<any[]>([]);
   const [countdown, setCountdown] = useState<number>(30);
@@ -78,6 +79,26 @@ function AuctionProjectorContent() {
 
         if (!isMounted) return;
 
+        // Extract photos from registrations & auction data
+        const newPhotoMap: Record<string, string> = {};
+        if (Array.isArray(regRes?.registrations)) {
+          for (const r of regRes.registrations) {
+            const photo = r.avatarUrl || r.photo;
+            if (r.name && photo) {
+              newPhotoMap[r.name.trim().toLowerCase()] = photo;
+            }
+          }
+        }
+        if (Array.isArray(auctionRes?.data?.playerPool)) {
+          for (const p of auctionRes.data.playerPool) {
+            const photo = p.avatarUrl || p.photo;
+            if (p.name && photo) {
+              newPhotoMap[p.name.trim().toLowerCase()] = photo;
+            }
+          }
+        }
+        setPhotoMap(newPhotoMap);
+
         if (regRes?.config) {
           setTournamentConfig(regRes.config);
         }
@@ -88,7 +109,11 @@ function AuctionProjectorContent() {
           setSoldTransactions(Array.isArray(d.soldTransactions) ? d.soldTransactions : []);
           if (d.auctionStatus) setAuctionStatus(d.auctionStatus);
           if (d.timerSeconds !== undefined) setCountdown(d.timerSeconds);
-          if (d.currentLot) setCurrentLot(d.currentLot);
+          if (d.currentLot) {
+            const lotName = d.currentLot.name?.trim().toLowerCase();
+            const lotPhoto = d.currentLot.avatarUrl || d.currentLot.photo || newPhotoMap[lotName] || null;
+            setCurrentLot({ ...d.currentLot, avatarUrl: lotPhoto });
+          }
         }
       } catch (e) {
         console.error('Failed to load projector auction data:', e);
@@ -118,9 +143,13 @@ function AuctionProjectorContent() {
           if (data.currentLot && data.currentLot.currentBid > prevBidRef.current) {
             auctionAudio.playBidChime();
           }
-          setCurrentLot(data.currentLot);
           if (data.currentLot) {
+            const lotName = data.currentLot.name?.trim().toLowerCase();
+            const lotPhoto = data.currentLot.avatarUrl || data.currentLot.photo || photoMap[lotName] || null;
+            setCurrentLot({ ...data.currentLot, avatarUrl: lotPhoto });
             prevBidRef.current = data.currentLot.currentBid;
+          } else {
+            setCurrentLot(null);
           }
         }
 
@@ -240,12 +269,11 @@ function AuctionProjectorContent() {
 
           {/* Player Graphic Avatar */}
           <div className="relative w-44 h-44 sm:w-56 sm:h-56 mx-auto rounded-3xl overflow-hidden bg-gradient-to-tr from-[#08111F] via-[#111D2D] to-[#1A2D44] border-2 border-[#D8AD55]/50 shadow-2xl flex items-center justify-center p-2">
-            {currentLot?.avatarUrl ? (
-              <Image
-                src={currentLot.avatarUrl}
-                alt={currentLot.name}
-                fill
-                className="object-cover object-top"
+            {(currentLot?.avatarUrl || photoMap[currentLot?.name?.trim().toLowerCase() || '']) ? (
+              <img
+                src={currentLot?.avatarUrl || photoMap[currentLot?.name?.trim().toLowerCase() || '']}
+                alt={currentLot?.name || 'Player'}
+                className="w-full h-full object-cover object-top rounded-2xl"
               />
             ) : (
               <div className="text-center space-y-2">

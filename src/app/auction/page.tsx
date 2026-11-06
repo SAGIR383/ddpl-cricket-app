@@ -54,6 +54,12 @@ interface PlayerLot {
   currentBid: number;
   leadingTeam: string | null;
   history: { team: string; bid: number; increment?: number; timestamp?: string }[];
+  avatarUrl?: string | null;
+  photo?: string | null;
+  isDiscounted?: boolean;
+  battingStyle?: string;
+  bowlingStyle?: string;
+  phone?: string;
 }
 
 interface TeamBudget {
@@ -99,6 +105,7 @@ export default function AuctionPage() {
   const [teams, setTeams] = useState<TeamBudget[]>([]);
   const [playerPool, setPlayerPool] = useState<ParsedPlayer[]>([]);
   const [currentLot, setCurrentLot] = useState<PlayerLot | null>(null);
+  const [photoMap, setPhotoMap] = useState<Record<string, string>>({});
   const [soldTransactions, setSoldTransactions] = useState<any[]>([]);
   const [unsoldPlayers, setUnsoldPlayers] = useState<string[]>([]);
 
@@ -184,12 +191,32 @@ export default function AuctionPage() {
     async function loadInitialData() {
       try {
         const [regData, rulesData, auctionData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register', { ttlMs: 30000 }),
+          fetchWithCache<any>(activeTournament ? `/api/tournaments/register?slug=${activeTournament}` : '/api/tournaments/register', { ttlMs: 15000 }),
           activeTournament ? fetchWithCache<any>(`/api/admin/rules?tournament=${activeTournament}`, { ttlMs: 30000 }) : Promise.resolve(null),
           activeTournament ? fetchWithCache<any>(`/api/auction/data?tournament=${activeTournament}`, { ttlMs: 3000 }) : Promise.resolve(null),
         ]);
 
         if (!isMounted) return;
+
+        // Build comprehensive photo lookup map from registrations & auction pool
+        const newPhotoMap: Record<string, string> = {};
+        if (Array.isArray(regData?.registrations)) {
+          for (const r of regData.registrations) {
+            const photo = r.avatarUrl || r.photo;
+            if (r.name && photo) {
+              newPhotoMap[r.name.trim().toLowerCase()] = photo;
+            }
+          }
+        }
+        if (Array.isArray(auctionData?.data?.playerPool)) {
+          for (const p of auctionData.data.playerPool) {
+            const photo = p.avatarUrl || p.photo;
+            if (p.name && photo) {
+              newPhotoMap[p.name.trim().toLowerCase()] = photo;
+            }
+          }
+        }
+        setPhotoMap((prev) => ({ ...prev, ...newPhotoMap }));
 
         if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
           setTournamentsList(regData.tournamentsList);
@@ -231,6 +258,7 @@ export default function AuctionPage() {
               dedupedPool.push({
                 ...p,
                 basePrice: p.basePrice || resolvedDefaultBase,
+                avatarUrl: p.avatarUrl || (p as any).photo || newPhotoMap[key] || null,
               });
             }
           }
@@ -249,17 +277,23 @@ export default function AuctionPage() {
 
           if (d.currentLot !== undefined && d.currentLot !== null) {
             const curLotBase = d.currentLot.basePrice || resolvedDefaultBase;
+            const curName = d.currentLot.name?.trim().toLowerCase();
+            const curPhoto = d.currentLot.avatarUrl || (d.currentLot as any).photo || newPhotoMap[curName] || null;
             setCurrentLot({
               ...d.currentLot,
+              avatarUrl: curPhoto,
               basePrice: curLotBase,
               currentBid: d.currentLot.currentBid || curLotBase,
             });
           } else if (dedupedPool.length > 0) {
             const p0 = dedupedPool[0];
+            const p0Name = p0.name?.trim().toLowerCase();
+            const p0Photo = p0.avatarUrl || (p0 as any).photo || newPhotoMap[p0Name] || null;
             setCurrentLot({
               id: p0.id,
               name: p0.name,
               role: p0.role,
+              avatarUrl: p0Photo,
               basePrice: p0.basePrice || resolvedDefaultBase,
               currentBid: p0.basePrice || resolvedDefaultBase,
               leadingTeam: null,
@@ -298,7 +332,15 @@ export default function AuctionPage() {
       .on('broadcast', { event: 'auction_update' }, (payload) => {
         const data = payload.payload;
         if (data) {
-          if (data.currentLot !== undefined) setCurrentLot(data.currentLot);
+          if (data.currentLot !== undefined) {
+            if (data.currentLot) {
+              const lotName = data.currentLot.name?.trim().toLowerCase();
+              const lotPhoto = data.currentLot.avatarUrl || data.currentLot.photo || photoMap[lotName] || null;
+              setCurrentLot({ ...data.currentLot, avatarUrl: lotPhoto });
+            } else {
+              setCurrentLot(null);
+            }
+          }
           if (data.teams !== undefined) setTeams(data.teams);
           if (data.soldTransactions !== undefined) setSoldTransactions(data.soldTransactions);
           if (data.unsoldPlayers !== undefined) setUnsoldPlayers(data.unsoldPlayers);
@@ -602,7 +644,7 @@ export default function AuctionPage() {
         currentBid: next.basePrice,
         leadingTeam: null,
         history: [],
-        avatarUrl: (next as any)?.avatarUrl || (next as any)?.photo,
+        avatarUrl: (next as any)?.avatarUrl || (next as any)?.photo || photoMap[next.name?.trim().toLowerCase()] || null,
         isDiscounted: (next as any)?.isDiscounted,
       };
       setCurrentLot(newLot);
@@ -768,7 +810,7 @@ export default function AuctionPage() {
         name,
         role: existing?.role || 'All-rounder',
         basePrice,
-        avatarUrl: (existing as any)?.avatarUrl || (existing as any)?.photo,
+        avatarUrl: (existing as any)?.avatarUrl || (existing as any)?.photo || photoMap[name.trim().toLowerCase()] || null,
         style: (existing as any)?.style || '',
         isDiscounted: discount50Percent,
       } as any;
@@ -782,7 +824,7 @@ export default function AuctionPage() {
       currentBid: reAuctionPool[0].basePrice,
       leadingTeam: null,
       history: [],
-      avatarUrl: (reAuctionPool[0] as any).avatarUrl,
+      avatarUrl: (reAuctionPool[0] as any).avatarUrl || photoMap[reAuctionPool[0].name.trim().toLowerCase()] || null,
       isDiscounted: discount50Percent,
     };
 
@@ -897,6 +939,7 @@ export default function AuctionPage() {
 
       let firstLot: PlayerLot | null = null;
       if (newPool.length > 0) {
+        const lot0Photo = (newPool[0] as any).avatarUrl || (newPool[0] as any).photo || photoMap[newPool[0].name?.trim().toLowerCase()] || null;
         firstLot = {
           id: newPool[0].id,
           name: newPool[0].name,
@@ -905,6 +948,7 @@ export default function AuctionPage() {
           currentBid: newPool[0].basePrice,
           leadingTeam: null,
           history: [],
+          avatarUrl: lot0Photo,
         };
       }
       setCurrentLot(firstLot);
@@ -1321,9 +1365,9 @@ export default function AuctionPage() {
 
                     <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-tr from-[#D8AD55] via-[#F2D69A] to-[#0D1B2A] p-[2px] shadow-2xl overflow-hidden">
                       <div className="w-full h-full bg-[#08111F] rounded-[22px] flex items-center justify-center font-display font-black text-3xl text-[#F2D69A] overflow-hidden">
-                        {(currentLot as any).avatarUrl || (currentLot as any).photo ? (
+                        {((currentLot as any).avatarUrl || (currentLot as any).photo || photoMap[currentLot.name?.trim().toLowerCase()]) ? (
                           <img
-                            src={(currentLot as any).avatarUrl || (currentLot as any).photo}
+                            src={(currentLot as any).avatarUrl || (currentLot as any).photo || photoMap[currentLot.name?.trim().toLowerCase()]}
                             alt={currentLot.name}
                             className="w-full h-full object-cover"
                           />

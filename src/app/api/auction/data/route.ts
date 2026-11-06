@@ -58,7 +58,58 @@ export async function GET(req: Request) {
   const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
 
   const allData = await readAllAuctionData();
-  const tournamentData = allData.tournaments?.[tournament] || EMPTY_TOURNAMENT_STATE;
+  const rawTournamentData = allData.tournaments?.[tournament] || EMPTY_TOURNAMENT_STATE;
+  const tournamentData = { ...rawTournamentData };
+
+  // Enrich player pool, currentLot, and transactions with player photos from registrations
+  try {
+    const registrations = await getStoreData<any[]>(
+      `tournament_registrations_${tournament}`,
+      `registrations_${tournament}.json`,
+      []
+    );
+    const photoMap = new Map<string, string>();
+    if (Array.isArray(registrations)) {
+      for (const r of registrations) {
+        const photo = r.avatarUrl || r.photo;
+        if (r.name && photo) {
+          photoMap.set(r.name.trim().toLowerCase(), photo);
+        }
+      }
+    }
+
+    if (tournamentData.currentLot?.name) {
+      const lotName = tournamentData.currentLot.name.trim().toLowerCase();
+      if (!tournamentData.currentLot.avatarUrl && photoMap.has(lotName)) {
+        tournamentData.currentLot = {
+          ...tournamentData.currentLot,
+          avatarUrl: photoMap.get(lotName),
+        };
+      }
+    }
+
+    if (Array.isArray(tournamentData.playerPool)) {
+      tournamentData.playerPool = tournamentData.playerPool.map((p: any) => {
+        const pName = p.name?.trim().toLowerCase();
+        if (!p.avatarUrl && pName && photoMap.has(pName)) {
+          return { ...p, avatarUrl: photoMap.get(pName) };
+        }
+        return p;
+      });
+    }
+
+    if (Array.isArray(tournamentData.soldTransactions)) {
+      tournamentData.soldTransactions = tournamentData.soldTransactions.map((tx: any) => {
+        const txName = (tx.player || tx.name)?.trim().toLowerCase();
+        if (!tx.avatarUrl && txName && photoMap.has(txName)) {
+          return { ...tx, avatarUrl: photoMap.get(txName) };
+        }
+        return tx;
+      });
+    }
+  } catch (enrichErr) {
+    console.warn('Could not enrich auction photos:', enrichErr);
+  }
 
   return NextResponse.json(
     {

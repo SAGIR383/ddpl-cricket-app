@@ -251,6 +251,46 @@ export async function POST(req: NextRequest) {
       console.warn('Tournament registration sync warning:', regErr);
     }
 
+    // 5b. Synchronize avatar into auction_data_ddpl (playerPool, currentLot, and soldTransactions)
+    if (resolvedAvatar) {
+      try {
+        const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+        let auctionUpdated = false;
+        if (allAuction?.tournaments) {
+          const matchName = newFullName.toLowerCase().trim();
+          for (const [tSlug, tData] of Object.entries<any>(allAuction.tournaments)) {
+            if (tData?.currentLot && tData.currentLot.name && tData.currentLot.name.toLowerCase().trim() === matchName) {
+              tData.currentLot.avatarUrl = resolvedAvatar;
+              auctionUpdated = true;
+            }
+            if (Array.isArray(tData?.playerPool)) {
+              for (const p of tData.playerPool) {
+                if (p.name && p.name.toLowerCase().trim() === matchName) {
+                  p.avatarUrl = resolvedAvatar;
+                  auctionUpdated = true;
+                }
+              }
+            }
+            if (Array.isArray(tData?.soldTransactions)) {
+              for (const tx of tData.soldTransactions) {
+                const txName = (tx.player || tx.name)?.toLowerCase().trim();
+                if (txName === matchName) {
+                  tx.avatarUrl = resolvedAvatar;
+                  auctionUpdated = true;
+                }
+              }
+            }
+          }
+        }
+        if (auctionUpdated) {
+          await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+          invalidateStoreCache('auction_data_ddpl');
+        }
+      } catch (aucErr) {
+        console.warn('Auction pool photo sync warning:', aucErr);
+      }
+    }
+
     // 6. Synchronize tournament_configs creatorName for all tournaments created by this user
     const configs = await getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {});
     let configsUpdated = false;

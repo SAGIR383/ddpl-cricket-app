@@ -87,6 +87,8 @@ interface PlayerItem {
   basePrice: number;
   status: 'approved' | 'pending' | 'rejected';
   team?: string;
+  photo?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface UserAccount {
@@ -1418,6 +1420,7 @@ export default function AdminDashboardPage() {
         batting: p.batting,
         bowling: p.bowling,
         status: p.status,
+        avatarUrl: (p as any).photo || (p as any).avatarUrl || null,
       }));
 
       await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
@@ -1665,6 +1668,8 @@ export default function AdminDashboardPage() {
                     batting: p.batting || 'Right-hand bat',
                     bowling: p.bowling || 'Right-arm medium',
                     basePrice: p.basePrice || (rulesRes.ok ? auctionRules.defaultPlayerBasePrice : 100) || 100,
+                    photo: p.photo || p.avatarUrl || null,
+                    avatarUrl: p.avatarUrl || p.photo || null,
                     status: 'approved',
                   });
                 }
