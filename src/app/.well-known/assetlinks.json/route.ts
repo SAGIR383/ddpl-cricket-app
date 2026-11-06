@@ -1,0 +1,49 @@
+import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-static';
+export const revalidate = 86400;
+
+export async function GET() {
+  const assetLinks = [
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'app.vercel.cricplus24',
+        sha256_cert_fingerprints: [
+          'C2:D2:FA:3A:87:9C:FF:79:0B:49:DF:26:00:33:37:ED:99:1D:F4:F5:4D:A4:3F:18:82:98:A1:C0:5B:7E:1F:C8'
+        ]
+      }
+    },
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'in.cricplus24.app',
+        sha256_cert_fingerprints: [
+          'C2:D2:FA:3A:87:9C:FF:79:0B:49:DF:26:00:33:37:ED:99:1D:F4:F5:4D:A4:3F:18:82:98:A1:C0:5B:7E:1F:C8'
+        ]
+      }
+    },
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'in.cricplus24.www.twa',
+        sha256_cert_fingerprints: [
+          'C2:D2:FA:3A:87:9C:FF:79:0B:49:DF:26:00:33:37:ED:99:1D:F4:F5:4D:A4:3F:18:82:98:A1:C0:5B:7E:1F:C8',
+          '00:44:B6:1D:5F:FB:A6:24:43:7F:B5:65:CE:3E:36:9E:BD:9D:D0:37:ED:5B:9E:98:0D:38:E8:0E:0B:18:82:2C'
+        ]
+      }
+    }
+  ];
+
+  return NextResponse.json(assetLinks, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, max-age=86400, stale-while-revalidate=43200',
+    },
+  });
+}
