@@ -42,7 +42,7 @@ export function AppDownloadSection({
   }
 
   const downloadUrl = '/downloads/CricPlus24.apk';
-  const directLink = typeof window !== 'undefined' ? `${window.location.origin}/downloads/CricPlus24.apk` : 'https://www.cricplus24.in/downloads/CricPlus24.apk';
+  const directLink = typeof window !== 'undefined' ? `${window.location.origin}/downloads/CricPlus24.apk` : 'https://cricplus24.vercel.app/downloads/CricPlus24.apk';
   // Standard Google Chart QR URL for instant, crisp mobile camera scanning
   const qrCodeImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(directLink)}&color=08111f&bgcolor=f2d69a&margin=10`;
 
@@ -64,7 +64,7 @@ export function AppDownloadSection({
             </span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Direct APK v2.0 • 5.4 MB</span>
+              <span>Direct APK v2.0 • 5.9 MB</span>
             </span>
           </div>
 
@@ -118,7 +118,7 @@ export function AppDownloadSection({
               className="btn-press shimmer-btn inline-flex items-center gap-3 px-7 py-3.5 rounded-2xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-sm uppercase tracking-wider shadow-xl hover:brightness-110 transition-all cursor-pointer"
             >
               <Download className="w-5 h-5 text-[#08111F]" />
-              <span>Download Android APK (5.4 MB)</span>
+              <span>Download Android APK (5.9 MB)</span>
             </a>
 
             <button
@@ -134,7 +134,7 @@ export function AppDownloadSection({
           {/* Quick Specs Footnote */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-[#8793A5] pt-1">
             <span>• Compatible with Android 8.0 &amp; Above</span>
-            <span>• Package: <code className="text-gray-300">in.cricplus24.app</code></span>
+            <span>• Package: <code className="text-[#F2D69A] font-bold">app.vercel.cricplus24</code></span>
             <span>• Release: <strong className="text-emerald-400">v2.0 (Stable)</strong></span>
           </div>
         </div>
