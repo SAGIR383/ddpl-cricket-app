@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getStoreData, setStoreData } from '@/lib/supabase/store';
+import { getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
 
 export interface MatchFixture {
   id: string;
@@ -37,7 +37,7 @@ export interface TournamentScheduleState {
 }
 
 // Generate DDPL fixtures: Round-Robin (all teams play each other) + Top 4 Playoffs
-function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug = 'ddpl'): MatchFixture[] {
+function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug = 'ddpl', venue = 'Arena Ground 1'): MatchFixture[] {
   const fixtures: MatchFixture[] = [];
   let matchNum = 1;
 
@@ -52,7 +52,7 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug
           title: `Match ${matchNum}: ${teams[i].short} vs ${teams[j].short}`,
           teamA: { name: teams[i].name, short: teams[i].short },
           teamB: { name: teams[j].name, short: teams[j].short },
-          venue: 'Arena Ground 1',
+          venue,
           matchDate: null,
           matchTime: '10:00 AM',
           status: 'upcoming',
@@ -72,7 +72,7 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug
     title: `Qualifier 1: Rank #1 vs Rank #2`,
     teamA: { name: 'Rank #1 Team', short: 'T1' },
     teamB: { name: 'Rank #2 Team', short: 'T2' },
-    venue: 'Arena Stadium',
+    venue,
     matchDate: null,
     matchTime: '02:00 PM',
     status: 'upcoming',
@@ -88,7 +88,7 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug
     title: `Eliminator: Rank #3 vs Rank #4`,
     teamA: { name: 'Rank #3 Team', short: 'T3' },
     teamB: { name: 'Rank #4 Team', short: 'T4' },
-    venue: 'Arena Stadium',
+    venue,
     matchDate: null,
     matchTime: '06:00 PM',
     status: 'upcoming',
@@ -104,7 +104,7 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug
     title: `Qualifier 2: Loser Q1 vs Winner Eliminator`,
     teamA: { name: 'Loser of Q1', short: 'LQ1' },
     teamB: { name: 'Winner of Eliminator', short: 'WEL' },
-    venue: 'Arena Stadium',
+    venue,
     matchDate: null,
     matchTime: '02:00 PM',
     status: 'upcoming',
@@ -120,7 +120,7 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug
     title: `Grand Final: Winner Q1 vs Winner Q2`,
     teamA: { name: 'Winner of Q1', short: 'WQ1' },
     teamB: { name: 'Winner of Q2', short: 'WQ2' },
-    venue: 'Arena Stadium',
+    venue,
     matchDate: null,
     matchTime: '06:30 PM',
     status: 'upcoming',
@@ -131,7 +131,7 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug
 }
 
 // Generate Game of RUN fixtures: Group Stage (Group A and Group B) + Playoffs + Final
-function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12, tournamentSlug = 'game-of-run'): MatchFixture[] {
+function generateGameOfRunFixtures(teams: any[], tournamentOvers = 12, tournamentSlug = 'game-of-run', venue = 'Park View Oval'): MatchFixture[] {
   const fixtures: MatchFixture[] = [];
   let matchNum = 1;
 
@@ -241,7 +241,8 @@ export function generateMultiGroupFixtures(
   teams: any[],
   customGroupNames: string[] = ['Group A', 'Group B'],
   tournamentOvers = 10,
-  tournamentSlug = 'league'
+  tournamentSlug = 'league',
+  venue = 'Sports Arena / Stadium Grounds'
 ): MatchFixture[] {
   const fixtures: MatchFixture[] = [];
   let matchNum = 1;
@@ -768,13 +769,22 @@ export async function POST(req: Request) {
       const overs = body.overs || (format === 'game-of-run' ? 12 : 10);
       const groupNames: string[] = body.groupNames || (body.groupsCount ? Array.from({ length: body.groupsCount }, (_, i) => `Group ${String.fromCharCode(65 + i)}`) : null);
 
+      // Resolve official ground name configured by Super Admin
+      const [rulesContainer, configs] = await Promise.all([
+        getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+      ]);
+      const currentRules = rulesContainer?.tournaments?.[tournament] || {};
+      const currentConfig = configs?.[tournament] || {};
+      const venue = (body.venue || body.groundName || currentRules.groundName || currentRules.venue || currentConfig?.venue || 'Arena Ground 1').trim();
+
       let generatedMatches: MatchFixture[];
       if (groupNames && groupNames.length > 0) {
-        generatedMatches = generateMultiGroupFixtures(teams, groupNames, overs, tournament);
+        generatedMatches = generateMultiGroupFixtures(teams, groupNames, overs, tournament, venue);
       } else if (format === 'game-of-run' || format === 'group-stage-playoffs') {
-        generatedMatches = generateGameOfRunFixtures(teams, overs, tournament);
+        generatedMatches = generateGameOfRunFixtures(teams, overs, tournament, venue);
       } else {
-        generatedMatches = generateDdplFixtures(teams, overs, tournament);
+        generatedMatches = generateDdplFixtures(teams, overs, tournament, venue);
       }
 
       schedule = {
@@ -785,10 +795,29 @@ export async function POST(req: Request) {
       };
 
       await setStoreData(`tournament_schedule_${tournament}`, schedule, `schedule_${tournament}.json`);
+      invalidateStoreCache(`tournament_schedule_${tournament}`);
 
       return NextResponse.json({
         success: true,
         message: `Successfully generated ${generatedMatches.length} fixtures for ${tournament.toUpperCase()}`,
+        schedule,
+      });
+    }
+
+    // 1b. CLEAR / RESET SCHEDULE TO AWAITING AUCTION
+    if (action === 'clear_schedule') {
+      schedule = {
+        ...schedule,
+        matches: [],
+        lastUpdated: new Date().toISOString(),
+      };
+
+      await setStoreData(`tournament_schedule_${tournament}`, schedule, `schedule_${tournament}.json`);
+      invalidateStoreCache(`tournament_schedule_${tournament}`);
+
+      return NextResponse.json({
+        success: true,
+        message: `Fixtures schedule for ${tournament.toUpperCase()} reset to awaiting auction`,
         schedule,
       });
     }

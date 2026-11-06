@@ -13,6 +13,8 @@ const DEFAULT_DDPL_RULES = {
   minSquadSize: 7,
   matchOvers: 10,
   maxBowlerOvers: 2,
+  groundName: 'Arena Ground 1',
+  venue: 'Arena Ground 1',
   wideBallPenalty: '+1 Run & Extra Ball',
   noBallPenalty: '+1 Run + Free Hit',
   pointsPerWin: 2,
@@ -53,6 +55,8 @@ const DEFAULT_GOR_RULES = {
   minSquadSize: 7,
   matchOvers: 12,
   maxBowlerOvers: 3,
+  groundName: 'Park View Oval',
+  venue: 'Park View Oval',
   wideBallPenalty: '+1 Run & Extra Ball',
   noBallPenalty: '+1 Run + Free Hit',
   pointsPerWin: 2,
@@ -151,6 +155,8 @@ export async function GET(req: Request) {
         ...targetRules,
         matchOvers,
         maxBowlerOvers: defaultBowlerLimit,
+        groundName: targetRules.groundName || targetRules.venue || currentConfig?.venue || 'Arena Ground',
+        venue: targetRules.groundName || targetRules.venue || currentConfig?.venue || 'Arena Ground',
         effectivePurse: (targetRules.basePurse || 10000) - (targetRules.ownerBlockedPrice || 100),
       },
     },
@@ -213,9 +219,12 @@ export async function POST(req: Request) {
     const resolvedBasePurse = Number(basePurse) || currentRules.basePurse || Number(currentConfig?.pursePerTeam) || 10000;
     const resolvedOwnerBase = ownerBlockedPrice !== undefined ? Number(ownerBlockedPrice) : (currentRules.ownerBlockedPrice || Number(currentConfig?.ownerBasePrice) || 100);
     const resolvedDefaultBase = defaultPlayerBasePrice !== undefined ? Number(defaultPlayerBasePrice) : (currentRules.defaultPlayerBasePrice || 100);
+    const resolvedGround = (body.groundName || body.venue || currentRules.groundName || currentRules.venue || currentConfig?.venue || 'Arena Ground 1').trim();
 
     const updated = {
       ...currentRules,
+      groundName: resolvedGround,
+      venue: resolvedGround,
       basePurse: resolvedBasePurse,
       ownerBlockedPrice: resolvedOwnerBase,
       defaultPlayerBasePrice: resolvedDefaultBase,
@@ -255,6 +264,23 @@ export async function POST(req: Request) {
       configs[tournament].pathwayBadge = updated.pathwayBadge;
       configs[tournament].stages = updated.stages;
       configs[tournament].qualificationRule = updated.qualificationRule;
+      configs[tournament].venue = resolvedGround;
+      configs[tournament].groundName = resolvedGround;
+    }
+
+    // AUTO-SYNC TO TOURNAMENT SCHEDULE (VENUE / GROUND NAME):
+    try {
+      const schedule = await getStoreData<any>(`tournament_schedule_${tournament}`, `schedule_${tournament}.json`, null);
+      if (schedule && Array.isArray(schedule.matches) && schedule.matches.length > 0) {
+        schedule.matches = schedule.matches.map((m: any) => ({
+          ...m,
+          venue: resolvedGround,
+        }));
+        await setStoreData(`tournament_schedule_${tournament}`, schedule, `schedule_${tournament}.json`);
+        invalidateStoreCache(`tournament_schedule_${tournament}`);
+      }
+    } catch (schedErr) {
+      console.warn('Schedule venue sync warning:', schedErr);
     }
 
     // AUTO-SYNC TO AUCTION STATE:

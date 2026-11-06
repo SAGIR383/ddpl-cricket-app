@@ -63,7 +63,7 @@ export function InfoTab({ state }: InfoTabProps) {
               <span>Venue Ground</span>
             </span>
             <div className="font-display font-bold text-white text-sm">
-              {state.venue || 'Arena Ground 1'}
+              {state.venue || 'Main Stadium Arena'}
             </div>
           </div>
 

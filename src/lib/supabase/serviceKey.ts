@@ -5,7 +5,7 @@
  */
 export function getServiceRoleKey(): string {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (serviceKey && serviceKey.startsWith('eyJ')) {
+  if (serviceKey && (serviceKey.startsWith('eyJ') || serviceKey.startsWith('sb_secret_') || serviceKey.length > 20)) {
     return serviceKey;
   }
   return (

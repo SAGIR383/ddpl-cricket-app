@@ -17,11 +17,20 @@ import {
 import { MatchFixture, TournamentScheduleState } from '@/app/api/matches/route';
 
 // Helper to bootstrap match state if not yet saved in store
-async function bootstrapMatchState(matchId: string): Promise<MatchLiveState> {
-  const isGor = matchId.toLowerCase().includes('gor') || matchId.toLowerCase().includes('game-of-run');
-  const tournamentSlug = isGor ? 'game-of-run' : 'ddpl';
+async function bootstrapMatchState(matchId: string, requestedTournament?: string): Promise<MatchLiveState> {
+  // 1. Determine tournament slug dynamically
+  let tournamentSlug = (requestedTournament || '').toLowerCase().trim();
+  if (!tournamentSlug) {
+    if (matchId.includes('-m')) {
+      tournamentSlug = matchId.substring(0, matchId.lastIndexOf('-m')).toLowerCase();
+    } else if (matchId.toLowerCase().includes('gor') || matchId.toLowerCase().includes('game-of-run')) {
+      tournamentSlug = 'game-of-run';
+    } else {
+      tournamentSlug = 'ddpl-3-0';
+    }
+  }
 
-  // 1. Fetch tournament schedule to find fixture
+  // 2. Fetch tournament schedule to find fixture
   const schedule = await getStoreData<TournamentScheduleState | null>(
     `tournament_schedule_${tournamentSlug}`,
     `schedule_${tournamentSlug}.json`,
@@ -31,51 +40,70 @@ async function bootstrapMatchState(matchId: string): Promise<MatchLiveState> {
   let fixture: MatchFixture | undefined = schedule?.matches?.find((m) => m.id === matchId);
 
   // Fallback if not found in specific tournament
-  if (!fixture && isGor) {
-    const ddplSchedule = await getStoreData<TournamentScheduleState | null>('tournament_schedule_ddpl', 'schedule_ddpl.json', null);
-    fixture = ddplSchedule?.matches?.find((m) => m.id === matchId);
+  if (!fixture && tournamentSlug !== 'ddpl-3-0') {
+    const altSchedule = await getStoreData<TournamentScheduleState | null>('tournament_schedule_ddpl-3-0', 'schedule_ddpl-3-0.json', null);
+    fixture = altSchedule?.matches?.find((m) => m.id === matchId);
+    if (fixture) tournamentSlug = 'ddpl-3-0';
+  }
+  if (!fixture && tournamentSlug !== 'ddpl') {
+    const altSchedule = await getStoreData<TournamentScheduleState | null>('tournament_schedule_ddpl', 'schedule_ddpl.json', null);
+    fixture = altSchedule?.matches?.find((m) => m.id === matchId);
+    if (fixture) tournamentSlug = 'ddpl';
   }
 
-  // 2. Fetch tournament rules
-  const rulesContainer = await getStoreData<any>('tournament_rules', 'rules.json', null);
-  const tournamentRules = rulesContainer?.tournaments?.[tournamentSlug] || {
-    matchOvers: isGor ? 12 : 10,
-    maxBowlerOvers: isGor ? 3 : 2,
-    wideBallPenalty: '+1 Run & Extra Ball',
-    noBallPenalty: '+1 Run + Free Hit',
-    pointsPerWin: 2,
-  };
+  // 3. Fetch tournament rules, configs, and live auction rosters
+  const [rulesContainer, configs, allAuction] = await Promise.all([
+    getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+    getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+    getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }),
+  ]);
 
-  // 3. Fetch auction data for rosters
-  const auctionContainer = await getStoreData<any>(`auction_data_${tournamentSlug}`, 'auction_data.json', null);
-  const auctionData = auctionContainer?.tournaments?.[tournamentSlug] || auctionContainer;
-  const teamsList: any[] = auctionData?.teams || [];
-  const soldTxList: any[] = auctionData?.soldTransactions || [];
+  const currentRules = rulesContainer?.tournaments?.[tournamentSlug] || rulesContainer?.tournaments?.['ddpl-3-0'] || {};
+  const currentConfig = configs?.[tournamentSlug] || configs?.['ddpl-3-0'] || {};
+  const tourneyAuction = allAuction?.tournaments?.[tournamentSlug] || allAuction?.tournaments?.['ddpl-3-0'] || {};
+  const teamsList: any[] = tourneyAuction?.teams || [];
+  const soldTxList: any[] = tourneyAuction?.soldTransactions || [];
 
-  const teamAName = fixture?.teamA?.name || 'Teoco Knight Riders';
-  const teamAShort = fixture?.teamA?.short || 'TKR';
-  const teamBName = fixture?.teamB?.name || 'Aircom Avengers';
-  const teamBShort = fixture?.teamB?.short || 'ACA';
+  const matchOvers = Number(currentRules.matchOvers || currentConfig?.overs || 10);
+  const maxBowlerOvers = Number(currentRules.maxBowlerOvers || Math.max(1, Math.ceil(matchOvers / 5)));
+  const resolvedVenue = (fixture?.venue || currentRules.groundName || currentRules.venue || currentConfig?.venue || 'Arena Ground 1').trim();
 
-  // Build team squads from auction data if available
+  // Resolve Team A & Team B strictly from real tournament franchises
+  const defaultTeamA = teamsList[0] || { name: 'FALCON', short: 'FA', shortName: 'FA' };
+  const defaultTeamB = teamsList[1] || { name: 'MATRIX', short: 'MA', shortName: 'MA' };
+
+  const teamAName = fixture?.teamA?.name || defaultTeamA.name;
+  const teamAShort = fixture?.teamA?.short || defaultTeamA.short || defaultTeamA.shortName || teamAName.slice(0, 3).toUpperCase();
+  const teamBName = fixture?.teamB?.name || defaultTeamB.name;
+  const teamBShort = fixture?.teamB?.short || defaultTeamB.short || defaultTeamB.shortName || teamBName.slice(0, 3).toUpperCase();
+
+  // Build team squads strictly from real tournament data
   const buildSquad = (teamName: string, short: string): SquadPlayer[] => {
     const teamMeta = teamsList.find(
-      (t) => t.name?.toLowerCase() === teamName.toLowerCase() || t.shortName?.toLowerCase() === short.toLowerCase()
+      (t) => t.name?.toLowerCase() === teamName.toLowerCase() || t.short?.toLowerCase() === short.toLowerCase() || t.shortName?.toLowerCase() === short.toLowerCase()
     );
 
     const players: SquadPlayer[] = [];
     if (teamMeta) {
-      if (teamMeta.captain) {
+      if (teamMeta.owner) {
         players.push({
-          id: `p-c-${teamMeta.id}`,
+          id: `p-owner-${teamMeta.id || short}`,
+          name: teamMeta.owner,
+          isCaptain: true,
+          role: 'Owner & Player',
+        });
+      }
+      if (teamMeta.captain && teamMeta.captain !== teamMeta.owner) {
+        players.push({
+          id: `p-c-${teamMeta.id || short}`,
           name: teamMeta.captain,
           isCaptain: true,
           role: 'Captain',
         });
       }
-      if (teamMeta.viceCaptain && teamMeta.viceCaptain !== teamMeta.captain) {
+      if (teamMeta.viceCaptain && teamMeta.viceCaptain !== teamMeta.captain && teamMeta.viceCaptain !== teamMeta.owner) {
         players.push({
-          id: `p-vc-${teamMeta.id}`,
+          id: `p-vc-${teamMeta.id || short}`,
           name: teamMeta.viceCaptain,
           role: 'Vice Captain',
         });
@@ -95,9 +123,9 @@ async function bootstrapMatchState(matchId: string): Promise<MatchLiveState> {
     });
 
     if (players.length < 2) {
-      players.push({ id: `p-${short}-1`, name: `${short} Opener 1`, role: 'Batter' });
-      players.push({ id: `p-${short}-2`, name: `${short} Opener 2`, role: 'Batter' });
-      players.push({ id: `p-${short}-3`, name: `${short} Bowler 1`, role: 'Bowler' });
+      players.push({ id: `p-${short}-1`, name: `${short} Batter 1`, role: 'Batter' });
+      players.push({ id: `p-${short}-2`, name: `${short} Batter 2`, role: 'Batter' });
+      players.push({ id: `p-${short}-3`, name: `${short} All-Rounder`, role: 'All-Rounder' });
     }
 
     return players;
@@ -111,7 +139,7 @@ async function bootstrapMatchState(matchId: string): Promise<MatchLiveState> {
     teamAShort,
     teamBName,
     teamBShort,
-    tournamentRules.matchOvers || 10,
+    matchOvers,
     squadA,
     squadB
   );
@@ -123,7 +151,7 @@ async function bootstrapMatchState(matchId: string): Promise<MatchLiveState> {
     title: fixture?.title || `${teamAName} vs ${teamBName}`,
     stage: fixture?.stage || 'League',
     group: fixture?.group || null,
-    venue: fixture?.venue || 'Arena Ground 1',
+    venue: resolvedVenue,
     matchDate: fixture?.matchDate || null,
     matchTime: fixture?.matchTime || '10:00 AM',
     status: fixture?.status === 'live' ? 'live' : 'upcoming',
@@ -136,7 +164,7 @@ async function bootstrapMatchState(matchId: string): Promise<MatchLiveState> {
     innings1: initialInnings1,
     innings2: null,
     targetRuns: null,
-    targetOvers: tournamentRules.matchOvers || 10,
+    targetOvers: matchOvers,
     result: null,
     manOfTheMatch: null,
     officials: {
@@ -145,16 +173,16 @@ async function bootstrapMatchState(matchId: string): Promise<MatchLiveState> {
       referee: 'Tournament Technical Director',
     },
     rules: {
-      matchOvers: tournamentRules.matchOvers || 10,
-      maxBowlerOvers: tournamentRules.maxBowlerOvers || 2,
-      wideBallPenalty: tournamentRules.wideBallPenalty || '+1 Run & Extra Ball',
-      noBallPenalty: tournamentRules.noBallPenalty || '+1 Run + Free Hit',
-      pointsPerWin: tournamentRules.pointsPerWin || 2,
+      matchOvers,
+      maxBowlerOvers,
+      wideBallPenalty: currentRules.wideBallPenalty || '+1 Run & Extra Ball',
+      noBallPenalty: currentRules.noBallPenalty || '+1 Run + Free Hit',
+      pointsPerWin: currentRules.pointsPerWin || 2,
     },
     matchNotes: [
       {
         id: `note-init`,
-        text: `Match initialized: ${teamAName} vs ${teamBName} (${tournamentRules.matchOvers} overs limit).`,
+        text: `Match initialized: ${teamAName} vs ${teamBName} (${matchOvers} overs limit at ${resolvedVenue}).`,
         timestamp: new Date().toISOString(),
         type: 'info',
       },
@@ -165,6 +193,7 @@ async function bootstrapMatchState(matchId: string): Promise<MatchLiveState> {
   };
 
   await setStoreData(`match_state_${matchId}`, initialState, `match_state_${matchId}.json`);
+  invalidateStoreCache(`match_state_${matchId}`);
   return initialState;
 }
 
@@ -181,6 +210,7 @@ export async function GET(
 
     const { searchParams } = new URL(req.url);
     const forceRefresh = searchParams.get('refresh') === 'true';
+    const queryTournament = searchParams.get('tournament');
 
     let state = await getStoreData<MatchLiveState | null>(
       `match_state_${matchId}`,
@@ -189,8 +219,15 @@ export async function GET(
       forceRefresh
     );
 
-    if (!state) {
-      state = await bootstrapMatchState(matchId);
+    // If state is missing or contains stale legacy mock data, re-bootstrap with live tournament data
+    const isLegacyMock =
+      state?.title?.includes('Teoco Knight Riders') ||
+      state?.title?.includes('Aircom Avengers') ||
+      state?.innings1?.battingTeam?.includes('Teoco Knight Riders') ||
+      state?.innings1?.battingTeam?.includes('Aircom Avengers');
+
+    if (!state || isLegacyMock) {
+      state = await bootstrapMatchState(matchId, queryTournament || undefined);
     }
 
     return NextResponse.json(

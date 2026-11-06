@@ -1136,6 +1136,7 @@ export default function AdminDashboardPage() {
           tournament: selectedTournament,
           teams: teams.map((t) => ({ id: t.id, name: t.name, short: t.short })),
           overs: auctionRules.matchOvers || (selectedTournament === 'ddpl' ? 10 : 12),
+          venue: auctionRules.groundName || auctionRules.venue || 'Arena Ground 1',
         }),
       });
 
@@ -1151,7 +1152,7 @@ export default function AdminDashboardPage() {
             teamA: m.teamA?.name || m.teamA,
             teamB: m.teamB?.name || m.teamB,
             round: m.stage || `Match ${m.matchNumber}`,
-            venue: m.venue || 'Arena Ground 1',
+            venue: m.venue || auctionRules.groundName || 'Arena Ground 1',
             overs: selectedTournament === 'ddpl' ? (auctionRules.matchOvers || 10) : 12,
             matchDate: m.matchDate || null,
             matchTime: m.matchTime || '10:00 AM',
@@ -1168,6 +1169,32 @@ export default function AdminDashboardPage() {
       alert(`Error generating fixtures: ${err.message}`);
     } finally {
       setIsGeneratingFixtures(false);
+    }
+  };
+
+  // Clear / Reset Fixtures back to Pre-Auction Awaiting State
+  const handleClearTournamentFixtures = async () => {
+    if (!confirm(`Are you sure you want to clear/reset match fixtures for ${selectedTournament.toUpperCase()}?\n\nThis will reset the tournament back to the pre-auction state (Awaiting Auction & Team Finalization).`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'clear_schedule',
+          tournament: selectedTournament,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMatches([]);
+        showNotification(`Fixtures for ${selectedTournament.toUpperCase()} reset to awaiting auction.`);
+      } else {
+        alert(data.error || 'Failed to clear fixtures');
+      }
+    } catch (err: any) {
+      alert(`Error clearing fixtures: ${err.message}`);
     }
   };
 
@@ -1448,6 +1475,8 @@ export default function AdminDashboardPage() {
     minSquadSize: 7,
     matchOvers: 10,
     maxBowlerOvers: 2,
+    groundName: 'Arena Ground 1',
+    venue: 'Arena Ground 1',
     wideBallPenalty: '+1 Run & Extra Ball',
     noBallPenalty: '+1 Run + Free Hit',
     pointsPerWin: 2,
@@ -1607,6 +1636,8 @@ export default function AdminDashboardPage() {
               minSquadSize: data.rules.minSquadSize || 7,
               matchOvers: rOvers,
               maxBowlerOvers: rBowlerLimit,
+              groundName: data.rules.groundName || data.rules.venue || 'Arena Ground 1',
+              venue: data.rules.groundName || data.rules.venue || 'Arena Ground 1',
               wideBallPenalty: data.rules.wideBallPenalty || '+1 Run & Extra Ball',
               noBallPenalty: data.rules.noBallPenalty || '+1 Run + Free Hit',
               pointsPerWin: data.rules.pointsPerWin !== undefined ? data.rules.pointsPerWin : 2,
@@ -3132,6 +3163,16 @@ export default function AdminDashboardPage() {
                   ? '⚡ Generating Tournament Schedule...'
                   : `⚡ Auto-Generate Schedule (${selectedTournament.toUpperCase()} Format)`}
               </button>
+
+              {matches.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearTournamentFixtures}
+                  className="w-full py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Reset Fixtures to Pre-Auction State
+                </button>
+              )}
             </div>
 
             {/* Manual Match Creator Form */}
@@ -3798,6 +3839,22 @@ export default function AdminDashboardPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-card border border-cricket-border text-emerald-400 font-display font-extrabold text-xl focus:outline-none focus:border-emerald-400 disabled:opacity-60"
                   />
                   <p className="text-[11px] text-cricket-muted">Maximum bowling quota per individual bowler in an innings.</p>
+                </div>
+
+                {/* Tournament Ground / Stadium Venue */}
+                <div className="p-4 rounded-2xl bg-cricket-dark/80 border border-cricket-border space-y-2">
+                  <label className="text-xs font-bold text-gray-300 uppercase block">
+                    Tournament Ground / Stadium Venue
+                  </label>
+                  <input
+                    type="text"
+                    disabled={!isOrganizer && !isSuperAdmin}
+                    value={auctionRules.groundName || auctionRules.venue || ''}
+                    placeholder="e.g. Arena Ground 1, Eden Gardens, Corporate Sports Arena"
+                    onChange={(e) => setAuctionRules({ ...auctionRules, groundName: e.target.value, venue: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-card border border-cricket-border text-amber-300 font-display font-extrabold text-base focus:outline-none focus:border-amber-400 disabled:opacity-60"
+                  />
+                  <p className="text-[11px] text-cricket-muted">Official match ground displayed on match cards, fixtures, and Match Center.</p>
                 </div>
 
                 {/* Wide Ball Penalty Rule */}
