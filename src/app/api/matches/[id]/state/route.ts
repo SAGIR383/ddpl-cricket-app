@@ -52,10 +52,11 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
   }
 
   // 3. Fetch tournament rules, configs, and live auction rosters
-  const [rulesContainer, configs, allAuction] = await Promise.all([
+  const [rulesContainer, configs, allAuction, registrations] = await Promise.all([
     getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
     getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
     getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }),
+    getStoreData<any[]>(`tournament_registrations_${tournamentSlug}`, `registrations_${tournamentSlug}.json`, []),
   ]);
 
   const currentRules = rulesContainer?.tournaments?.[tournamentSlug] || rulesContainer?.tournaments?.['ddpl-3-0'] || {};
@@ -77,6 +78,12 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
   const teamBName = fixture?.teamB?.name || defaultTeamB.name;
   const teamBShort = fixture?.teamB?.short || defaultTeamB.short || defaultTeamB.shortName || teamBName.slice(0, 3).toUpperCase();
 
+  const findPhoto = (playerName: string): string | undefined => {
+    if (!playerName || !Array.isArray(registrations)) return undefined;
+    const reg = registrations.find((r: any) => r.name?.toLowerCase() === playerName?.toLowerCase());
+    return reg?.avatarUrl || reg?.photo || undefined;
+  };
+
   // Build team squads strictly from real tournament data
   const buildSquad = (teamName: string, short: string): SquadPlayer[] => {
     const teamMeta = teamsList.find(
@@ -91,6 +98,8 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
           name: teamMeta.owner,
           isCaptain: true,
           role: 'Owner & Player',
+          avatar: findPhoto(teamMeta.owner),
+          photo: findPhoto(teamMeta.owner),
         });
       }
       if (teamMeta.captain && teamMeta.captain !== teamMeta.owner) {
@@ -99,6 +108,8 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
           name: teamMeta.captain,
           isCaptain: true,
           role: 'Captain',
+          avatar: findPhoto(teamMeta.captain),
+          photo: findPhoto(teamMeta.captain),
         });
       }
       if (teamMeta.viceCaptain && teamMeta.viceCaptain !== teamMeta.captain && teamMeta.viceCaptain !== teamMeta.owner) {
@@ -106,6 +117,8 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
           id: `p-vc-${teamMeta.id || short}`,
           name: teamMeta.viceCaptain,
           role: 'Vice Captain',
+          avatar: findPhoto(teamMeta.viceCaptain),
+          photo: findPhoto(teamMeta.viceCaptain),
         });
       }
     }
@@ -113,10 +126,13 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
     const teamSold = soldTxList.filter((tx) => tx.team?.toLowerCase() === teamName.toLowerCase());
     teamSold.forEach((tx, idx) => {
       if (!players.some((p) => p.name.toLowerCase() === tx.player?.toLowerCase())) {
+        const photo = tx.photo || tx.avatarUrl || findPhoto(tx.player);
         players.push({
           id: `p-${idx}-${tx.player}`,
           name: tx.player,
           role: tx.role || 'Player',
+          avatar: photo,
+          photo: photo,
           isWicketKeeper: tx.role?.toLowerCase().includes('keeper') || tx.role?.toLowerCase().includes('wk'),
         });
       }

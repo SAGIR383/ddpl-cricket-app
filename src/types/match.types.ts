@@ -134,6 +134,7 @@ export interface SquadPlayer {
   name: string;
   role?: string;
   avatar?: string;
+  photo?: string | null;
   isCaptain?: boolean;
   isWicketKeeper?: boolean;
 }

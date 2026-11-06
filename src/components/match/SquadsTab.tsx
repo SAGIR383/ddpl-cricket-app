@@ -35,6 +35,7 @@ export function SquadsTab({ state }: SquadsTabProps) {
         isCaptain: matchSquad?.isCaptain,
         isWicketKeeper: matchSquad?.isWicketKeeper,
         avatar: matchSquad?.avatar,
+        photo: matchSquad?.photo || matchSquad?.avatar,
         runs: b.runs,
         balls: b.balls,
         hasBatted: true,
@@ -110,14 +111,22 @@ export function SquadsTab({ state }: SquadsTabProps) {
               >
                 <div className="flex items-center gap-3">
                   {/* Player Avatar / Number */}
-                  <div className="w-9 h-9 rounded-xl bg-[#08111F] border border-white/10 flex items-center justify-center font-display font-bold text-xs text-[#F2D69A]">
-                    {player.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </div>
+                  {player.photo || player.avatar ? (
+                    <img
+                      src={player.photo || player.avatar}
+                      alt={player.name}
+                      className="w-9 h-9 rounded-xl object-cover border border-[#D8AD55]/40"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-xl bg-[#08111F] border border-white/10 flex items-center justify-center font-display font-bold text-xs text-[#F2D69A]">
+                      {player.name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                  )}
 
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
