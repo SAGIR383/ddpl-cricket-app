@@ -395,9 +395,23 @@ export async function POST(req: Request) {
       );
 
       // Read current auction data and add/update franchise team with owner
-      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', {
-        tournaments: {},
-      });
+      const [allAuction, rulesContainer, configs] = await Promise.all([
+        getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }),
+        getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+      ]);
+
+      const currentRules = rulesContainer?.tournaments?.[tSlug] || rulesContainer?.[tSlug] || {};
+      const currentConfig = configs?.[tSlug] || {};
+
+      const basePurse = Number(currentRules.basePurse || currentConfig.pursePerTeam || 10000);
+      const ownerBlockedPrice = Number(
+        currentRules.ownerBlockedPrice !== undefined
+          ? currentRules.ownerBlockedPrice
+          : (currentConfig.ownerBasePrice !== undefined ? currentConfig.ownerBasePrice : 100)
+      );
+      const maxSquad = Number(currentRules.maxSquadSize || currentConfig.maxSquad || 11);
+      const remainingPurse = Math.max(0, basePurse - ownerBlockedPrice);
 
       const currentTourneyData = allAuction.tournaments?.[tSlug] || {
         teams: [],
@@ -417,16 +431,16 @@ export async function POST(req: Request) {
         short,
         owner: resolvedOwnerName,
         ownerEmail,
-        allocated: 10000,
-        spent: 500, // 500 points blocked for owner
-        remaining: 9500, // 9500 remaining purse
+        allocated: basePurse,
+        spent: ownerBlockedPrice,
+        remaining: remainingPurse,
         playersBought: 1, // Owner is player #1
-        maxSquad: 11,
+        maxSquad,
         players: [
           {
             name: resolvedOwnerName,
             role: `${ownerRole} (Franchise Owner)`,
-            price: 500,
+            price: ownerBlockedPrice,
           },
         ],
       };
@@ -439,7 +453,7 @@ export async function POST(req: Request) {
         id: `tx-owner-${Date.now()}`,
         player: resolvedOwnerName,
         team: teamName,
-        price: 500,
+        price: ownerBlockedPrice,
         role: `${ownerRole} (Franchise Owner)`,
       };
       const newTxList = [...existingTx.filter((tx: any) => tx.player !== resolvedOwnerName), ownerTx];
@@ -1005,9 +1019,9 @@ export async function POST(req: Request) {
             captain,
             owner: captain || `${t.name} Captain`,
             players,
-            allocated: 10000,
+            allocated: Number(newTournamentConfig.pursePerTeam) || 10000,
             spent: 0,
-            remaining: 10000,
+            remaining: Number(newTournamentConfig.pursePerTeam) || 10000,
             playersBought: players.length,
             maxSquad: newTournamentConfig.maxSquad,
           };
@@ -1326,10 +1340,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, error: 'Team name is required' }, { status: 400 });
       }
 
-      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+      const [allAuction, rulesContainer, configs] = await Promise.all([
+        getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }),
+        getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+      ]);
       if (!allAuction.tournaments) allAuction.tournaments = {};
       const currentTourneyData = allAuction.tournaments[tSlug] || { teams: [] };
       const existingTeams = currentTourneyData.teams || [];
+
+      const currentRules = rulesContainer?.tournaments?.[tSlug] || rulesContainer?.[tSlug] || {};
+      const currentConfig = configs?.[tSlug] || {};
+      const directPurse = Number(currentRules.basePurse || currentConfig.pursePerTeam || 10000);
 
       const teamId = `t-${Date.now()}`;
       const short = (shortName || teamName.split(' ').map((w: string) => w[0]).join('').slice(0, 3)).toUpperCase();
@@ -1347,11 +1369,11 @@ export async function POST(req: Request) {
         captain: resolvedCaptain,
         owner: resolvedCaptain || `${teamName.trim()} Captain`,
         players: resolvedPlayers,
-        allocated: 10000,
+        allocated: directPurse,
         spent: 0,
-        remaining: 10000,
+        remaining: directPurse,
         playersBought: resolvedPlayers.length,
-        maxSquad: 15,
+        maxSquad: Number(currentRules.maxSquadSize || currentConfig.maxSquad || 15),
       };
 
       const updatedTeams = [...existingTeams.filter((t: any) => t.name.toLowerCase() !== teamName.trim().toLowerCase()), newTeam];

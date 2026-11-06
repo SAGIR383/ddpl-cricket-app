@@ -1,14 +1,17 @@
 {
-  "id": "/",
+  "id": "/?source=pwa",
   "name": "CricPlus24 — Corporate Cricket Platform",
   "short_name": "CricPlus24",
   "description": "CricPlus24 Enterprise Corporate Cricket Tournament Management, Auctions, and Live Scoring",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#040814",
-  "theme_color": "#00f0ff",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#08111F",
+  "theme_color": "#D8AD55",
   "orientation": "portrait-primary",
+  "dir": "ltr",
+  "lang": "en",
   "icons": [
     {
       "src": "/icons/cricplus-icon-192.png",
@@ -29,6 +32,29 @@
       "purpose": "maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "Live Player Auction",
+      "short_name": "Auction",
+      "description": "Live Multiplayer Player Bidding Room",
+      "url": "/auction",
+      "icons": [{ "src": "/icons/cricplus-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tournaments & Leagues",
+      "short_name": "Tournaments",
+      "description": "Browse and Manage Cricket Leagues",
+      "url": "/tournaments",
+      "icons": [{ "src": "/icons/cricplus-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Live Matches & Scores",
+      "short_name": "Matches",
+      "description": "Live Commentary and Digital Scoring",
+      "url": "/matches",
+      "icons": [{ "src": "/icons/cricplus-icon-192.png", "sizes": "192x192" }]
+    }
+  ],
   "screenshots": [
     {
       "src": "/images/cricket-hero.jpg",
@@ -38,9 +64,9 @@
       "label": "CricPlus24 Tournament Hub"
     },
     {
-      "src": "/images/cricket-ball-blast.jpg",
-      "sizes": "1376x768",
-      "type": "image/jpeg",
+      "src": "/images/mobile-app-preview.png",
+      "sizes": "571x1024",
+      "type": "image/png",
       "form_factor": "narrow",
       "label": "Live Match Scoring & Auctions"
     }

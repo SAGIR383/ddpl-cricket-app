@@ -284,6 +284,54 @@ export async function POST(req: Request) {
           auctionChanged = true;
         }
 
+        // Auto-sync franchise team purse & owner blocked prices to match new rules
+        if (Array.isArray(tourneyAuction.teams)) {
+          const ownerMap = new Set(
+            (tourneyAuction.teams || [])
+              .filter((t: any) => t.owner)
+              .map((t: any) => t.owner.toLowerCase().trim())
+          );
+
+          tourneyAuction.teams = tourneyAuction.teams.map((t: any) => {
+            const hasOwner = Boolean(t.owner);
+            const otherPlayers = (t.players || []).filter(
+              (p: any) => !p.role?.includes('Franchise Owner') && (!t.owner || p.name?.toLowerCase().trim() !== t.owner.toLowerCase().trim())
+            );
+            const otherSpent = otherPlayers.reduce((sum: number, p: any) => sum + (Number(p.price) || 0), 0);
+            const ownerBlocked = hasOwner ? updated.ownerBlockedPrice : 0;
+            const newSpent = otherSpent + ownerBlocked;
+            const newRemaining = Math.max(0, updated.basePurse - newSpent);
+
+            const updatedPlayers = (t.players || []).map((p: any) => {
+              if (p.role?.includes('Franchise Owner') || (t.owner && p.name?.toLowerCase().trim() === t.owner.toLowerCase().trim())) {
+                return { ...p, price: updated.ownerBlockedPrice };
+              }
+              return p;
+            });
+
+            auctionChanged = true;
+            return {
+              ...t,
+              allocated: updated.basePurse,
+              spent: newSpent,
+              remaining: newRemaining,
+              maxSquad: updated.maxSquadSize,
+              players: updatedPlayers,
+            };
+          });
+
+          // Sync soldTransactions owner price
+          if (Array.isArray(tourneyAuction.soldTransactions)) {
+            tourneyAuction.soldTransactions = tourneyAuction.soldTransactions.map((tx: any) => {
+              if (tx.role?.includes('Franchise Owner') || ownerMap.has(tx.player?.toLowerCase().trim())) {
+                auctionChanged = true;
+                return { ...tx, price: updated.ownerBlockedPrice };
+              }
+              return tx;
+            });
+          }
+        }
+
         if (auctionChanged) {
           tourneyAuction.lastUpdated = new Date().toISOString();
           await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');

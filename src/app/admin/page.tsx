@@ -765,12 +765,12 @@ export default function AdminDashboardPage() {
             owner: t.owner,
             captain: t.owner ? `${t.owner} (C)` : `${t.name} (C)`,
             viceCaptain: 'To be assigned',
-            budget: t.allocated || 10000,
+            budget: t.allocated || auctionRules.basePurse || 10000,
             squadCount: t.playersBought || 1,
           }))
         );
         showNotification(
-          `Franchise "${newTeamName.trim()}" created! ${ownerName} assigned as Owner & Player #1 (₹500 blocked, ₹9,500 purse).`
+          `Franchise "${newTeamName.trim()}" created! ${ownerName} assigned as Owner & Player #1 (₹${auctionRules.ownerBlockedPrice} blocked, ₹${(auctionRules.basePurse - auctionRules.ownerBlockedPrice).toLocaleString('en-IN')} purse).`
         );
       } else {
         const newTeam: TeamItem = {
@@ -780,7 +780,7 @@ export default function AdminDashboardPage() {
           owner: ownerName,
           captain: `${ownerName} (C)`,
           viceCaptain: 'To be assigned',
-          budget: 10000,
+          budget: auctionRules.basePurse || 10000,
           squadCount: 1,
         };
         setTeams([...teams, newTeam]);
@@ -794,7 +794,7 @@ export default function AdminDashboardPage() {
         owner: ownerName,
         captain: `${ownerName} (C)`,
         viceCaptain: 'To be assigned',
-        budget: 10000,
+        budget: auctionRules.basePurse || 10000,
         squadCount: 1,
       };
       setTeams([...teams, newTeam]);
@@ -1641,7 +1641,7 @@ export default function AdminDashboardPage() {
                 ownerEmail: t.ownerEmail,
                 captain: t.captain || `${t.owner || t.name} (C)`,
                 viceCaptain: t.viceCaptain || 'To be assigned',
-                budget: t.allocated || 10000,
+                budget: t.allocated || auctionRules.basePurse || 10000,
                 squadCount: soldTransactionsList.filter((tx: any) => tx.team === t.name).length || t.playersBought || 1,
               }));
               setTeams(mappedTeams);
@@ -2502,7 +2502,7 @@ export default function AdminDashboardPage() {
             <div className="p-4 bg-cricket-card/80 border-b border-cricket-border flex flex-wrap items-center justify-between gap-3">
               <div>
                 <span className="font-display font-bold text-xl text-white">Registered Teams in {selectedTournament.toUpperCase()}</span>
-                <span className="block sm:inline sm:ml-3 text-xs text-cricket-muted font-bold">Default Purse: ₹10,000 • Owner Price: ₹500 Blocked</span>
+                <span className="block sm:inline sm:ml-3 text-xs text-cricket-muted font-bold">Default Purse: ₹{auctionRules.basePurse.toLocaleString('en-IN')} • Owner Price: ₹{auctionRules.ownerBlockedPrice.toLocaleString('en-IN')} Blocked</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
