@@ -10,6 +10,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
 import { GoogleAnalytics } from '@/components/seo/GoogleAnalytics';
 import { AdSenseScript } from '@/components/ads/AdSlot';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.cricplus24.in'),
@@ -110,6 +111,7 @@ export default function RootLayout({
             </ThemeProvider>
           </LanguageProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
