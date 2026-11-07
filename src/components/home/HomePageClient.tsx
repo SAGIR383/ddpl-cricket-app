@@ -294,23 +294,47 @@ export function HomePageClient() {
           setAnnouncement(annData.announcement);
         }
 
-        // Dynamic teams calculation across all tournaments
-        const ddplTeams = aData?.data?.teams || [];
-        const allTourneys = aData?.allTournaments || {};
-        let totalTeams = ddplTeams.length;
-        Object.keys(allTourneys).forEach((slug) => {
-          if (slug !== 'ddpl' && allTourneys[slug]?.teams) {
-            totalTeams += allTourneys[slug].teams.length;
+        const allAuctionTourneys = aData?.allTournaments || {};
+
+        // Dynamic teams calculation across only active hosted tournaments
+        let baseList: any[] = [];
+        if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
+          baseList = regData.tournamentsList;
+        }
+
+        const activeSlugs = new Set(baseList.map((t: any) => t.slug?.toLowerCase()));
+        let totalTeams = 0;
+        const currentActiveTeams = (aData?.data?.teams && Array.isArray(aData.data.teams)) ? aData.data.teams : [];
+        if (activeSlug && activeSlugs.has(activeSlug.toLowerCase())) {
+          totalTeams += currentActiveTeams.length;
+        }
+
+        // Add teams from other active hosted tournaments (prevent double-counting or including obsolete tournaments)
+        Object.keys(allAuctionTourneys).forEach((slug) => {
+          const sLower = slug.toLowerCase();
+          if (activeSlugs.has(sLower) && sLower !== activeSlug.toLowerCase() && allAuctionTourneys[slug]?.teams) {
+            totalTeams += allAuctionTourneys[slug].teams.length;
           }
         });
 
-        // Dynamic registered players calculation
-        const poolPlayers = aData?.data?.players || [];
-        const soldPlayers = aData?.data?.soldPlayers || [];
-        const totalPlayers = poolPlayers.length + soldPlayers.length;
+        // Dynamic registered players calculation across active tournaments
+        let totalPlayers = 0;
+        if (regData?.totalRegistrationsCount !== undefined && typeof regData.totalRegistrationsCount === 'number') {
+          totalPlayers = regData.totalRegistrationsCount;
+        } else if (regData?.count !== undefined && typeof regData.count === 'number') {
+          totalPlayers = regData.count;
+        } else if (Array.isArray(regData?.registrations)) {
+          totalPlayers = regData.registrations.length;
+        }
+
+        // If auction pool or sold transactions has additional players, ensure count reflects that
+        const poolCount = (aData?.data?.playerPool?.length || 0) + (aData?.data?.soldTransactions?.length || 0) + (aData?.data?.unsoldPlayers?.length || 0);
+        if (poolCount > totalPlayers) {
+          totalPlayers = poolCount;
+        }
 
         // Dynamic rules overs
-        const ddplRules = rulesData?.rules || rulesData?.tournaments?.ddpl;
+        const ddplRules = rulesData?.rules || rulesData?.tournaments?.[activeSlug] || rulesData?.tournaments?.ddpl;
         const ddplOvers = ddplRules?.matchOvers || 10;
         const gorRules = rulesData?.tournaments?.['game-of-run'];
         const gorOvers = gorRules?.matchOvers || 12;
@@ -326,23 +350,18 @@ export function HomePageClient() {
         setLiveMatch(live.length > 0 ? live[0] : null);
         setUpcomingMatches(upcoming);
 
-        // Tournaments dynamic list sync - Only show tournaments that actually exist in the database
-        let baseList: any[] = [];
-        if (regData?.tournamentsList !== undefined && Array.isArray(regData.tournamentsList)) {
-          baseList = regData.tournamentsList;
-        }
-
         const allConfigs = regData?.allConfigs || {};
-        const allAuctionTourneys = aData?.allTournaments || {};
         const allRulesTourneys = rulesData?.tournaments || regData?.rulesMap || {};
 
         const resolvedTourneys: TournamentCardItem[] = baseList.map((t: any) => {
           const slug = t.slug || 'ddpl';
           const cfg = allConfigs[slug] || t;
-          const tAuction = allAuctionTourneys[slug] || (slug === 'ddpl' ? aData?.data : null);
-          const tRules = allRulesTourneys[slug] || (slug === 'ddpl' ? rulesData?.rules : null);
+          const tAuction = allAuctionTourneys[slug] || (slug === activeSlug ? aData?.data : null);
+          const tRules = allRulesTourneys[slug] || (slug === activeSlug ? rulesData?.rules : null);
           const overs = Number(tRules?.matchOvers) || Number(cfg.overs) || Number(t.overs) || 10;
-          const tTeams = tAuction?.teams || [];
+          const tTeams = (tAuction?.teams && Array.isArray(tAuction.teams))
+            ? tAuction.teams
+            : (slug === activeSlug && aData?.data?.teams ? aData.data.teams : []);
           const teamsCount = tTeams.length;
           const status = cfg.status || t.status || 'upcoming';
           const pursePerTeam = Number(tRules?.basePurse) || Number(cfg.pursePerTeam) || Number(t.pursePerTeam) || 10000;
@@ -376,7 +395,7 @@ export function HomePageClient() {
           teamsCount: totalTeams,
           playersCount: totalPlayers,
           seasonsCount: resolvedTourneys.length > 0 ? 1 : 0,
-          ddplTeamsCount: ddplTeams.length,
+          ddplTeamsCount: currentActiveTeams.length,
           ddplOvers,
           gorOvers,
           matchesCount: allMatches.length,

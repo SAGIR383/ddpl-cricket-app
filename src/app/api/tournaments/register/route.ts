@@ -111,6 +111,29 @@ export async function GET(req: Request) {
     []
   ) : [];
 
+  // Compute live registrations count for all active tournaments
+  const regCounts: Record<string, number> = {};
+  let totalRegistrations = 0;
+
+  await Promise.all(
+    tournamentsList.map(async (t) => {
+      if (t.slug === activeSlug) {
+        const c = Array.isArray(registrations) ? registrations.length : 0;
+        regCounts[t.slug] = c;
+        totalRegistrations += c;
+      } else {
+        const tRegs = await getStoreData<TournamentPlayerRegistration[]>(
+          `tournament_registrations_${t.slug}`,
+          `registrations_${t.slug}.json`,
+          []
+        );
+        const c = Array.isArray(tRegs) ? tRegs.length : 0;
+        regCounts[t.slug] = c;
+        totalRegistrations += c;
+      }
+    })
+  );
+
   return NextResponse.json(
     {
       success: true,
@@ -122,6 +145,8 @@ export async function GET(req: Request) {
       rulesMap,
       registrations,
       count: registrations.length,
+      totalRegistrationsCount: totalRegistrations,
+      registrationsCounts: regCounts,
     },
     {
       headers: {
