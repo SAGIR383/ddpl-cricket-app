@@ -28,7 +28,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LiveAnnouncementTicker } from '@/components/home/LiveAnnouncementTicker';
 import { InteractiveFeatureShowcase } from '@/components/home/InteractiveFeatureShowcase';
 import { GlobalMatchRadarMap } from '@/components/home/GlobalMatchRadarMap';
-import { GlobalLiveScoresTicker } from '@/components/home/GlobalLiveScoresTicker';
 import { AppDownloadSection } from '@/components/home/AppDownloadSection';
 import type { LiveAnnouncementData } from '@/app/api/announcement/route';
 
@@ -499,24 +498,16 @@ export function HomePageClient() {
     <div className="space-y-12 sm:space-y-16 pb-16 relative z-10">
       
       {/* 1. CINEMATIC HERO (Storyboard Panel 1) */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#D8AD55]/35 shadow-[0_25px_60px_rgba(0,0,0,0.85)] min-h-[500px] sm:min-h-[560px] lg:min-h-[600px] flex items-center bg-[#08111F]">
+      <section className="relative overflow-hidden rounded-3xl border border-[#D8AD55]/35 shadow-[0_25px_60px_rgba(0,0,0,0.85)] min-h-[480px] sm:min-h-[540px] lg:min-h-[560px] flex items-center bg-[#091322]">
         
-        {/* Immersive Stadium Photography Background (4K HD Crystal-Clear Sporty Hero) */}
-        <div className="absolute inset-0 z-0">
-          <Image
-            src="/images/cricplus-stadium-4k.jpg"
-            alt="CricPlus24 4K Cricket Stadium Lights"
-            fill
-            priority
-            quality={85}
-            sizes="100vw"
-            className="object-cover object-[88%_top] sm:object-[85%_top] md:object-[center_top] filter brightness-[1.06] contrast-[1.16] saturate-[1.20]"
-          />
-          {/* Cinema Poster Editorial Gradient Scrim: Solid high-contrast deep midnight navy behind text on left, fading smoothly to 100% clear transparency past the pitch */}
-          <div className="absolute inset-y-0 left-0 w-full sm:w-3/4 md:w-3/5 lg:w-[54%] bg-gradient-to-r from-[#08111F] via-[#08111F]/90 to-transparent z-10 pointer-events-none" />
-          <div className="absolute inset-y-0 left-0 w-full sm:w-1/2 bg-gradient-to-r from-[#08111F]/60 to-transparent z-10 pointer-events-none" />
-          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#08111F] via-[#08111F]/40 to-transparent z-10 pointer-events-none" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#D8AD55]/25 via-amber-500/10 to-transparent blur-3xl pointer-events-none z-10" />
+        {/* Pure CSS Lightweight Sports Arena Background (Zero Image Memory Overhead) */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#0F1E36] via-[#091322] to-[#050A14]">
+          {/* Subtle Ambient Golden Floodlight Accents */}
+          <div className="absolute -top-24 -right-24 w-[520px] h-[520px] bg-gradient-to-bl from-[#D8AD55]/15 via-amber-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 left-1/4 w-[460px] h-[350px] bg-gradient-to-tr from-teal-500/10 via-emerald-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+          {/* Modern Pitch Grid Geometry */}
+          <div className="absolute inset-0 opacity-[0.035] bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#091322] via-[#091322]/80 to-transparent pointer-events-none" />
         </div>
 
         {/* Content Over Stadium */}
@@ -704,9 +695,6 @@ export function HomePageClient() {
           </Link>
         </div>
       )}
-
-      {/* GOOGLE-STYLE GLOBAL LIVE CRICKET SCORES TICKER (BBL, ICC, County, Franchise & Domestic) */}
-      <GlobalLiveScoresTicker />
 
       {/* 2. DYNAMIC LIVE STATS BANNER (Panel 1 Bottom) */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">

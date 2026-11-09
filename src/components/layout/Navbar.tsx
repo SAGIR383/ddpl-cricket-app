@@ -55,7 +55,6 @@ export function Navbar() {
     { href: '/auction', label: t.navAuction, icon: Gavel },
     { href: '/standings', label: t.navStandings, icon: BarChart3 },
     { href: '/leaderboard', label: t.navLeaderboard, icon: Flame },
-    { href: '/news', label: 'News', icon: Globe },
     { href: '/tools', label: 'Tools', icon: Calculator },
     { href: '/archive', label: t.navArchive, icon: Archive },
     ...(isOrganizer ? [{ href: '/admin', label: isSuperAdmin ? 'Super Admin' : 'Admin', icon: Shield, badge: isSuperAdmin ? 'Master' : 'Organizer' }] : []),

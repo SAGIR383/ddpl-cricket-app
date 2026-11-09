@@ -88,9 +88,6 @@ export function Footer() {
             <div className="space-y-2">
               <div className="text-[10px] uppercase font-bold text-[#D8AD55] tracking-wider">Editorial &amp; Trust</div>
               <div className="flex flex-col space-y-1.5">
-                <Link href="/news" className="hover:text-white transition-colors">
-                  News &amp; Editorials
-                </Link>
                 <Link href="/about" className="hover:text-white transition-colors">
                   About Us
                 </Link>

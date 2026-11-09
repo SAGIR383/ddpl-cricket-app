@@ -90,10 +90,6 @@ export default function RootLayout({
               {/* Top route change progress bar */}
               <NavigationProgress />
 
-              {/* Full-bleed fixed stadium visual reaching all edges of any display */}
-              <div className="stadium-bg-fixed" />
-              <div className="stadium-overlay-fixed" />
-
               {/* Top Floating Header Navbar */}
               <Navbar />
 
