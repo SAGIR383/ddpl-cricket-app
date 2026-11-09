@@ -63,69 +63,86 @@ function generateDdplFixtures(teams: any[], tournamentOvers = 10, tournamentSlug
     }
   }
 
-  // Add standard Top-4 Playoff fixtures
-  fixtures.push({
-    id: `${tournamentSlug}-m${matchNum}`,
-    matchNumber: matchNum,
-    tournament: tournamentSlug,
-    stage: 'Qualifier 1',
-    title: `Qualifier 1: Rank #1 vs Rank #2`,
-    teamA: { name: 'Rank #1 Team', short: 'T1' },
-    teamB: { name: 'Rank #2 Team', short: 'T2' },
-    venue,
-    matchDate: null,
-    matchTime: '02:00 PM',
-    status: 'upcoming',
-    summary: 'Winner advances directly to Grand Final. Loser gets second chance in Qualifier 2.',
-  });
-  matchNum++;
+  // Add standard Playoff fixtures (Top 4 Playoffs when >= 4 teams, or direct Grand Final when < 4 teams)
+  if (teams.length >= 4) {
+    fixtures.push({
+      id: `${tournamentSlug}-m${matchNum}`,
+      matchNumber: matchNum,
+      tournament: tournamentSlug,
+      stage: 'Qualifier 1',
+      title: `Qualifier 1: Rank #1 vs Rank #2`,
+      teamA: { name: 'Rank #1 Team', short: 'T1' },
+      teamB: { name: 'Rank #2 Team', short: 'T2' },
+      venue,
+      matchDate: null,
+      matchTime: '02:00 PM',
+      status: 'upcoming',
+      summary: 'Winner advances directly to Grand Final. Loser gets second chance in Qualifier 2.',
+    });
+    matchNum++;
 
-  fixtures.push({
-    id: `${tournamentSlug}-m${matchNum}`,
-    matchNumber: matchNum,
-    tournament: tournamentSlug,
-    stage: 'Eliminator',
-    title: `Eliminator: Rank #3 vs Rank #4`,
-    teamA: { name: 'Rank #3 Team', short: 'T3' },
-    teamB: { name: 'Rank #4 Team', short: 'T4' },
-    venue,
-    matchDate: null,
-    matchTime: '06:00 PM',
-    status: 'upcoming',
-    summary: 'Winner advances to Qualifier 2. Loser is eliminated.',
-  });
-  matchNum++;
+    fixtures.push({
+      id: `${tournamentSlug}-m${matchNum}`,
+      matchNumber: matchNum,
+      tournament: tournamentSlug,
+      stage: 'Eliminator',
+      title: `Eliminator: Rank #3 vs Rank #4`,
+      teamA: { name: 'Rank #3 Team', short: 'T3' },
+      teamB: { name: 'Rank #4 Team', short: 'T4' },
+      venue,
+      matchDate: null,
+      matchTime: '06:00 PM',
+      status: 'upcoming',
+      summary: 'Winner advances to Qualifier 2. Loser is eliminated.',
+    });
+    matchNum++;
 
-  fixtures.push({
-    id: `${tournamentSlug}-m${matchNum}`,
-    matchNumber: matchNum,
-    tournament: tournamentSlug,
-    stage: 'Qualifier 2',
-    title: `Qualifier 2: Loser Q1 vs Winner Eliminator`,
-    teamA: { name: 'Loser of Q1', short: 'LQ1' },
-    teamB: { name: 'Winner of Eliminator', short: 'WEL' },
-    venue,
-    matchDate: null,
-    matchTime: '02:00 PM',
-    status: 'upcoming',
-    summary: 'High-stakes battle for the final spot in the Grand Championship.',
-  });
-  matchNum++;
+    fixtures.push({
+      id: `${tournamentSlug}-m${matchNum}`,
+      matchNumber: matchNum,
+      tournament: tournamentSlug,
+      stage: 'Qualifier 2',
+      title: `Qualifier 2: Loser Q1 vs Winner Eliminator`,
+      teamA: { name: 'Loser of Q1', short: 'LQ1' },
+      teamB: { name: 'Winner of Eliminator', short: 'WEL' },
+      venue,
+      matchDate: null,
+      matchTime: '02:00 PM',
+      status: 'upcoming',
+      summary: 'High-stakes battle for the final spot in the Grand Championship.',
+    });
+    matchNum++;
 
-  fixtures.push({
-    id: `${tournamentSlug}-m${matchNum}`,
-    matchNumber: matchNum,
-    tournament: tournamentSlug,
-    stage: 'Final',
-    title: `Grand Final: Winner Q1 vs Winner Q2`,
-    teamA: { name: 'Winner of Q1', short: 'WQ1' },
-    teamB: { name: 'Winner of Q2', short: 'WQ2' },
-    venue,
-    matchDate: null,
-    matchTime: '06:30 PM',
-    status: 'upcoming',
-    summary: 'Championship Trophy Match.',
-  });
+    fixtures.push({
+      id: `${tournamentSlug}-m${matchNum}`,
+      matchNumber: matchNum,
+      tournament: tournamentSlug,
+      stage: 'Final',
+      title: `Grand Final: Winner Q1 vs Winner Q2`,
+      teamA: { name: 'Winner of Q1', short: 'WQ1' },
+      teamB: { name: 'Winner of Q2', short: 'WQ2' },
+      venue,
+      matchDate: null,
+      matchTime: '06:30 PM',
+      status: 'upcoming',
+      summary: 'Championship Trophy Match.',
+    });
+  } else if (teams.length >= 2) {
+    fixtures.push({
+      id: `${tournamentSlug}-m${matchNum}`,
+      matchNumber: matchNum,
+      tournament: tournamentSlug,
+      stage: 'Final',
+      title: `Grand Final: Rank #1 vs Rank #2`,
+      teamA: { name: 'Rank #1 Team', short: 'T1' },
+      teamB: { name: 'Rank #2 Team', short: 'T2' },
+      venue,
+      matchDate: null,
+      matchTime: '06:30 PM',
+      status: 'upcoming',
+      summary: 'Championship Trophy Match.',
+    });
+  }
 
   return fixtures;
 }
@@ -776,7 +793,15 @@ export async function POST(req: Request) {
       ]);
       const currentRules = rulesContainer?.tournaments?.[tournament] || {};
       const currentConfig = configs?.[tournament] || {};
-      const venue = (body.venue || body.groundName || currentRules.groundName || currentRules.venue || currentConfig?.venue || 'Arena Ground 1').trim();
+      const venue = (
+        body.venue ||
+        body.groundName ||
+        currentConfig?.groundName ||
+        currentConfig?.venue ||
+        currentRules.groundName ||
+        currentRules.venue ||
+        'Arena Ground 1'
+      ).trim();
 
       let generatedMatches: MatchFixture[];
       if (groupNames && groupNames.length > 0) {

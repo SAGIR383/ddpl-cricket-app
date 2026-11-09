@@ -382,17 +382,24 @@ export async function POST(req: Request) {
       });
     }
 
-    // 3. ASSIGN FRANCHISE OWNER & CREATE TEAM (Super Admin)
+    // 3. ASSIGN FRANCHISE OWNER & CREATE TEAM (Super Admin - Supports 4 to 20 Teams)
     if (action === 'assign_franchise') {
       const { teamName, shortName, ownerEmail, ownerName } = body;
-      if (!teamName || !ownerEmail) {
+      if (!teamName || !teamName.trim()) {
         return NextResponse.json(
-          { success: false, error: 'Team Name and Owner Email are required' },
+          { success: false, error: 'Franchise team name is required.' },
           { status: 400 }
         );
       }
 
-      // Mark player as owner in registrations
+      const cleanTeamName = teamName.trim();
+      const cleanOwnerName = (ownerName || '').trim();
+      const cleanOwnerEmail = (
+        ownerEmail ||
+        (cleanOwnerName ? `${cleanOwnerName.toLowerCase().replace(/[^a-z0-9]/g, '')}@cricplus.com` : 'teammanagement@cricplus.com')
+      ).trim().toLowerCase();
+
+      // Read current registrations
       const registrations = await getStoreData<TournamentPlayerRegistration[]>(
         `tournament_registrations_${tSlug}`,
         `registrations_${tSlug}.json`,
@@ -400,18 +407,45 @@ export async function POST(req: Request) {
       );
 
       const ownerPlayer = registrations.find(
-        (r) => r.email.toLowerCase() === ownerEmail.toLowerCase()
+        (r) =>
+          (cleanOwnerEmail && r.email?.toLowerCase() === cleanOwnerEmail) ||
+          (cleanOwnerName && r.name?.toLowerCase() === cleanOwnerName.toLowerCase())
       );
 
-      const resolvedOwnerName = ownerName || ownerPlayer?.name || ownerEmail.split('@')[0];
-      const ownerRole = ownerPlayer?.role || 'All Rounder';
+      const resolvedOwnerName = cleanOwnerName || ownerPlayer?.name || cleanOwnerEmail.split('@')[0] || 'Franchise Owner';
+      const resolvedOwnerEmail = ownerPlayer?.email || cleanOwnerEmail;
+      const ownerRole = ownerPlayer?.role || 'All-rounder';
+      const ownerPhoto = ownerPlayer?.avatarUrl || (ownerPlayer as any)?.photo || null;
 
-      const updatedRegistrations = registrations.map((r) => {
-        if (r.email.toLowerCase() === ownerEmail.toLowerCase()) {
-          return { ...r, isOwner: true, franchiseTeam: teamName };
-        }
-        return r;
-      });
+      // Update or add owner in tournament player registrations
+      let updatedRegistrations = [...registrations];
+      const existingOwnerIdx = updatedRegistrations.findIndex(
+        (r) =>
+          r.email?.toLowerCase() === resolvedOwnerEmail.toLowerCase() ||
+          r.name?.toLowerCase() === resolvedOwnerName.toLowerCase()
+      );
+
+      if (existingOwnerIdx >= 0) {
+        updatedRegistrations[existingOwnerIdx] = {
+          ...updatedRegistrations[existingOwnerIdx],
+          isOwner: true,
+          franchiseTeam: cleanTeamName,
+        };
+      } else {
+        // Enforce owner registration as Player #1 of the franchise
+        updatedRegistrations.push({
+          id: `reg-owner-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name: resolvedOwnerName,
+          email: resolvedOwnerEmail,
+          phone: '',
+          role: ownerRole,
+          battingStyle: 'Right-hand bat',
+          bowlingStyle: 'Right-arm medium',
+          isOwner: true,
+          franchiseTeam: cleanTeamName,
+          registeredAt: new Date().toISOString(),
+        });
+      }
 
       await setStoreData(
         `tournament_registrations_${tSlug}`,
@@ -429,7 +463,7 @@ export async function POST(req: Request) {
       const currentRules = rulesContainer?.tournaments?.[tSlug] || rulesContainer?.[tSlug] || {};
       const currentConfig = configs?.[tSlug] || {};
 
-      const basePurse = Number(currentRules.basePurse || currentConfig.pursePerTeam || 10000);
+      const basePurse = Number(currentRules.basePurse || currentConfig.pursePerTeam || 7000);
       const ownerBlockedPrice = Number(
         currentRules.ownerBlockedPrice !== undefined
           ? currentRules.ownerBlockedPrice
@@ -447,41 +481,69 @@ export async function POST(req: Request) {
       };
 
       const existingTeams = currentTourneyData.teams || [];
-      const teamId = `t-${Date.now()}`;
-      const short = shortName || teamName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 3);
 
+      // Enforce franchise limit: up to 20 teams supported
+      if (existingTeams.length >= 20 && !existingTeams.some((t: any) => t.name?.toLowerCase() === cleanTeamName.toLowerCase())) {
+        return NextResponse.json(
+          { success: false, error: 'Maximum franchise limit reached (up to 20 teams supported).' },
+          { status: 400 }
+        );
+      }
+
+      // Check duplicate franchise name or short code
+      const short = (
+        shortName ||
+        cleanTeamName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 4) ||
+        cleanTeamName.slice(0, 3).toUpperCase()
+      ).trim().toUpperCase();
+
+      const duplicateName = existingTeams.find(
+        (t: any) => t.name?.toLowerCase() === cleanTeamName.toLowerCase() && t.id !== body.teamId
+      );
+      if (duplicateName) {
+        return NextResponse.json(
+          { success: false, error: `A franchise named "${cleanTeamName}" already exists in this tournament.` },
+          { status: 400 }
+        );
+      }
+
+      const teamId = body.teamId || `t-${Date.now()}`;
       const newTeam = {
         id: teamId,
-        name: teamName,
+        name: cleanTeamName,
         short,
         owner: resolvedOwnerName,
-        ownerEmail,
+        ownerEmail: resolvedOwnerEmail,
         allocated: basePurse,
         spent: ownerBlockedPrice,
         remaining: remainingPurse,
         playersBought: 1, // Owner is player #1
         maxSquad,
+        captain: `${resolvedOwnerName} (C)`,
+        viceCaptain: 'To be assigned',
         players: [
           {
             name: resolvedOwnerName,
             role: `${ownerRole} (Franchise Owner)`,
             price: ownerBlockedPrice,
+            avatarUrl: ownerPhoto,
           },
         ],
       };
 
-      const newTeamsList = [...existingTeams.filter((t: any) => t.name !== teamName), newTeam];
+      const newTeamsList = [...existingTeams.filter((t: any) => t.name?.toLowerCase() !== cleanTeamName.toLowerCase()), newTeam];
 
       // Also ensure soldTransactions has owner entry
       const existingTx = currentTourneyData.soldTransactions || [];
       const ownerTx = {
         id: `tx-owner-${Date.now()}`,
         player: resolvedOwnerName,
-        team: teamName,
+        team: cleanTeamName,
         price: ownerBlockedPrice,
         role: `${ownerRole} (Franchise Owner)`,
+        avatarUrl: ownerPhoto,
       };
-      const newTxList = [...existingTx.filter((tx: any) => tx.player !== resolvedOwnerName), ownerTx];
+      const newTxList = [...existingTx.filter((tx: any) => tx.player?.toLowerCase() !== resolvedOwnerName.toLowerCase()), ownerTx];
 
       // Remove owner from open auction pool (since owner is already assigned to their team)
       currentTourneyData.playerPool = (currentTourneyData.playerPool || []).filter(
@@ -490,7 +552,7 @@ export async function POST(req: Request) {
       if (currentTourneyData.currentLot?.name?.toLowerCase() === resolvedOwnerName.toLowerCase()) {
         currentTourneyData.currentLot = currentTourneyData.playerPool.length > 0 ? {
           ...currentTourneyData.playerPool[0],
-          currentBid: currentTourneyData.playerPool[0].basePrice || 500,
+          currentBid: currentTourneyData.playerPool[0].basePrice || 100,
           leadingTeam: null,
           history: [],
         } : null;
@@ -500,16 +562,17 @@ export async function POST(req: Request) {
       currentTourneyData.soldTransactions = newTxList;
       currentTourneyData.lastUpdated = new Date().toISOString();
 
-      allAuction.tournaments = {
-        ...allAuction.tournaments,
-        [tSlug]: currentTourneyData,
-      };
+      if (!allAuction.tournaments) allAuction.tournaments = {};
+      allAuction.tournaments[tSlug] = currentTourneyData;
 
       await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+      invalidateStoreCache('auction_data_ddpl');
+      invalidateStoreCache(`tournament_registrations_${tSlug}`);
+      invalidateStoreCache('tournament_configs');
 
       return NextResponse.json({
         success: true,
-        message: `Franchise ${teamName} created! ${resolvedOwnerName} assigned as Owner & Player #1 (₹500 blocked, ₹9,500 remaining purse).`,
+        message: `Franchise "${cleanTeamName}" created successfully! ${resolvedOwnerName} assigned as Owner & Player #1 (₹${ownerBlockedPrice} blocked, ₹${remainingPurse.toLocaleString('en-IN')} remaining purse). Total franchises: ${newTeamsList.length}.`,
         teams: newTeamsList,
       });
     }
@@ -623,6 +686,11 @@ export async function POST(req: Request) {
         schedule.lastUpdated = new Date().toISOString();
         await setStoreData(`tournament_schedule_${tSlug}`, schedule, `schedule_${tSlug}.json`);
       }
+
+      invalidateStoreCache('auction_data_ddpl');
+      invalidateStoreCache(`tournament_registrations_${tSlug}`);
+      invalidateStoreCache(`tournament_schedule_${tSlug}`);
+      invalidateStoreCache('tournament_configs');
 
       return NextResponse.json({
         success: true,

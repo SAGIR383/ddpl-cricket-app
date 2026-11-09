@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getStoreData, setStoreData } from '@/lib/supabase/store';
+import { getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
 
 const DEFAULT_STATE = {
   teams: [],
@@ -49,6 +49,7 @@ async function readAllAuctionData(): Promise<any> {
 }
 
 async function saveAllAuctionData(data: any) {
+  invalidateStoreCache('auction_data_ddpl');
   return setStoreData('auction_data_ddpl', data, 'auction_data.json');
 }
 
@@ -62,6 +63,7 @@ export async function GET(req: Request) {
   const tournamentData = { ...rawTournamentData };
 
   // Enrich player pool, currentLot, and transactions with player photos from registrations
+  // Also auto-reconcile any franchise owner present in registrations that may be missing from teams
   try {
     const registrations = await getStoreData<any[]>(
       `tournament_registrations_${tournament}`,
@@ -107,8 +109,81 @@ export async function GET(req: Request) {
         return tx;
       });
     }
+
+    // Auto-reconciliation: Ensure every registered franchise owner is present in teams & soldTransactions
+    if (Array.isArray(registrations) && registrations.length > 0) {
+      let needsAutoReconcile = false;
+      if (!tournamentData.teams) tournamentData.teams = [];
+      if (!tournamentData.soldTransactions) tournamentData.soldTransactions = [];
+
+      const existingTeamNames = new Set(
+        tournamentData.teams.map((t: any) => (t.name || '').trim().toLowerCase())
+      );
+
+      const registeredOwners = registrations.filter((r: any) => r.isOwner && r.franchiseTeam);
+      for (const reg of registeredOwners) {
+        const teamName = reg.franchiseTeam.trim();
+        const normName = teamName.toLowerCase();
+
+        if (!existingTeamNames.has(normName)) {
+          const short = (reg.franchiseTeam.slice(0, 3) || 'TM').toUpperCase();
+          const ownerPhoto = reg.avatarUrl || reg.photo || null;
+          const newReconciledTeam = {
+            id: `t-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            name: teamName,
+            short,
+            owner: reg.name,
+            ownerEmail: reg.email,
+            allocated: 7000,
+            spent: 100,
+            remaining: 6900,
+            playersBought: 1,
+            maxSquad: 11,
+            captain: `${reg.name} (C)`,
+            viceCaptain: 'To be assigned',
+            players: [
+              {
+                name: reg.name,
+                role: `${reg.role || 'All-rounder'} (Franchise Owner)`,
+                price: 100,
+                avatarUrl: ownerPhoto,
+              },
+            ],
+          };
+
+          tournamentData.teams.push(newReconciledTeam);
+          existingTeamNames.add(normName);
+          needsAutoReconcile = true;
+
+          // Check if soldTransactions has owner entry
+          if (!tournamentData.soldTransactions.some((tx: any) => (tx.player || '').toLowerCase() === reg.name.toLowerCase())) {
+            tournamentData.soldTransactions.push({
+              id: `tx-owner-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              player: reg.name,
+              team: teamName,
+              price: 100,
+              role: `${reg.role || 'All-rounder'} (Franchise Owner)`,
+              avatarUrl: ownerPhoto,
+            });
+          }
+
+          // Remove owner from open pool if present
+          if (Array.isArray(tournamentData.playerPool)) {
+            tournamentData.playerPool = tournamentData.playerPool.filter(
+              (p: any) => (p.name || '').toLowerCase() !== reg.name.toLowerCase()
+            );
+          }
+        }
+      }
+
+      if (needsAutoReconcile) {
+        if (!allData.tournaments) allData.tournaments = {};
+        allData.tournaments[tournament] = tournamentData;
+        await saveAllAuctionData(allData);
+      }
+    }
   } catch (enrichErr) {
-    console.warn('Could not enrich auction photos:', enrichErr);
+    console.warn('Could not enrich auction photos or reconcile franchises:', enrichErr);
   }
 
   return NextResponse.json(
@@ -141,7 +216,24 @@ export async function POST(req: Request) {
     const currentTournamentData = allData.tournaments[tournament] || DEFAULT_STATE;
 
     // Check if body contains explicit team updates or transactions update
-    let updatedTeams = body.teams || currentTournamentData.teams;
+    let updatedTeams = currentTournamentData.teams || [];
+    if (Array.isArray(body.teams)) {
+      if (body.allowTeamDeletion) {
+        updatedTeams = body.teams;
+      } else {
+        // Merge teams to preserve all created franchises and prevent stale overwrites
+        const bodyTeamMap = new Map<string, any>(body.teams.map((t: any) => [(t.name || '').toLowerCase(), t]));
+        updatedTeams = (currentTournamentData.teams || []).map((t: any) => {
+          const matching = bodyTeamMap.get((t.name || '').toLowerCase());
+          return matching ? { ...t, ...matching } : t;
+        });
+        for (const bt of body.teams) {
+          if (!updatedTeams.some((t: any) => (t.name || '').toLowerCase() === (bt.name || '').toLowerCase())) {
+            updatedTeams.push(bt);
+          }
+        }
+      }
+    }
     let updatedSold = body.soldTransactions || currentTournamentData.soldTransactions;
 
     // Deduplicate player pool by trimmed lowercase name

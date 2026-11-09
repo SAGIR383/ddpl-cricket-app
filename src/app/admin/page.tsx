@@ -701,6 +701,9 @@ export default function AdminDashboardPage() {
   const [newTeamName, setNewTeamName] = useState('');
   const [newTeamShort, setNewTeamShort] = useState('');
   const [newTeamOwner, setNewTeamOwner] = useState('');
+  const [newTeamOwnerEmail, setNewTeamOwnerEmail] = useState('');
+  const [ownerInputMode, setOwnerInputMode] = useState<'registered' | 'custom'>('registered');
+  const [isAddingTeam, setIsAddingTeam] = useState(false);
   const [tournamentStatus, setTournamentStatus] = useState<string>('open');
   const [tournamentRegistrations, setTournamentRegistrations] = useState<any[]>([]);
 
@@ -733,15 +736,29 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamShort.trim()) return;
 
-    // Check if owner was selected from registered players
-    const selectedPlayer = tournamentRegistrations.find(
-      (r) =>
-        r.name.toLowerCase() === newTeamOwner.trim().toLowerCase() ||
-        r.email.toLowerCase() === newTeamOwner.trim().toLowerCase()
-    );
+    if (teams.length >= 20) {
+      alert('Maximum tournament franchise limit (20 teams) reached.');
+      return;
+    }
+
+    setIsAddingTeam(true);
+
+    // Resolve owner
+    const selectedPlayer =
+      ownerInputMode === 'registered'
+        ? tournamentRegistrations.find(
+            (r) =>
+              r.name.toLowerCase() === newTeamOwner.trim().toLowerCase() ||
+              r.email.toLowerCase() === newTeamOwner.trim().toLowerCase()
+          )
+        : null;
 
     const ownerName = selectedPlayer?.name || newTeamOwner.trim() || 'Team Management';
-    const ownerEmail = selectedPlayer?.email || `${ownerName.toLowerCase().replace(/\s+/g, '')}@cricplus.com`;
+    const ownerEmail =
+      selectedPlayer?.email ||
+      (newTeamOwnerEmail.trim()
+        ? newTeamOwnerEmail.trim()
+        : `${ownerName.toLowerCase().replace(/[^a-z0-9]/g, '')}@cricplus.com`);
 
     try {
       const res = await fetch('/api/tournaments/register', {
@@ -765,47 +782,38 @@ export default function AdminDashboardPage() {
             name: t.name,
             short: t.short,
             owner: t.owner,
-            captain: t.owner ? `${t.owner} (C)` : `${t.name} (C)`,
-            viceCaptain: 'To be assigned',
-            budget: t.allocated || auctionRules.basePurse || 10000,
+            ownerEmail: t.ownerEmail,
+            captain: t.captain || (t.owner ? `${t.owner} (C)` : `${t.name} (C)`),
+            viceCaptain: t.viceCaptain || 'To be assigned',
+            budget: t.allocated || auctionRules.basePurse || 7000,
             squadCount: t.playersBought || 1,
           }))
         );
-        showNotification(
-          `Franchise "${newTeamName.trim()}" created! ${ownerName} assigned as Owner & Player #1 (₹${auctionRules.ownerBlockedPrice} blocked, ₹${(auctionRules.basePurse - auctionRules.ownerBlockedPrice).toLocaleString('en-IN')} purse).`
-        );
-      } else {
-        const newTeam: TeamItem = {
-          id: `t-${Date.now()}`,
-          name: newTeamName.trim(),
-          short: newTeamShort.trim().toUpperCase(),
-          owner: ownerName,
-          captain: `${ownerName} (C)`,
-          viceCaptain: 'To be assigned',
-          budget: auctionRules.basePurse || 10000,
-          squadCount: 1,
-        };
-        setTeams([...teams, newTeam]);
-        showNotification(`Franchise "${newTeam.name}" created!`);
-      }
-    } catch {
-      const newTeam: TeamItem = {
-        id: `t-${Date.now()}`,
-        name: newTeamName.trim(),
-        short: newTeamShort.trim().toUpperCase(),
-        owner: ownerName,
-        captain: `${ownerName} (C)`,
-        viceCaptain: 'To be assigned',
-        budget: auctionRules.basePurse || 10000,
-        squadCount: 1,
-      };
-      setTeams([...teams, newTeam]);
-    }
 
-    invalidateClientCache();
-    setNewTeamName('');
-    setNewTeamShort('');
-    setNewTeamOwner('');
+        // Refresh registrations to reflect owner assignments
+        const regRes = await fetch(`/api/tournaments/register?tournament=${selectedTournament}`);
+        if (regRes.ok) {
+          const regData = await regRes.json();
+          if (regData.registrations) setTournamentRegistrations(regData.registrations);
+        }
+
+        invalidateClientCache();
+        showNotification(
+          data.message || `Franchise "${newTeamName.trim()}" created successfully! Total: ${data.teams.length} teams.`
+        );
+
+        setNewTeamName('');
+        setNewTeamShort('');
+        setNewTeamOwner('');
+        setNewTeamOwnerEmail('');
+      } else {
+        alert(data.error || 'Failed to create franchise.');
+      }
+    } catch (err: any) {
+      alert(`Error creating franchise: ${err.message}`);
+    } finally {
+      setIsAddingTeam(false);
+    }
   };
 
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
@@ -2462,10 +2470,46 @@ export default function AdminDashboardPage() {
 
           {/* Add New Team Form */}
           <div className="glass-card p-6 sm:p-8 space-y-5 border border-cricket-teal/30">
-            <h3 className="font-display font-bold text-2xl text-white flex items-center gap-2">
-              <PlusCircle className="w-5 h-5 text-cricket-teal" />
-              <span>Create New Franchise / Team</span>
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-display font-bold text-2xl text-white flex items-center gap-2">
+                  <PlusCircle className="w-5 h-5 text-cricket-teal" />
+                  <span>Create New Franchise / Team</span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-cricket-teal/20 text-cricket-teal border border-cricket-teal/40 text-xs font-mono font-bold">
+                    {teams.length} / 20 Teams
+                  </span>
+                </h3>
+                <p className="text-xs text-cricket-muted mt-0.5">
+                  Supports 4, 5, 6, 7, 8... up to 20 Franchises with live sync across Tournaments Hub, Auction Room, Match Center, Standings, and Homepage.
+                </p>
+              </div>
+
+              {/* Owner Input Mode Switch */}
+              <div className="flex items-center gap-1 p-1 bg-cricket-dark/80 rounded-xl border border-cricket-border self-start sm:self-auto text-xs">
+                <button
+                  type="button"
+                  onClick={() => setOwnerInputMode('registered')}
+                  className={`px-3 py-1 rounded-lg font-bold transition-all ${
+                    ownerInputMode === 'registered'
+                      ? 'bg-cricket-teal text-cricket-dark shadow'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Registered Player ({tournamentRegistrations.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOwnerInputMode('custom')}
+                  className={`px-3 py-1 rounded-lg font-bold transition-all ${
+                    ownerInputMode === 'custom'
+                      ? 'bg-cricket-teal text-cricket-dark shadow'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Custom / External Owner
+                </button>
+              </div>
+            </div>
 
             <form onSubmit={handleAddTeam} className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm">
               <div className="space-y-1.5 sm:col-span-2">
@@ -2481,11 +2525,11 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Short Code (2-4 Letters)</label>
+                <label className="text-xs font-semibold text-gray-300">Short Code (2-5 Letters)</label>
                 <input
                   type="text"
                   required
-                  maxLength={4}
+                  maxLength={5}
                   placeholder="e.g. RS"
                   value={newTeamShort}
                   onChange={(e) => setNewTeamShort(e.target.value)}
@@ -2496,9 +2540,9 @@ export default function AdminDashboardPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-gray-300">Franchise Owner</label>
-                  <span className="text-[10px] text-amber-300 font-bold">Player #1 (₹500 blocked)</span>
+                  <span className="text-[10px] text-amber-300 font-bold">Player #1 (₹{auctionRules.ownerBlockedPrice} blocked)</span>
                 </div>
-                {tournamentRegistrations.length > 0 ? (
+                {ownerInputMode === 'registered' && tournamentRegistrations.length > 0 ? (
                   <select
                     value={newTeamOwner}
                     onChange={(e) => setNewTeamOwner(e.target.value)}
@@ -2507,13 +2551,14 @@ export default function AdminDashboardPage() {
                     <option value="">-- Select from Registered Players --</option>
                     {tournamentRegistrations.map((p) => (
                       <option key={p.id} value={p.name}>
-                        {p.name} ({p.role}) {p.isOwner ? '• (Assigned)' : ''}
+                        {p.name} ({p.role}) {p.isOwner ? `• (Assigned: ${p.franchiseTeam || 'Owner'})` : ''}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <input
                     type="text"
+                    required
                     placeholder="e.g. Tariq Ahmed"
                     value={newTeamOwner}
                     onChange={(e) => setNewTeamOwner(e.target.value)}
@@ -2522,12 +2567,26 @@ export default function AdminDashboardPage() {
                 )}
               </div>
 
-              <div className="sm:col-span-4 flex justify-end pt-2">
+              {ownerInputMode === 'custom' && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-gray-300">Owner Email (Optional)</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. owner@example.com (or leave empty for auto-generated)"
+                    value={newTeamOwnerEmail}
+                    onChange={(e) => setNewTeamOwnerEmail(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-cricket-dark border border-cricket-border text-white text-sm focus:outline-none focus:border-cricket-teal"
+                  />
+                </div>
+              )}
+
+              <div className={`${ownerInputMode === 'custom' ? 'sm:col-span-2' : 'sm:col-span-4'} flex justify-end items-end pt-2`}>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-extrabold text-base tracking-wide shadow-lg shadow-teal-500/20 active:scale-95 transition-all"
+                  disabled={isAddingTeam || teams.length >= 20}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-extrabold text-base tracking-wide shadow-lg shadow-teal-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  + Add Franchise
+                  {isAddingTeam ? 'Creating Franchise...' : '+ Add Franchise'}
                 </button>
               </div>
             </form>

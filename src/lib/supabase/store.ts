@@ -133,6 +133,8 @@ export async function setStoreData<T>(key: string, value: T, fallbackFileName?: 
   // 1. Immediately update in-memory cache so subsequent reads get the new value at 0ms
   const ttl = getOptimalTtlMs(key);
   memoryCache.set(key, { data: value, expiry: Date.now() + ttl });
+  // Also clear in-flight requests for this key
+  inFlightRequests.delete(key);
 
   let savedToSupabase = false;
 
