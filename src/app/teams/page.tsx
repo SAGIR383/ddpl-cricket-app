@@ -27,7 +27,13 @@ export default function TeamsPage() {
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [teams, setTeams] = useState<TeamRosterItem[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+
+  const availableGroups = Array.from(new Set(teams.map((t) => t.group).filter(Boolean))) as string[];
+  const filteredTeams = selectedGroup === 'all'
+    ? teams
+    : teams.filter((t) => t.group === selectedGroup);
 
   // Sync teams and roster dynamically from auction engine using fast client cache
   useEffect(() => {
@@ -159,10 +165,49 @@ export default function TeamsPage() {
         )}
       </div>
 
+      {/* Group Filter Tabs (when groups exist) */}
+      {availableGroups.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#D8AD55]/15 pb-4">
+          <span className="text-xs font-bold text-[#8793A5] uppercase tracking-wider mr-2">Filter Group:</span>
+          <button
+            type="button"
+            onClick={() => setSelectedGroup('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              selectedGroup === 'all'
+                ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-md'
+                : 'bg-[#08111F] text-[#8793A5] border border-[#D8AD55]/20 hover:text-white'
+            }`}
+          >
+            All Franchises ({teams.length})
+          </button>
+          {availableGroups.map((grp) => {
+            const count = teams.filter((t) => t.group === grp).length;
+            const isGroupA = grp === 'Group A';
+            return (
+              <button
+                key={grp}
+                type="button"
+                onClick={() => setSelectedGroup(grp)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  selectedGroup === grp
+                    ? isGroupA
+                      ? 'bg-teal-500 text-cricket-dark font-black shadow-md'
+                      : 'bg-amber-400 text-cricket-dark font-black shadow-md'
+                    : 'bg-[#08111F] text-[#8793A5] border border-[#D8AD55]/20 hover:text-white'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${isGroupA ? 'bg-teal-300' : 'bg-amber-300'}`}></span>
+                <span>{grp} ({count} Teams)</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Teams Grid */}
-      {teams.length > 0 ? (
+      {filteredTeams.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {teams.map((t) => {
+          {filteredTeams.map((t) => {
             const isExpanded = expandedTeamId === t.id;
             return (
               <div

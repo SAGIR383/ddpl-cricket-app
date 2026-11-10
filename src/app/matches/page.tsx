@@ -45,7 +45,22 @@ export default function MatchesPage() {
   const [franchiseTeams, setFranchiseTeams] = useState<any[]>([]);
   const [tournamentStartDate, setTournamentStartDate] = useState<string | null>(null);
   const [tournamentEndDate, setTournamentEndDate] = useState<string | null>(null);
+  const [activeFilterTab, setActiveFilterTab] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+
+  const hasGroups = matches.some((m) => Boolean(m.group));
+  const filteredMatches = matches.filter((m) => {
+    if (activeFilterTab === 'all') return true;
+    if (activeFilterTab === 'knockouts') {
+      return (
+        m.stage?.toLowerCase().includes('semi') ||
+        m.stage?.toLowerCase().includes('final') ||
+        m.stage?.toLowerCase().includes('qualifier') ||
+        m.stage?.toLowerCase().includes('eliminator')
+      );
+    }
+    return m.group === activeFilterTab;
+  });
 
   // Fetch official tournament schedule & fixtures using fast client cache
   useEffect(() => {
@@ -263,10 +278,67 @@ export default function MatchesPage() {
         </div>
       )}
 
+      {/* Group & Stage Filter Bar */}
+      {matches.length > 0 && hasGroups && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#D8AD55]/15 pb-4">
+          <span className="text-xs font-bold text-[#8793A5] uppercase tracking-wider mr-2">Filter Stage:</span>
+          <button
+            type="button"
+            onClick={() => setActiveFilterTab('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeFilterTab === 'all'
+                ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-md'
+                : 'bg-[#08111F] text-[#8793A5] border border-[#D8AD55]/20 hover:text-white'
+            }`}
+          >
+            All Matches ({matches.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilterTab('Group A')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              activeFilterTab === 'Group A'
+                ? 'bg-teal-500 text-cricket-dark font-black shadow-md'
+                : 'bg-[#08111F] text-[#8793A5] border border-[#D8AD55]/20 hover:text-white'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-teal-400"></span>
+            <span>Group A ({matches.filter((m) => m.group === 'Group A').length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilterTab('Group B')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              activeFilterTab === 'Group B'
+                ? 'bg-amber-400 text-cricket-dark font-black shadow-md'
+                : 'bg-[#08111F] text-[#8793A5] border border-[#D8AD55]/20 hover:text-white'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span>Group B ({matches.filter((m) => m.group === 'Group B').length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilterTab('knockouts')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              activeFilterTab === 'knockouts'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-cricket-dark font-black shadow-md'
+                : 'bg-[#08111F] text-[#8793A5] border border-[#D8AD55]/20 hover:text-white'
+            }`}
+          >
+            <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Knockouts: SF &amp; Final ({matches.filter((m) => m.stage && m.stage !== 'League' && m.stage !== 'Group Stage').length})</span>
+          </button>
+        </div>
+      )}
+
       {/* Matches Grid */}
-      {matches.length > 0 ? (
+      {filteredMatches.length > 0 ? (
         <div className="space-y-4">
-          {matches.map((m) => {
+          {filteredMatches.map((m) => {
             const isPlayoff = m.stage && m.stage !== 'League' && m.stage !== 'Group Stage';
 
             return (
