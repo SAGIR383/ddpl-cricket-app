@@ -38,6 +38,7 @@ import { InfoTab } from '@/components/match/InfoTab';
 import { SquadsTab } from '@/components/match/SquadsTab';
 import { ScorerConsole } from '@/components/match/ScorerConsole';
 import { WagonWheel } from '@/components/match/WagonWheel';
+import { ManageCreaseModal } from '@/components/match/ManageCreaseModal';
 
 export default function MatchDetailPage() {
   const params = useParams();
@@ -288,6 +289,55 @@ export default function MatchDetailPage() {
     }
   };
 
+  // Crease and Lineup Management Modal State
+  const [creaseModalOpen, setCreaseModalOpen] = useState(false);
+  const [creaseFocusTab, setCreaseFocusTab] = useState<'batters' | 'bowler'>('batters');
+
+  const canManageCrease = Boolean(
+    isScorer ||
+    role === 'super_admin' ||
+    role === 'organizer' ||
+    role === 'scorer'
+  );
+
+  const handleOpenManageCrease = (tab: 'batters' | 'bowler' = 'batters') => {
+    setCreaseFocusTab(tab);
+    setCreaseModalOpen(true);
+  };
+
+  const handleUpdateCrease = async (params: {
+    strikerName?: string;
+    nonStrikerName?: string;
+    bowlerName?: string;
+    swapStrike?: boolean;
+  }) => {
+    setSyncStatus('syncing');
+    try {
+      const res = await fetch(`/api/matches/${matchId}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'change_crease_players',
+          ...params,
+          userEmail: user?.email,
+          userRole: role,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.state) {
+          setMatchState(data.state);
+          broadcastUpdatedState(data.state);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update crease players:', err);
+    } finally {
+      setSyncStatus('connected');
+    }
+  };
+
   if (loading || !matchState) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 flex flex-col items-center justify-center space-y-4">
@@ -354,7 +404,11 @@ export default function MatchDetailPage() {
 
       {/* A. LIVE TAB */}
       {activeTab === 'live' && (
-        <LiveTab state={matchState} onNavigateToTab={setActiveTab} />
+        <LiveTab
+          state={matchState}
+          onNavigateToTab={setActiveTab}
+          onOpenManageCrease={canManageCrease ? handleOpenManageCrease : undefined}
+        />
       )}
 
       {/* B. SCORECARD TAB */}
@@ -413,6 +467,7 @@ export default function MatchDetailPage() {
           onSwitchInnings={handleSwitchInnings}
           onUpdateToss={handleUpdateToss}
           onApplyDls={handleApplyDlsAction}
+          onOpenManageCrease={handleOpenManageCrease}
         />
       ) : (
         <div className="rounded-3xl p-6 sm:p-8 bg-[#0D1B2A]/80 backdrop-blur-md border border-[#D8AD55]/20 text-center space-y-3">
@@ -428,6 +483,15 @@ export default function MatchDetailPage() {
           </p>
         </div>
       )}
+
+      {/* 5. MANAGE CREASE & LINEUP MODAL */}
+      <ManageCreaseModal
+        isOpen={creaseModalOpen}
+        onClose={() => setCreaseModalOpen(false)}
+        state={matchState}
+        onUpdateCrease={handleUpdateCrease}
+        initialFocusTab={creaseFocusTab}
+      />
     </div>
   );
 }

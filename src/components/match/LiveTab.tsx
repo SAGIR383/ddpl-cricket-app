@@ -21,9 +21,10 @@ import { calculateOversString } from '@/lib/matchEngine';
 interface LiveTabProps {
   state: MatchLiveState;
   onNavigateToTab: (tab: any) => void;
+  onOpenManageCrease?: (tab: 'batters' | 'bowler') => void;
 }
 
-export function LiveTab({ state, onNavigateToTab }: LiveTabProps) {
+export function LiveTab({ state, onNavigateToTab, onOpenManageCrease }: LiveTabProps) {
   const [showInsightsModal, setShowInsightsModal] = useState(false);
   const [commentaryFilter, setCommentaryFilter] = useState<'all' | 'wickets' | 'boundaries'>('all');
 
@@ -85,7 +86,20 @@ export function LiveTab({ state, onNavigateToTab }: LiveTabProps) {
           {/* Batters (7 cols on lg) */}
           <div className="lg:col-span-7 space-y-3">
             <div className="text-[11px] font-bold text-[#D8AD55] uppercase tracking-wider flex items-center justify-between">
-              <span>Batters at Crease</span>
+              <div className="flex items-center gap-2">
+                <span>Batters at Crease</span>
+                {onOpenManageCrease && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenManageCrease('batters')}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/40 text-[#F2D69A] text-[10px] font-bold tracking-normal normal-case transition-all cursor-pointer shadow-sm active:scale-95"
+                    title="Change Batters or Swap Strike"
+                  >
+                    <span>✏️</span>
+                    <span>Change / Swap</span>
+                  </button>
+                )}
+              </div>
               <span className="text-gray-400 font-normal">R (B • 4s • 6s • SR)</span>
             </div>
 
@@ -158,7 +172,20 @@ export function LiveTab({ state, onNavigateToTab }: LiveTabProps) {
           {/* Bowler Spell & Current Over Balls (5 cols on lg) */}
           <div className="lg:col-span-5 space-y-3">
             <div className="text-[11px] font-bold text-[#D8AD55] uppercase tracking-wider flex items-center justify-between">
-              <span>Current Bowler</span>
+              <div className="flex items-center gap-2">
+                <span>Current Bowler</span>
+                {onOpenManageCrease && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenManageCrease('bowler')}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-[10px] font-bold tracking-normal normal-case transition-all cursor-pointer shadow-sm active:scale-95"
+                    title="Change Bowler"
+                  >
+                    <span>✏️</span>
+                    <span>Change</span>
+                  </button>
+                )}
+              </div>
               <span className="text-gray-400 font-normal">O - M - R - W</span>
             </div>
 

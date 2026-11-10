@@ -31,6 +31,7 @@ interface ScorerConsoleProps {
     reason: string;
     method: 'standard_dls' | 'custom_overs';
   }) => Promise<void>;
+  onOpenManageCrease?: (tab: 'batters' | 'bowler') => void;
   isSubmitting?: boolean;
 }
 
@@ -41,6 +42,7 @@ export function ScorerConsole({
   onSwitchInnings,
   onUpdateToss,
   onApplyDls,
+  onOpenManageCrease,
   isSubmitting = false,
 }: ScorerConsoleProps) {
   // Modal states
@@ -193,9 +195,28 @@ export function ScorerConsole({
             </button>
           )}
 
+          {/* Manage Crease (Batters & Bowler) */}
+          {onOpenManageCrease && (
+            <button
+              onClick={() => onOpenManageCrease('batters')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Manage Opening/Active Batters and Bowler"
+            >
+              <UserPlus className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Manage Crease</span>
+              <span className="sm:hidden">Crease</span>
+            </button>
+          )}
+
           {/* Change Bowler */}
           <button
-            onClick={() => setBowlerModalOpen(true)}
+            onClick={() => {
+              if (onOpenManageCrease) {
+                onOpenManageCrease('bowler');
+              } else {
+                setBowlerModalOpen(true);
+              }
+            }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-white/10 text-gray-200 text-xs font-bold transition-all cursor-pointer shadow-sm"
             title="Change Active Bowler"
           >

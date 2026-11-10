@@ -443,6 +443,133 @@ export async function POST(
       state.lastUpdated = new Date().toISOString();
     }
 
+    // 8. CHANGE CREASE PLAYERS (Striker, Non-Striker, Bowler, Swap Strike, Custom Player Search)
+    else if (action === 'change_crease_players') {
+      const { strikerName, nonStrikerName, bowlerName, swapStrike } = body;
+      const currentInn = state.currentInnings === 1 ? state.innings1 : (state.innings2 || state.innings1);
+      const battingSquad = state.currentInnings === 1 ? state.teamASquad : state.teamBSquad;
+      const bowlingSquad = state.currentInnings === 1 ? state.teamBSquad : state.teamASquad;
+
+      const findAvatar = (pName: string, squad?: any[]) => {
+        const found = squad?.find((p: any) => p.name?.toLowerCase() === pName.toLowerCase());
+        return found?.avatar || found?.photo || undefined;
+      };
+
+      // 1. Swap Strike if requested
+      if (swapStrike) {
+        const temp = currentInn.strikerIndex;
+        currentInn.strikerIndex = currentInn.nonStrikerIndex;
+        currentInn.nonStrikerIndex = temp;
+      }
+
+      // 2. Update Striker
+      if (strikerName && strikerName.trim()) {
+        const cleanStriker = strikerName.trim();
+        const existingIdx = currentInn.batters.findIndex(
+          (b) => b.name.toLowerCase() === cleanStriker.toLowerCase()
+        );
+        if (existingIdx !== -1) {
+          currentInn.strikerIndex = existingIdx;
+        } else {
+          // If current striker has faced 0 balls and scored 0, update in place
+          const currentStriker = currentInn.batters[currentInn.strikerIndex];
+          if (currentStriker && currentStriker.balls === 0 && currentStriker.runs === 0) {
+            currentStriker.name = cleanStriker;
+            currentStriker.avatar = findAvatar(cleanStriker, battingSquad);
+          } else {
+            currentInn.batters.push({
+              id: `b-${Date.now()}`,
+              name: cleanStriker,
+              avatar: findAvatar(cleanStriker, battingSquad),
+              runs: 0,
+              balls: 0,
+              fours: 0,
+              sixes: 0,
+              isOut: false,
+              dismissal: null,
+              strikeRate: 0,
+            });
+            currentInn.strikerIndex = currentInn.batters.length - 1;
+          }
+        }
+      }
+
+      // 3. Update Non-Striker
+      if (nonStrikerName && nonStrikerName.trim()) {
+        const cleanNonStriker = nonStrikerName.trim();
+        const existingIdx = currentInn.batters.findIndex(
+          (b) => b.name.toLowerCase() === cleanNonStriker.toLowerCase()
+        );
+        if (existingIdx !== -1) {
+          currentInn.nonStrikerIndex = existingIdx;
+        } else {
+          // If current non-striker has faced 0 balls and scored 0, update in place
+          const currentNon = currentInn.batters[currentInn.nonStrikerIndex];
+          if (currentNon && currentNon.balls === 0 && currentNon.runs === 0) {
+            currentNon.name = cleanNonStriker;
+            currentNon.avatar = findAvatar(cleanNonStriker, battingSquad);
+          } else {
+            currentInn.batters.push({
+              id: `b-${Date.now()}-non`,
+              name: cleanNonStriker,
+              avatar: findAvatar(cleanNonStriker, battingSquad),
+              runs: 0,
+              balls: 0,
+              fours: 0,
+              sixes: 0,
+              isOut: false,
+              dismissal: null,
+              strikeRate: 0,
+            });
+            currentInn.nonStrikerIndex = currentInn.batters.length - 1;
+          }
+        }
+      }
+
+      // 4. Update Current Bowler
+      if (bowlerName && bowlerName.trim()) {
+        const cleanBowler = bowlerName.trim();
+        const existingIdx = currentInn.bowlers.findIndex(
+          (bw) => bw.name.toLowerCase() === cleanBowler.toLowerCase()
+        );
+        if (existingIdx !== -1) {
+          currentInn.currentBowlerIndex = existingIdx;
+        } else {
+          const currentBw = currentInn.bowlers[currentInn.currentBowlerIndex];
+          if (currentBw && (currentBw.name === 'To be assigned' || (currentBw.ballsInOver === 0 && currentBw.overs === 0))) {
+            currentBw.name = cleanBowler;
+            currentBw.avatar = findAvatar(cleanBowler, bowlingSquad);
+          } else {
+            currentInn.bowlers.push({
+              id: `bw-${Date.now()}`,
+              name: cleanBowler,
+              avatar: findAvatar(cleanBowler, bowlingSquad),
+              overs: 0,
+              ballsInOver: 0,
+              oversStr: '0.0',
+              maidens: 0,
+              runsConceded: 0,
+              wickets: 0,
+              economy: 0,
+              dots: 0,
+              noBalls: 0,
+              wides: 0,
+            });
+            currentInn.currentBowlerIndex = currentInn.bowlers.length - 1;
+          }
+        }
+      }
+
+      state.matchNotes.unshift({
+        id: `note-crease-${Date.now()}`,
+        text: `Crease updated: Striker [${currentInn.batters[currentInn.strikerIndex]?.name}], Non-Striker [${currentInn.batters[currentInn.nonStrikerIndex]?.name}], Bowler: [${currentInn.bowlers[currentInn.currentBowlerIndex]?.name}].`,
+        timestamp: new Date().toISOString(),
+        type: 'info',
+      });
+
+      state.lastUpdated = new Date().toISOString();
+    }
+
     // Save persisted state
     await setStoreData(`match_state_${matchId}`, state, `match_state_${matchId}.json`);
     invalidateStoreCache(`match_state_${matchId}`);
