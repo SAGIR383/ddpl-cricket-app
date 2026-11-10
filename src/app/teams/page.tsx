@@ -16,6 +16,7 @@ interface TeamRosterItem {
   budgetAllocated: string;
   budgetSpent: string;
   budgetLeft: string;
+  ownerBlockedPrice: number;
   color: string;
   players: { name: string; role: string; price: string }[];
 }
@@ -43,9 +44,10 @@ export default function TeamsPage() {
       if (teams.length === 0) setLoading(true);
       try {
         const activeSlug = selectedTournament || 'ddpl';
-        const [regData, data] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register?tournament=ddpl', { ttlMs: 30000 }),
-          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 25000 }),
+        const [regData, data, rulesData] = await Promise.all([
+          fetchWithCache<any>(`/api/tournaments/register?tournament=${activeSlug}`, { ttlMs: 20000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${activeSlug}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${activeSlug}`, { ttlMs: 15000 }),
         ]);
 
         if (!isMounted) return;
@@ -59,6 +61,14 @@ export default function TeamsPage() {
             });
           }
         }
+
+        const globalOwnerBlockedPrice = Number(
+          rulesData?.rules?.ownerBlockedPrice !== undefined
+            ? rulesData.rules.ownerBlockedPrice
+            : (data?.data?.rules?.ownerBlockedPrice !== undefined
+                ? data.data.rules.ownerBlockedPrice
+                : 100)
+        );
 
         if (data?.success && data.data && data.data.teams) {
           const auctionTeams = data.data.teams;
@@ -92,6 +102,18 @@ export default function TeamsPage() {
             const captainName = t.captain || (t.owner ? `${t.owner} (C)` : `${t.name} (C)`);
             const viceCaptainName = t.viceCaptain || (rosterPlayers.length > 1 ? `${rosterPlayers[1]?.name} (VC)` : 'To be appointed');
 
+            // Find individual team owner price if custom, otherwise use tournament rules
+            const ownerPlayer = (t.players || []).find((p: any) =>
+              p.role?.includes('Franchise Owner') ||
+              (t.owner && p.name?.toLowerCase().trim() === t.owner.toLowerCase().trim())
+            );
+
+            const teamOwnerPrice = ownerPlayer?.price !== undefined
+              ? Number(ownerPlayer.price)
+              : (t.ownerBlockedPrice !== undefined
+                  ? Number(t.ownerBlockedPrice)
+                  : globalOwnerBlockedPrice);
+
             return {
               id: t.id || `team-${idx}`,
               name: t.name,
@@ -104,6 +126,7 @@ export default function TeamsPage() {
               budgetAllocated: `₹${(t.allocated || 10000).toLocaleString('en-IN')}`,
               budgetSpent: `₹${(t.spent || 0).toLocaleString('en-IN')}`,
               budgetLeft: `₹${remaining.toLocaleString('en-IN')}`,
+              ownerBlockedPrice: teamOwnerPrice,
               color: colors[idx % colors.length],
               players: rosterPlayers,
             };
@@ -235,7 +258,7 @@ export default function TeamsPage() {
                     <div className="text-xs text-[#8793A5] uppercase tracking-wider font-semibold">Squad Size</div>
                     <div className="font-display font-black text-2xl text-white mt-0.5">{t.squadSize} Players</div>
                     <div className="text-[11px] text-[#D8AD55] font-bold mt-1.5 px-2.5 py-0.5 rounded-full bg-[#D8AD55]/15 border border-[#D8AD55]/30 inline-block">
-                      ₹500 Blocked
+                      ₹{t.ownerBlockedPrice.toLocaleString('en-IN')} Blocked
                     </div>
                   </div>
                 </div>

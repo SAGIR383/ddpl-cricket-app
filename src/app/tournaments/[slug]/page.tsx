@@ -780,7 +780,9 @@ export default function TournamentDetailPage() {
           </div>
           <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
             <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Owner Blocked</div>
-            <div className="font-display font-bold text-base sm:text-lg text-[#F2D69A]">₹{rules.ownerBlockedPrice || '500'}</div>
+            <div className="font-display font-bold text-base sm:text-lg text-[#F2D69A]">
+              ₹{(rules.ownerBlockedPrice !== undefined ? rules.ownerBlockedPrice : 100).toLocaleString('en-IN')}
+            </div>
           </div>
           <div className="p-3.5 rounded-2xl bg-[#08111F] border border-white/5">
             <div className="text-[10px] sm:text-[11px] text-[#8793A5] font-semibold">Squad Limits</div>
