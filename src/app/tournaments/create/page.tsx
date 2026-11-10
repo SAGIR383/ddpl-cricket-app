@@ -327,10 +327,16 @@ export default function CreateTournamentPage() {
         tagline: orgTagline.trim() || `Official ${tournamentName.trim()} Corporate Cricket Tournament`,
         season,
         tournamentType,
-        groupsCount: tournamentType === 'direct_groups' ? selectedGroupsCount : 1,
-        groupNames: tournamentType === 'direct_groups' ? activeGroupNames : ['Pool A'],
+        groupsCount: tournamentType === 'direct_groups'
+          ? selectedGroupsCount
+          : (customTournamentStructure === 'group-stage-playoffs' ? 2 : 1),
+        groupNames: tournamentType === 'direct_groups'
+          ? activeGroupNames
+          : (customTournamentStructure === 'group-stage-playoffs' ? ['Group A', 'Group B'] : ['Pool A']),
         directTeams: tournamentType === 'direct_groups' ? directTeams.filter((t) => t.name.trim()) : [],
-        format: tournamentType === 'direct_groups' ? (selectedGroupsCount > 1 ? 'group-stage-playoffs' : 'round-robin-playoffs') : resolvedFormat,
+        format: tournamentType === 'direct_groups'
+          ? (selectedGroupsCount > 1 ? 'group-stage-playoffs' : 'round-robin-playoffs')
+          : (customTournamentStructure === 'group-stage-playoffs' ? 'group-stage-playoffs' : resolvedFormat),
         overs: resolvedOvers,
         maxBowlerOvers: resolvedMaxBowler,
         ballsPerOver: isCustom ? customBallsPerOver : 6,

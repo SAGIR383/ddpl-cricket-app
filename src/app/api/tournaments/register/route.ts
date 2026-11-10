@@ -981,7 +981,7 @@ export async function POST(req: Request) {
 
       const resolvedFormat = tournamentType === 'direct_groups'
         ? (groupsCount > 1 ? 'group-stage-playoffs' : 'round-robin-playoffs')
-        : (format === 'game-of-run' ? 'game-of-run' : 'ddpl');
+        : (format === 'group-stage-playoffs' || format === 'dual_groups' || groupsCount > 1 ? 'group-stage-playoffs' : (format === 'game-of-run' ? 'game-of-run' : 'ddpl'));
       const resolvedOvers = Number(overs) || (resolvedFormat === 'game-of-run' ? 12 : 10);
       const resolvedBanner = bannerColor || (resolvedFormat === 'game-of-run' ? 'from-amber-950 via-orange-950 to-cricket-dark' : 'from-blue-900 via-indigo-950 to-cricket-dark');
       const resolvedLogo = logo || '/images/default-tournament.svg';
@@ -1153,6 +1153,11 @@ export async function POST(req: Request) {
         wideBallPenalty: '+1 Run & Extra Ball',
         noBallPenalty: '+1 Run + Free Hit',
         pointsPerWin: 2,
+        knockoutFormat: groupsCount > 1 || resolvedFormat === 'group-stage-playoffs' ? 'group_stage_knockout' : 'ipl_playoffs',
+        pathwayTitle: groupsCount > 1 || resolvedFormat === 'group-stage-playoffs'
+          ? 'Knockout Pathway: Multi-Group Stage ➔ Semi-Finals ➔ Grand Final'
+          : 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
+        pathwayBadge: groupsCount > 1 || resolvedFormat === 'group-stage-playoffs' ? 'Multi-Group League' : 'Official League Structure',
         bidSteps: [50, 100, 200, 500],
       };
 

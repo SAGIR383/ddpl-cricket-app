@@ -60,6 +60,7 @@ interface TeamItem {
   viceCaptain: string;
   budget: number;
   squadCount: number;
+  group?: string;
 }
 
 interface MatchItem {
@@ -1082,6 +1083,54 @@ export default function AdminDashboardPage() {
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
   const [isGeneratingFixtures, setIsGeneratingFixtures] = useState(false);
 
+  // Auto-Scheduler Format & Group Controls (Supports Dual Group Stage A/B + Knockouts or Single Round-Robin)
+  const [schedulerFormat, setSchedulerFormat] = useState<'dual_groups' | 'ipl_playoffs' | 'semis_final' | 'direct_final'>('dual_groups');
+  const [schedulerSemisFormat, setSchedulerSemisFormat] = useState<'same_rank' | 'cross_over'>('same_rank');
+  const [teamGroupAssignments, setTeamGroupAssignments] = useState<Record<string, string>>({});
+
+  // Keep team group assignments synchronized with teams
+  useEffect(() => {
+    if (teams.length > 0) {
+      setTeamGroupAssignments((prev) => {
+        const next = { ...prev };
+        let assignedCount = 0;
+        teams.forEach((t) => {
+          if (next[t.name] || next[t.id]) assignedCount++;
+        });
+        if (assignedCount === 0) {
+          teams.forEach((t, idx) => {
+            next[t.name] = t.group || (idx % 2 === 0 ? 'Group A' : 'Group B');
+          });
+        } else {
+          teams.forEach((t, idx) => {
+            if (!next[t.name] && !next[t.id]) {
+              next[t.name] = t.group || (idx % 2 === 0 ? 'Group A' : 'Group B');
+            }
+          });
+        }
+        return next;
+      });
+    }
+  }, [teams]);
+
+  const handleAutoSplitTeams = () => {
+    const next: Record<string, string> = {};
+    teams.forEach((t, idx) => {
+      next[t.name] = idx % 2 === 0 ? 'Group A' : 'Group B';
+    });
+    setTeamGroupAssignments(next);
+    showNotification(`Balanced ${teams.length} teams evenly into Group A and Group B!`);
+  };
+
+  const handleToggleTeamGroup = (teamName: string) => {
+    const current = teamGroupAssignments[teamName] || 'Group A';
+    const next = current === 'Group A' ? 'Group B' : 'Group A';
+    setTeamGroupAssignments((prev) => ({
+      ...prev,
+      [teamName]: next,
+    }));
+  };
+
   // Tournament Start / End Dates handlers (set, unset, rearrange)
   const handleSaveTournamentDates = async (start: string, end: string) => {
     try {
@@ -1127,7 +1176,7 @@ export default function AdminDashboardPage() {
     showNotification('Tournament dates have been unset/cleared.');
   };
 
-  // Smart Auto Fixture Generator based on Format (DDPL vs Game of RUN)
+  // Smart Auto Fixture Generator based on Format (Dual Group Stage, Round-Robin, Playoffs)
   const handleGenerateTournamentFixtures = async () => {
     if (teams.length < 2) {
       alert('You need at least 2 teams to generate fixtures.');
@@ -1136,13 +1185,24 @@ export default function AdminDashboardPage() {
 
     setIsGeneratingFixtures(true);
     try {
+      const isDual = schedulerFormat === 'dual_groups';
       const res = await fetch('/api/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'generate_schedule',
           tournament: selectedTournament,
-          teams: teams.map((t) => ({ id: t.id, name: t.name, short: t.short })),
+          format: schedulerFormat,
+          groupNames: isDual ? ['Group A', 'Group B'] : ['Pool A'],
+          groupsCount: isDual ? 2 : 1,
+          semisFormat: schedulerSemisFormat,
+          groupAssignments: teamGroupAssignments,
+          teams: teams.map((t) => ({
+            id: t.id,
+            name: t.name,
+            short: t.short,
+            group: isDual ? (teamGroupAssignments[t.name] || teamGroupAssignments[t.id] || t.group || 'Group A') : undefined,
+          })),
           overs: auctionRules.matchOvers || (selectedTournament === 'ddpl' ? 10 : 12),
           venue: auctionRules.groundName || auctionRules.venue || 'Arena Ground 1',
         }),
@@ -1167,8 +1227,17 @@ export default function AdminDashboardPage() {
             status: m.status || 'upcoming',
           }))
         );
+        if (isDual) {
+          setTeams((prev) =>
+            prev.map((t) => ({
+              ...t,
+              group: teamGroupAssignments[t.name] || teamGroupAssignments[t.id] || t.group,
+            }))
+          );
+        }
+        invalidateClientCache();
         showNotification(
-          `Generated ${data.schedule.matches.length} fixtures for ${selectedTournament.toUpperCase()} format!`
+          `Generated ${data.schedule.matches.length} fixtures in ${isDual ? 'Dual Group Stage (Group A & B)' : schedulerFormat.toUpperCase()} format!`
         );
       } else {
         alert(data.error || 'Failed to generate fixtures');
@@ -1528,6 +1597,23 @@ export default function AdminDashboardPage() {
       qualificationRule: preset.qualificationRule,
     }));
   };
+
+  // Synchronize auto-scheduler format when auctionRules or tournament format changes
+  useEffect(() => {
+    if (
+      auctionRules.knockoutFormat === 'group_stage_knockout' ||
+      selectedTournament.toLowerCase().includes('ddpl') ||
+      auctionRules.pathwayTitle?.toLowerCase().includes('group')
+    ) {
+      setSchedulerFormat('dual_groups');
+    } else if (auctionRules.knockoutFormat === 'semis_final') {
+      setSchedulerFormat('semis_final');
+    } else if (auctionRules.knockoutFormat === 'direct_final') {
+      setSchedulerFormat('direct_final');
+    } else if (auctionRules.knockoutFormat === 'ipl_playoffs') {
+      setSchedulerFormat('ipl_playoffs');
+    }
+  }, [auctionRules.knockoutFormat, auctionRules.pathwayTitle, selectedTournament]);
 
   const visibleTournaments = useMemo(() => {
     if (isMasterSuperAdmin) return tournamentsList;
@@ -3197,45 +3283,294 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* 2. Smart Auto-Scheduler according to Tournament Format */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="glass-card p-6 flex flex-col justify-between border-t-4 border-t-cricket-teal space-y-4">
-              <div className="space-y-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Smart Tournament Format Generator
-                </span>
-                <h3 className="font-display font-bold text-2xl text-white">
-                  {(tournamentsList.find((t: any) => t.slug === selectedTournament)?.name) || 'Tournament'} Auto-Scheduler
-                </h3>
-                <p className="text-xs text-cricket-muted leading-relaxed">
-                  Generates round-robin fixtures, group stages, and playoff brackets according to your tournament structure for all {teams.length} franchise teams.
-                </p>
+          <div className="space-y-6">
+            <div className="glass-card p-6 border-t-4 border-t-cricket-teal space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cricket-border pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Smart Tournament Format Generator
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[11px] font-bold">
+                      Format Synchronized
+                    </span>
+                  </div>
+                  <h3 className="font-display font-bold text-2xl text-white">
+                    {(tournamentsList.find((t: any) => t.slug === selectedTournament)?.name) || 'Tournament'} Auto-Scheduler
+                  </h3>
+                  <p className="text-xs text-cricket-muted leading-relaxed">
+                    Generates group stages, intra-pool round-robin fixtures, and configured knockout pathway for all {teams.length} franchise teams.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  {teams.length >= 2 && (
+                    <button
+                      type="button"
+                      onClick={handleAutoSplitTeams}
+                      className="px-3.5 py-2 rounded-xl bg-cricket-dark hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow cursor-pointer"
+                      title="Evenly balance teams across Group A and Group B"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+                      <span>Auto-Split Teams (50/50)</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <button
-                type="button"
-                disabled={isGeneratingFixtures || teams.length < 2}
-                onClick={handleGenerateTournamentFixtures}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-extrabold text-base tracking-wide shadow-lg shadow-teal-500/20 active:scale-95 transition-all disabled:opacity-50"
-              >
-                {isGeneratingFixtures
-                  ? '⚡ Generating Tournament Schedule...'
-                  : `⚡ Auto-Generate Schedule (${selectedTournament.toUpperCase()} Format)`}
-              </button>
+              {/* Tournament Format Selector */}
+              <div className="space-y-2.5">
+                <label className="text-xs font-bold text-gray-300 uppercase tracking-wide block">
+                  1. Select Tournament Progression Format
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {[
+                    {
+                      id: 'dual_groups',
+                      title: 'Dual Group Stage + SF & Final',
+                      desc: 'Teams split into Group A & B. Top 2 from each group advance to Semi-Finals & Grand Final.',
+                      badge: 'Dual Groups (A & B)',
+                    },
+                    {
+                      id: 'ipl_playoffs',
+                      title: 'Single Pool + IPL Playoffs',
+                      desc: 'Single round-robin table. Top 4 play Qualifier 1, Eliminator, Qualifier 2, Grand Final.',
+                      badge: 'IPL Page Playoffs',
+                    },
+                    {
+                      id: 'semis_final',
+                      title: 'Single Pool + Top 4 Semis',
+                      desc: 'All teams in 1 table. 1st vs 4th & 2nd vs 3rd sudden-death knockouts into Grand Final.',
+                      badge: 'Top 4 Knockout',
+                    },
+                    {
+                      id: 'direct_final',
+                      title: 'Single Pool + Top 2 Final',
+                      desc: 'Single round-robin table. Top 2 ranked teams clash directly for Championship Trophy.',
+                      badge: 'Top 2 Direct Final',
+                    },
+                  ].map((fmt) => (
+                    <button
+                      key={fmt.id}
+                      type="button"
+                      onClick={() => setSchedulerFormat(fmt.id as any)}
+                      className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 cursor-pointer ${
+                        schedulerFormat === fmt.id
+                          ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border-teal-400 text-white shadow-lg ring-1 ring-teal-400/50'
+                          : 'bg-cricket-dark/80 border-cricket-border text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <strong className="text-xs font-bold text-white">{fmt.title}</strong>
+                        {schedulerFormat === fmt.id && (
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0 shadow-sm shadow-emerald-400"></span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-gray-400 leading-snug">{fmt.desc}</span>
+                      <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider">{fmt.badge}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              {matches.length > 0 && (
+              {/* Dual Group Settings (Semi-Final Matchup Mode & Group Assignment Studio) */}
+              {schedulerFormat === 'dual_groups' && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#08111F] border border-[#D8AD55]/30 space-y-4 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#D8AD55]/20 pb-3">
+                    <label className="text-xs font-bold text-[#F2D69A] uppercase tracking-wide flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-[#D8AD55]" />
+                      <span>2. Dual Group Stage Configuration &amp; Team Distribution</span>
+                    </label>
+                    {(() => {
+                      const grpA = teams.filter((t) => (teamGroupAssignments[t.name] || teamGroupAssignments[t.id] || t.group || 'Group A') === 'Group A');
+                      const grpB = teams.filter((t) => (teamGroupAssignments[t.name] || teamGroupAssignments[t.id] || t.group) === 'Group B');
+                      return (
+                        <span className="text-[11px] text-gray-400">
+                          Total Franchises: <strong className="text-white">{teams.length}</strong> (Group A: <span className="text-teal-300 font-bold">{grpA.length}</span> | Group B: <span className="text-amber-300 font-bold">{grpB.length}</span>)
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Semi-Final Matchup Pathway Selector */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-gray-300 block">Semi-Final Knockout Pathway Rule:</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <label
+                        onClick={() => setSchedulerSemisFormat('same_rank')}
+                        className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                          schedulerSemisFormat === 'same_rank'
+                            ? 'border-emerald-400 bg-emerald-500/10 text-white shadow-md'
+                            : 'border-cricket-border bg-cricket-dark text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="semis_format"
+                          checked={schedulerSemisFormat === 'same_rank'}
+                          onChange={() => setSchedulerSemisFormat('same_rank')}
+                          className="mt-0.5 accent-emerald-400"
+                        />
+                        <div>
+                          <strong className="text-white block font-bold">Group A #1 vs Group B #1 &amp; Group A #2 vs Group B #2</strong>
+                          <span className="text-[11px] text-gray-400 leading-relaxed block mt-0.5">
+                            SF1: Pool Leaders Clash (A1 vs B1). SF2: Pool Runners-Up Clash (A2 vs B2). Both winners play Grand Final.
+                          </span>
+                        </div>
+                      </label>
+
+                      <label
+                        onClick={() => setSchedulerSemisFormat('cross_over')}
+                        className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                          schedulerSemisFormat === 'cross_over'
+                            ? 'border-teal-400 bg-teal-500/10 text-white shadow-md'
+                            : 'border-cricket-border bg-cricket-dark text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="semis_format"
+                          checked={schedulerSemisFormat === 'cross_over'}
+                          onChange={() => setSchedulerSemisFormat('cross_over')}
+                          className="mt-0.5 accent-teal-400"
+                        />
+                        <div>
+                          <strong className="text-white block font-bold">Cross-Over (Group A #1 vs Group B #2 &amp; Group B #1 vs Group A #2)</strong>
+                          <span className="text-[11px] text-gray-400 leading-relaxed block mt-0.5">
+                            SF1: Pool A Winner vs Pool B Runner-Up. SF2: Pool B Winner vs Pool A Runner-Up. Winners play Grand Final.
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Group Split Distribution Studio */}
+                  {(() => {
+                    const grpA = teams.filter((t) => (teamGroupAssignments[t.name] || teamGroupAssignments[t.id] || t.group || 'Group A') === 'Group A');
+                    const grpB = teams.filter((t) => (teamGroupAssignments[t.name] || teamGroupAssignments[t.id] || t.group) === 'Group B');
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        {/* Group A Box */}
+                        <div className="p-4 rounded-xl bg-teal-950/20 border border-teal-500/30 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse"></span>
+                              <h4 className="font-display font-bold text-sm text-teal-300">GROUP A ({grpA.length} Teams)</h4>
+                            </div>
+                            <span className="text-[10px] text-teal-200/70 font-semibold uppercase">Pool A Bracket</span>
+                          </div>
+
+                          {grpA.length === 0 ? (
+                            <div className="text-center py-6 text-xs text-gray-500 border border-dashed border-teal-500/20 rounded-lg">
+                              No teams assigned to Group A yet.
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {grpA.map((t) => (
+                                <div
+                                  key={t.id || t.name}
+                                  className="p-2.5 rounded-lg bg-cricket-dark/90 border border-teal-500/30 flex items-center justify-between gap-2"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-300 font-black text-xs flex items-center justify-center shrink-0">
+                                      {t.short || t.name.slice(0, 3)}
+                                    </span>
+                                    <div className="truncate">
+                                      <div className="font-bold text-xs text-white truncate">{t.name}</div>
+                                      <div className="text-[10px] text-gray-400 truncate">Owner: {t.owner}</div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTeamGroup(t.name)}
+                                    className="px-2.5 py-1 rounded bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-[10px] font-bold transition-all shrink-0 cursor-pointer"
+                                    title="Move this team to Group B"
+                                  >
+                                    Switch to Group B &rarr;
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Group B Box */}
+                        <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-500/30 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                              <h4 className="font-display font-bold text-sm text-amber-300">GROUP B ({grpB.length} Teams)</h4>
+                            </div>
+                            <span className="text-[10px] text-amber-200/70 font-semibold uppercase">Pool B Bracket</span>
+                          </div>
+
+                          {grpB.length === 0 ? (
+                            <div className="text-center py-6 text-xs text-gray-500 border border-dashed border-amber-500/20 rounded-lg">
+                              No teams assigned to Group B yet.
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {grpB.map((t) => (
+                                <div
+                                  key={t.id || t.name}
+                                  className="p-2.5 rounded-lg bg-cricket-dark/90 border border-amber-500/30 flex items-center justify-between gap-2"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 font-black text-xs flex items-center justify-center shrink-0">
+                                      {t.short || t.name.slice(0, 3)}
+                                    </span>
+                                    <div className="truncate">
+                                      <div className="font-bold text-xs text-white truncate">{t.name}</div>
+                                      <div className="text-[10px] text-gray-400 truncate">Owner: {t.owner}</div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTeamGroup(t.name)}
+                                    className="px-2.5 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-bold transition-all shrink-0 cursor-pointer"
+                                    title="Move this team to Group A"
+                                  >
+                                    &larr; Switch to Group A
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={handleClearTournamentFixtures}
-                  className="w-full py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                  disabled={isGeneratingFixtures || teams.length < 2}
+                  onClick={handleGenerateTournamentFixtures}
+                  className="w-full sm:flex-1 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-cricket-dark font-display font-extrabold text-base tracking-wide shadow-lg shadow-teal-500/25 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  Reset Fixtures to Pre-Auction State
+                  {isGeneratingFixtures
+                    ? '⚡ Generating Tournament Schedule...'
+                    : `⚡ Auto-Generate Schedule (${schedulerFormat === 'dual_groups' ? 'Dual Group Stage + SFs & Final' : schedulerFormat.toUpperCase()})`}
                 </button>
-              )}
+
+                {matches.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearTournamentFixtures}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    Reset Fixtures to Pre-Auction State
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Manual Match Creator Form */}
-            <div className="glass-card p-6 md:col-span-2 space-y-4 border border-cricket-border">
+            <div className="glass-card p-6 space-y-4 border border-cricket-border">
               <h3 className="font-display font-bold text-xl text-white flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-cricket-teal" />
                 <span>Add Single Match Manually</span>

@@ -259,7 +259,9 @@ export function generateMultiGroupFixtures(
   customGroupNames: string[] = ['Group A', 'Group B'],
   tournamentOvers = 10,
   tournamentSlug = 'league',
-  venue = 'Sports Arena / Stadium Grounds'
+  venue = 'Sports Arena / Stadium Grounds',
+  semisFormat: 'same_rank' | 'cross_over' = 'same_rank',
+  groupAssignments?: Record<string, string>
 ): MatchFixture[] {
   const fixtures: MatchFixture[] = [];
   let matchNum = 1;
@@ -278,11 +280,13 @@ export function generateMultiGroupFixtures(
     groupMap[g] = [];
   });
 
-  // If teams already have a .group property matching one of our groups, use it
+  // If groupAssignments provided: use it first
+  // Otherwise if teams already have a .group property matching one of our groups, use it
   const unassignedTeams: any[] = [];
   teams.forEach((t) => {
-    if (t.group && groupMap[t.group]) {
-      groupMap[t.group].push(t);
+    const assigned = groupAssignments?.[t.id] || groupAssignments?.[t.name] || t.group;
+    if (assigned && groupMap[assigned]) {
+      groupMap[assigned].push({ ...t, group: assigned });
     } else {
       unassignedTeams.push(t);
     }
@@ -291,13 +295,14 @@ export function generateMultiGroupFixtures(
   // Distribute remaining unassigned teams round-robin across groups
   unassignedTeams.forEach((t, idx) => {
     const targetGroup = groupNames[idx % groupNames.length];
-    groupMap[targetGroup].push(t);
+    groupMap[targetGroup].push({ ...t, group: targetGroup });
   });
 
   // 1. Group Stage Matches (Round-Robin within each group)
-  groupNames.forEach((groupName, gIdx) => {
+  const timeSlots = ['09:30 AM', '11:45 AM', '02:00 PM', '04:15 PM', '06:30 PM'];
+
+  groupNames.forEach((groupName) => {
     const grpTeams = groupMap[groupName] || [];
-    const timeSlots = ['09:30 AM', '11:45 AM', '02:00 PM', '04:15 PM', '06:30 PM'];
 
     for (let i = 0; i < grpTeams.length; i++) {
       for (let j = i + 1; j < grpTeams.length; j++) {
@@ -316,7 +321,7 @@ export function generateMultiGroupFixtures(
           title: `${groupName}: ${shortA} vs ${shortB}`,
           teamA: { name: teamA.name, short: shortA },
           teamB: { name: teamB.name, short: shortB },
-          venue: 'Sports Arena / Stadium Grounds',
+          venue: venue || 'Sports Arena / Stadium Grounds',
           matchDate: null,
           matchTime: timeSlot,
           status: 'upcoming',
@@ -341,7 +346,7 @@ export function generateMultiGroupFixtures(
         title: 'Qualifier 1: Rank #1 vs Rank #2',
         teamA: { name: 'Rank #1 Team', short: 'R1' },
         teamB: { name: 'Rank #2 Team', short: 'R2' },
-        venue: 'Sports Arena / Stadium Grounds',
+        venue: venue || 'Sports Arena / Stadium Grounds',
         matchDate: null,
         matchTime: '02:00 PM',
         status: 'upcoming',
@@ -357,7 +362,7 @@ export function generateMultiGroupFixtures(
         title: 'Eliminator: Rank #3 vs Rank #4',
         teamA: { name: 'Rank #3 Team', short: 'R3' },
         teamB: { name: 'Rank #4 Team', short: 'R4' },
-        venue: 'Sports Arena / Stadium Grounds',
+        venue: venue || 'Sports Arena / Stadium Grounds',
         matchDate: null,
         matchTime: '06:00 PM',
         status: 'upcoming',
@@ -373,7 +378,7 @@ export function generateMultiGroupFixtures(
         title: 'Qualifier 2: Loser Q1 vs Winner Eliminator',
         teamA: { name: 'Loser of Q1', short: 'LQ1' },
         teamB: { name: 'Winner of Eliminator', short: 'WEL' },
-        venue: 'Sports Arena / Stadium Grounds',
+        venue: venue || 'Sports Arena / Stadium Grounds',
         matchDate: null,
         matchTime: '02:00 PM',
         status: 'upcoming',
@@ -389,7 +394,7 @@ export function generateMultiGroupFixtures(
         title: 'Grand Championship Final: Winner Q1 vs Winner Q2',
         teamA: { name: 'Winner of Q1', short: 'WQ1' },
         teamB: { name: 'Winner of Q2', short: 'WQ2' },
-        venue: 'Sports Arena / Stadium Grounds',
+        venue: venue || 'Sports Arena / Stadium Grounds',
         matchDate: null,
         matchTime: '06:30 PM',
         status: 'upcoming',
@@ -404,7 +409,7 @@ export function generateMultiGroupFixtures(
         title: 'Grand Final: Rank #1 vs Rank #2',
         teamA: { name: 'Rank #1 Team', short: 'R1' },
         teamB: { name: 'Rank #2 Team', short: 'R2' },
-        venue: 'Sports Arena / Stadium Grounds',
+        venue: venue || 'Sports Arena / Stadium Grounds',
         matchDate: null,
         matchTime: '06:00 PM',
         status: 'upcoming',
@@ -412,41 +417,76 @@ export function generateMultiGroupFixtures(
       });
     }
   } else if (numGroups === 2) {
-    // 2 Groups (e.g. Group A & Group B): SF1 (A1 vs B2), SF2 (B1 vs A2), Final
+    // 2 Groups (e.g. Group A & Group B): SF1, SF2, Grand Final
     const gA = groupNames[0];
     const gB = groupNames[1];
 
-    fixtures.push({
-      id: `${tournamentSlug}-m${matchNum}`,
-      matchNumber: matchNum,
-      tournament: tournamentSlug,
-      stage: 'Semi-Final',
-      title: `Semi-Final 1: ${gA} Winner vs ${gB} Runner-Up`,
-      teamA: { name: `${gA} Winner`, short: `${gA.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}1` },
-      teamB: { name: `${gB} Runner-Up`, short: `${gB.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}2` },
-      venue: 'Sports Arena / Stadium Grounds',
-      matchDate: null,
-      matchTime: '10:00 AM',
-      status: 'upcoming',
-      summary: `First Semi-Final: ${gA} #1 vs ${gB} #2 for a ticket to the Grand Final.`,
-    });
-    matchNum++;
+    if (semisFormat === 'cross_over') {
+      fixtures.push({
+        id: `${tournamentSlug}-m${matchNum}`,
+        matchNumber: matchNum,
+        tournament: tournamentSlug,
+        stage: 'Semi-Final',
+        title: `Semi-Final 1: ${gA} #1 vs ${gB} #2`,
+        teamA: { name: `${gA} Winner`, short: `${gA.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}1` },
+        teamB: { name: `${gB} Runner-Up`, short: `${gB.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}2` },
+        venue: venue || 'Sports Arena / Stadium Grounds',
+        matchDate: null,
+        matchTime: '10:00 AM',
+        status: 'upcoming',
+        summary: `First Semi-Final: ${gA} #1 vs ${gB} #2. Winner advances to Grand Final.`,
+      });
+      matchNum++;
 
-    fixtures.push({
-      id: `${tournamentSlug}-m${matchNum}`,
-      matchNumber: matchNum,
-      tournament: tournamentSlug,
-      stage: 'Semi-Final',
-      title: `Semi-Final 2: ${gB} Winner vs ${gA} Runner-Up`,
-      teamA: { name: `${gB} Winner`, short: `${gB.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}1` },
-      teamB: { name: `${gA} Runner-Up`, short: `${gA.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}2` },
-      venue: 'Sports Arena / Stadium Grounds',
-      matchDate: null,
-      matchTime: '02:30 PM',
-      status: 'upcoming',
-      summary: `Second Semi-Final: ${gB} #1 vs ${gA} #2 for the remaining Grand Final spot.`,
-    });
-    matchNum++;
+      fixtures.push({
+        id: `${tournamentSlug}-m${matchNum}`,
+        matchNumber: matchNum,
+        tournament: tournamentSlug,
+        stage: 'Semi-Final',
+        title: `Semi-Final 2: ${gB} #1 vs ${gA} #2`,
+        teamA: { name: `${gB} Winner`, short: `${gB.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}1` },
+        teamB: { name: `${gA} Runner-Up`, short: `${gA.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}2` },
+        venue: venue || 'Sports Arena / Stadium Grounds',
+        matchDate: null,
+        matchTime: '02:30 PM',
+        status: 'upcoming',
+        summary: `Second Semi-Final: ${gB} #1 vs ${gA} #2. Winner advances to Grand Final.`,
+      });
+      matchNum++;
+    } else {
+      // User requested format: Group A Top Team vs Group B Top Team, and Group A 2nd Team vs Group B 2nd Team
+      fixtures.push({
+        id: `${tournamentSlug}-m${matchNum}`,
+        matchNumber: matchNum,
+        tournament: tournamentSlug,
+        stage: 'Semi-Final',
+        title: `Semi-Final 1: ${gA} #1 vs ${gB} #1`,
+        teamA: { name: `${gA} Winner`, short: `${gA.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}1` },
+        teamB: { name: `${gB} Winner`, short: `${gB.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}1` },
+        venue: venue || 'Sports Arena / Stadium Grounds',
+        matchDate: null,
+        matchTime: '10:00 AM',
+        status: 'upcoming',
+        summary: `Semi-Final 1: ${gA} #1 vs ${gB} #1 battle for a ticket to the Grand Final.`,
+      });
+      matchNum++;
+
+      fixtures.push({
+        id: `${tournamentSlug}-m${matchNum}`,
+        matchNumber: matchNum,
+        tournament: tournamentSlug,
+        stage: 'Semi-Final',
+        title: `Semi-Final 2: ${gA} #2 vs ${gB} #2`,
+        teamA: { name: `${gA} Runner-Up`, short: `${gA.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}2` },
+        teamB: { name: `${gB} Runner-Up`, short: `${gB.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3)}2` },
+        venue: venue || 'Sports Arena / Stadium Grounds',
+        matchDate: null,
+        matchTime: '02:30 PM',
+        status: 'upcoming',
+        summary: `Semi-Final 2: ${gA} #2 vs ${gB} #2 clash for the second Grand Final berth.`,
+      });
+      matchNum++;
+    }
 
     fixtures.push({
       id: `${tournamentSlug}-m${matchNum}`,
@@ -456,7 +496,7 @@ export function generateMultiGroupFixtures(
       title: 'Grand Championship Final: Winner SF1 vs Winner SF2',
       teamA: { name: 'Winner SF1', short: 'WSF1' },
       teamB: { name: 'Winner SF2', short: 'WSF2' },
-      venue: 'Sports Arena / Stadium Grounds',
+      venue: venue || 'Sports Arena / Stadium Grounds',
       matchDate: null,
       matchTime: '06:00 PM',
       status: 'upcoming',
@@ -782,17 +822,50 @@ export async function POST(req: Request) {
     // 1. GENERATE SCHEDULE ACCORDING TO TOURNAMENT FORMAT (Supports 1 pool up to 8 Groups: A to H)
     if (action === 'generate_schedule') {
       const teams = body.teams || [];
-      const format = body.format || (tournament.includes('game-of-run') || tournament.includes('gor') ? 'game-of-run' : 'ddpl');
-      const overs = body.overs || (format === 'game-of-run' ? 12 : 10);
-      const groupNames: string[] = body.groupNames || (body.groupsCount ? Array.from({ length: body.groupsCount }, (_, i) => `Group ${String.fromCharCode(65 + i)}`) : null);
 
-      // Resolve official ground name configured by Super Admin
+      // Resolve official ground name and configurations
       const [rulesContainer, configs] = await Promise.all([
         getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
         getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
       ]);
       const currentRules = rulesContainer?.tournaments?.[tournament] || {};
       const currentConfig = configs?.[tournament] || {};
+
+      // Determine requested format
+      let format = body.format;
+      if (!format) {
+        if (currentRules.knockoutFormat === 'group_stage_knockout' || currentConfig.groupsCount > 1 || currentConfig.format === 'group-stage-playoffs') {
+          format = 'dual_groups';
+        } else if (tournament.includes('game-of-run') || tournament.includes('gor')) {
+          format = 'game-of-run';
+        } else {
+          format = currentConfig.format || 'ddpl';
+        }
+      }
+
+      const isDualOrMultiGroup =
+        format === 'dual_groups' ||
+        format === 'group-stage-playoffs' ||
+        format === 'multi_group' ||
+        (Array.isArray(body.groupNames) && body.groupNames.length > 1) ||
+        (currentConfig.groupsCount > 1) ||
+        (currentRules.knockoutFormat === 'group_stage_knockout');
+
+      let groupNames: string[] = body.groupNames;
+      if (!groupNames || groupNames.length === 0) {
+        if (isDualOrMultiGroup) {
+          groupNames = currentConfig.groupNames && currentConfig.groupNames.length > 1
+            ? currentConfig.groupNames
+            : ['Group A', 'Group B'];
+        } else if (body.groupsCount && body.groupsCount > 1) {
+          groupNames = Array.from({ length: body.groupsCount }, (_, i) => `Group ${String.fromCharCode(65 + i)}`);
+        }
+      }
+
+      const semisFormat: 'same_rank' | 'cross_over' = body.semisFormat || 'same_rank';
+      const groupAssignments: Record<string, string> = body.groupAssignments || {};
+
+      const overs = body.overs || currentRules.matchOvers || currentConfig?.overs || (format === 'game-of-run' ? 12 : 10);
       const venue = (
         body.venue ||
         body.groundName ||
@@ -804,9 +877,17 @@ export async function POST(req: Request) {
       ).trim();
 
       let generatedMatches: MatchFixture[];
-      if (groupNames && groupNames.length > 0) {
-        generatedMatches = generateMultiGroupFixtures(teams, groupNames, overs, tournament, venue);
-      } else if (format === 'game-of-run' || format === 'group-stage-playoffs') {
+      if (isDualOrMultiGroup && groupNames && groupNames.length > 0) {
+        generatedMatches = generateMultiGroupFixtures(
+          teams,
+          groupNames,
+          overs,
+          tournament,
+          venue,
+          semisFormat,
+          groupAssignments
+        );
+      } else if (format === 'game-of-run') {
         generatedMatches = generateGameOfRunFixtures(teams, overs, tournament, venue);
       } else {
         generatedMatches = generateDdplFixtures(teams, overs, tournament, venue);
@@ -814,13 +895,52 @@ export async function POST(req: Request) {
 
       schedule = {
         ...schedule,
-        format: (groupNames && groupNames.length > 1) || format === 'game-of-run' || format === 'group-stage-playoffs' ? 'group-stage-playoffs' : 'round-robin-playoffs',
+        format: isDualOrMultiGroup ? 'group-stage-playoffs' : 'round-robin-playoffs',
         matches: generatedMatches,
         lastUpdated: new Date().toISOString(),
       };
 
       await setStoreData(`tournament_schedule_${tournament}`, schedule, `schedule_${tournament}.json`);
       invalidateStoreCache(`tournament_schedule_${tournament}`);
+
+      // Persist assigned group back to teams in auction state so Standings and Teams reflect Group A / Group B
+      try {
+        const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} });
+        if (allAuction?.tournaments?.[tournament]?.teams) {
+          allAuction.tournaments[tournament].teams = allAuction.tournaments[tournament].teams.map((t: any) => {
+            const assigned = groupAssignments[t.id] || groupAssignments[t.name] || t.group;
+            if (assigned) {
+              return { ...t, group: assigned };
+            }
+            const matchWithTeam = generatedMatches.find(
+              (m: any) => m.stage === 'Group Stage' && (m.teamA?.name === t.name || m.teamB?.name === t.name)
+            );
+            if (matchWithTeam?.group) {
+              return { ...t, group: matchWithTeam.group };
+            }
+            return t;
+          });
+          await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+          invalidateStoreCache('auction_data_ddpl');
+        }
+      } catch (aucErr) {
+        console.warn('Auction teams group sync warning:', aucErr);
+      }
+
+      // Bi-directional sync with tournament_configs
+      if (configs && configs[tournament]) {
+        if (isDualOrMultiGroup && groupNames && groupNames.length > 1) {
+          configs[tournament].groupsCount = groupNames.length;
+          configs[tournament].groupNames = groupNames;
+          configs[tournament].format = 'group-stage-playoffs';
+        } else if (format === 'ddpl' || format === 'round-robin-playoffs') {
+          configs[tournament].groupsCount = 1;
+          configs[tournament].groupNames = ['Pool A'];
+          configs[tournament].format = 'round-robin-playoffs';
+        }
+        await setStoreData('tournament_configs', configs, 'tournament_configs.json');
+        invalidateStoreCache('tournament_configs');
+      }
 
       return NextResponse.json({
         success: true,

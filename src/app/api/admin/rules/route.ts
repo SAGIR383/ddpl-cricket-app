@@ -141,6 +141,14 @@ export async function GET(req: Request) {
     }
   }
 
+  // Auto-heal group configuration if rules set to group_stage_knockout
+  if (targetRules?.knockoutFormat === 'group_stage_knockout' && currentConfig && (currentConfig.groupsCount <= 1 || !currentConfig.groupNames || currentConfig.groupNames.length < 2)) {
+    currentConfig.groupsCount = 2;
+    currentConfig.groupNames = ['Group A', 'Group B'];
+    currentConfig.format = 'group-stage-playoffs';
+    setStoreData('tournament_configs', configs, 'tournament_configs.json').catch(() => {});
+  }
+
   const matchOvers = Number(targetRules.matchOvers) || Number(currentConfig?.overs) || 10;
   const defaultBowlerLimit = targetRules.maxBowlerOvers !== undefined
     ? Number(targetRules.maxBowlerOvers)
@@ -266,6 +274,19 @@ export async function POST(req: Request) {
       configs[tournament].qualificationRule = updated.qualificationRule;
       configs[tournament].venue = resolvedGround;
       configs[tournament].groundName = resolvedGround;
+
+      // Group format sync
+      if (updated.knockoutFormat === 'group_stage_knockout') {
+        configs[tournament].groupsCount = Math.max(configs[tournament].groupsCount || 2, 2);
+        if (!configs[tournament].groupNames || configs[tournament].groupNames.length < 2) {
+          configs[tournament].groupNames = ['Group A', 'Group B'];
+        }
+        configs[tournament].format = 'group-stage-playoffs';
+      } else if (['ipl_playoffs', 'semis_final', 'direct_final', 'pure_knockout'].includes(updated.knockoutFormat)) {
+        configs[tournament].groupsCount = 1;
+        configs[tournament].groupNames = ['Pool A'];
+        configs[tournament].format = 'round-robin-playoffs';
+      }
     }
 
     // AUTO-SYNC TO TOURNAMENT SCHEDULE (VENUE / GROUND NAME):
