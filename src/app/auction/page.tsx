@@ -237,7 +237,7 @@ export default function AuctionPage() {
             ownerBlockedPrice: rulesData.rules.ownerBlockedPrice !== undefined ? rulesData.rules.ownerBlockedPrice : 100,
             defaultPlayerBasePrice: resolvedDefaultBase,
             bidSteps: rulesData.rules.bidSteps || [50, 100, 200, 500],
-            maxSquadSize: rulesData.rules.maxSquadSize || 11,
+            maxSquadSize: rulesData.rules.maxSquadSize || 8,
             matchOvers: rulesData.rules.matchOvers || 10,
             maxBowlerOvers: rulesData.rules.maxBowlerOvers || 2,
           });
@@ -245,7 +245,12 @@ export default function AuctionPage() {
 
         if (auctionData?.success && auctionData.data) {
           const d = auctionData.data;
-          setTeams(Array.isArray(d.teams) ? d.teams : []);
+          const targetCap = rulesData?.rules?.maxSquadSize || 8;
+          const normalizedTeams = (Array.isArray(d.teams) ? d.teams : []).map((t: any) => ({
+            ...t,
+            maxSquad: t.maxSquad && t.maxSquad <= targetCap ? t.maxSquad : targetCap,
+          }));
+          setTeams(normalizedTeams);
 
           // Deduplicate player pool by trimmed lowercase name to prevent same player appearing twice
           const rawPool: ParsedPlayer[] = Array.isArray(d.playerPool) ? d.playerPool : [];
@@ -545,8 +550,9 @@ export default function AuctionPage() {
       return;
     }
 
-    if (team.playersBought >= team.maxSquad) {
-      alert(`Cannot bid: ${team.name} has reached maximum squad capacity (${team.maxSquad})!`);
+    const effectiveCap = rules.maxSquadSize || team.maxSquad || 8;
+    if (team.playersBought >= effectiveCap) {
+      alert(`Cannot bid: ${team.name} has reached maximum squad capacity (${effectiveCap} players)!`);
       return;
     }
 
@@ -1509,7 +1515,8 @@ export default function AuctionPage() {
                         : currentLot.currentBid + selectedIncrement;
                       const userRemaining = userTeam.allocated - userTeam.spent;
                       const hasSufficientBudget = userRemaining >= targetBidAmount;
-                      const isSquadFull = userTeam.playersBought >= userTeam.maxSquad;
+                      const userCap = userTeam.maxSquad && userTeam.maxSquad <= rules.maxSquadSize ? userTeam.maxSquad : rules.maxSquadSize;
+                      const isSquadFull = userTeam.playersBought >= userCap;
                       const isAlreadyLeading = currentLot.leadingTeam === userTeam.name;
 
                       return (
@@ -1529,7 +1536,7 @@ export default function AuctionPage() {
                                 Purse: {currencySymbol}{userRemaining.toLocaleString('en-IN')}
                               </span>
                               <span className="text-[10px] text-[#8793A5]">
-                                Squad: {userTeam.playersBought}/{userTeam.maxSquad}
+                                Squad: {userTeam.playersBought}/{userCap}
                               </span>
                             </div>
                           </div>
@@ -1578,7 +1585,8 @@ export default function AuctionPage() {
                             ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
                             : currentLot.currentBid + selectedIncrement;
                           const isLeading = currentLot.leadingTeam === t.name;
-                          const isSquadFull = t.playersBought >= t.maxSquad;
+                          const teamCap = t.maxSquad && t.maxSquad <= rules.maxSquadSize ? t.maxSquad : rules.maxSquadSize;
+                          const isSquadFull = t.playersBought >= teamCap;
                           const canBid =
                             canUserBidForTeam(t) &&
                             remaining >= targetBidAmount &&
@@ -1613,7 +1621,7 @@ export default function AuctionPage() {
                                   Purse: {currencySymbol}{remaining.toLocaleString('en-IN')}
                                 </span>
                                 <span className="font-bold text-[#F2D69A]">
-                                  Squad: {t.playersBought}/{t.maxSquad}
+                                  Squad: {t.playersBought}/{teamCap}
                                 </span>
                               </div>
 

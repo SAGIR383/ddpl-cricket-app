@@ -309,6 +309,7 @@ export default function MatchDetailPage() {
     strikerName?: string;
     nonStrikerName?: string;
     bowlerName?: string;
+    battingOrder?: string[];
     swapStrike?: boolean;
   }) => {
     setSyncStatus('syncing');

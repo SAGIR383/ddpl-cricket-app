@@ -183,6 +183,7 @@ export interface MatchLiveState {
     wideBallPenalty: string;
     noBallPenalty: string;
     pointsPerWin: number;
+    maxSquadSize?: number;
   };
   matchNotes: MatchNote[];
   teamASquad?: SquadPlayer[];

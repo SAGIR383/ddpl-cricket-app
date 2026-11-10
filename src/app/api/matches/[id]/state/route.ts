@@ -138,10 +138,31 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
       }
     });
 
-    if (players.length < 2) {
-      players.push({ id: `p-${short}-1`, name: `${short} Batter 1`, role: 'Batter' });
-      players.push({ id: `p-${short}-2`, name: `${short} Batter 2`, role: 'Batter' });
-      players.push({ id: `p-${short}-3`, name: `${short} All-Rounder`, role: 'All-Rounder' });
+    const targetSquadSize = currentRules.maxSquadSize || 8;
+    const defaultRoles = [
+      'Top-Order Batter',
+      'Opening Batter',
+      'Middle-Order Batter',
+      'All-Rounder',
+      'Wicket-Keeper Batter',
+      'All-Rounder',
+      'Pace Bowler',
+      'Spin Bowler',
+      'Bowler',
+      'Bowler',
+    ];
+    let fillIdx = 1;
+    while (players.length < targetSquadSize) {
+      const pName = `${short} Player ${fillIdx}`;
+      if (!players.some((p) => p.name.toLowerCase() === pName.toLowerCase())) {
+        const role = defaultRoles[players.length % defaultRoles.length];
+        players.push({
+          id: `p-${short}-${fillIdx}`,
+          name: pName,
+          role,
+        });
+      }
+      fillIdx++;
     }
 
     return players;
@@ -194,6 +215,7 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
       wideBallPenalty: currentRules.wideBallPenalty || '+1 Run & Extra Ball',
       noBallPenalty: currentRules.noBallPenalty || '+1 Run + Free Hit',
       pointsPerWin: currentRules.pointsPerWin || 2,
+      maxSquadSize: currentRules.maxSquadSize || 8,
     },
     matchNotes: [
       {
@@ -244,6 +266,52 @@ export async function GET(
 
     if (!state || isLegacyMock) {
       state = await bootstrapMatchState(matchId, queryTournament || undefined);
+    } else if (state) {
+      const targetSquadSize = state.rules?.maxSquadSize || 8;
+      let stateModified = false;
+
+      const ensureFullSquad = (squad: SquadPlayer[] | undefined, teamShort: string) => {
+        const currentList: SquadPlayer[] = [...(squad || [])];
+        const defaultRoles = [
+          'Top-Order Batter',
+          'Opening Batter',
+          'Middle-Order Batter',
+          'All-Rounder',
+          'Wicket-Keeper Batter',
+          'All-Rounder',
+          'Pace Bowler',
+          'Spin Bowler',
+          'Bowler',
+          'Bowler',
+        ];
+        let fillIdx = 1;
+        while (currentList.length < targetSquadSize) {
+          const pName = `${teamShort} Player ${fillIdx}`;
+          if (!currentList.some((p) => p.name.toLowerCase() === pName.toLowerCase())) {
+            const role = defaultRoles[currentList.length % defaultRoles.length];
+            currentList.push({
+              id: `p-${teamShort}-${fillIdx}`,
+              name: pName,
+              role,
+            });
+            stateModified = true;
+          }
+          fillIdx++;
+        }
+        return currentList;
+      };
+
+      if (!state.teamASquad || state.teamASquad.length < targetSquadSize) {
+        state.teamASquad = ensureFullSquad(state.teamASquad, state.innings1.battingTeamShort || 'FA');
+      }
+      if (!state.teamBSquad || state.teamBSquad.length < targetSquadSize) {
+        state.teamBSquad = ensureFullSquad(state.teamBSquad, state.innings1.bowlingTeamShort || 'QA');
+      }
+
+      if (stateModified) {
+        await setStoreData(`match_state_${matchId}`, state, `match_state_${matchId}.json`);
+        invalidateStoreCache(`match_state_${matchId}`);
+      }
     }
 
     return NextResponse.json(
@@ -556,6 +624,30 @@ export async function POST(
               wides: 0,
             });
             currentInn.currentBowlerIndex = currentInn.bowlers.length - 1;
+          }
+        }
+      }
+
+      // 5. Update Full Batting Order Shuffle if provided
+      if (Array.isArray(body.battingOrder) && body.battingOrder.length > 0) {
+        const orderNames: string[] = body.battingOrder.map((n: string) => n.trim()).filter(Boolean);
+        const targetSquad = state.currentInnings === 1 ? state.teamASquad : state.teamBSquad;
+        if (targetSquad) {
+          const squadMap = new Map(targetSquad.map((p) => [p.name.toLowerCase(), p]));
+          const reorderedSquad: SquadPlayer[] = [];
+          for (const name of orderNames) {
+            const found = squadMap.get(name.toLowerCase());
+            if (found) reorderedSquad.push(found);
+          }
+          for (const p of targetSquad) {
+            if (!reorderedSquad.some((sp) => sp.name.toLowerCase() === p.name.toLowerCase())) {
+              reorderedSquad.push(p);
+            }
+          }
+          if (state.currentInnings === 1) {
+            state.teamASquad = reorderedSquad;
+          } else {
+            state.teamBSquad = reorderedSquad;
           }
         }
       }

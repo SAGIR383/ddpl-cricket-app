@@ -17,6 +17,7 @@ interface TeamRosterItem {
   budgetSpent: string;
   budgetLeft: string;
   ownerBlockedPrice: number;
+  maxSquadCap: number;
   color: string;
   players: { name: string; role: string; price: string }[];
 }
@@ -127,6 +128,7 @@ export default function TeamsPage() {
               budgetSpent: `₹${(t.spent || 0).toLocaleString('en-IN')}`,
               budgetLeft: `₹${remaining.toLocaleString('en-IN')}`,
               ownerBlockedPrice: teamOwnerPrice,
+              maxSquadCap: Number(rulesData?.rules?.maxSquadSize || 8),
               color: colors[idx % colors.length],
               players: rosterPlayers,
             };
@@ -255,8 +257,12 @@ export default function TeamsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-[#8793A5] uppercase tracking-wider font-semibold">Squad Size</div>
-                    <div className="font-display font-black text-2xl text-white mt-0.5">{t.squadSize} Players</div>
+                    <div className="text-xs text-[#8793A5] uppercase tracking-wider font-semibold">
+                      Squad Size ({t.maxSquadCap} Cap)
+                    </div>
+                    <div className="font-display font-black text-2xl text-white mt-0.5">
+                      {t.squadSize} / {t.maxSquadCap} Players
+                    </div>
                     <div className="text-[11px] text-[#D8AD55] font-bold mt-1.5 px-2.5 py-0.5 rounded-full bg-[#D8AD55]/15 border border-[#D8AD55]/30 inline-block">
                       ₹{t.ownerBlockedPrice.toLocaleString('en-IN')} Blocked
                     </div>
