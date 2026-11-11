@@ -575,6 +575,44 @@ export function HomePageClient() {
               <span>Matches</span>
             </Link>
           </div>
+
+          {/* Mobile / Tablet Horizontal Banner View */}
+          <div className="block lg:hidden pt-2">
+            <Link
+              href="/tournaments"
+              className="block relative w-full rounded-2xl overflow-hidden border border-[#D8AD55]/30 shadow-lg group cursor-pointer"
+            >
+              <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl bg-gradient-to-t from-[#091322]/70 via-transparent to-black/20" />
+              <Image
+                src="/images/ddpl-3-hero-banner.jpg"
+                alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
+                width={1024}
+                height={576}
+                priority
+                className="w-full h-auto object-cover rounded-2xl brightness-[0.90] contrast-[1.02]"
+              />
+            </Link>
+          </div>
+        </div>
+
+        {/* Featured Tournament Horizontal Banner (Desktop Hero Right Section - DDPL 3.0) */}
+        <div className="hidden lg:flex absolute right-6 xl:right-10 top-8 xl:top-10 z-10 w-[42%] xl:w-[45%] max-w-[540px] flex-col items-center">
+          <Link
+            href="/tournaments"
+            className="block relative w-full rounded-2xl overflow-hidden border border-[#D8AD55]/30 shadow-[0_16px_40px_rgba(0,0,0,0.85)] group transition-all duration-300 hover:border-[#D8AD55]/60 hover:shadow-[0_20px_50px_rgba(216,173,85,0.22)] cursor-pointer"
+          >
+            {/* Subtle Vignette & Dark Tint to prevent harsh brightness as requested */}
+            <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl bg-gradient-to-t from-[#091322]/80 via-transparent to-black/25" />
+            <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl ring-1 ring-inset ring-white/10" />
+            <Image
+              src="/images/ddpl-3-hero-banner.jpg"
+              alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
+              width={1024}
+              height={576}
+              priority
+              className="w-full h-auto object-cover rounded-2xl brightness-[0.90] contrast-[1.02] transition-transform duration-700 group-hover:scale-[1.01]"
+            />
+          </Link>
         </div>
 
         {/* Live Broadcast Badge (Desktop Float - Dynamically Synced) */}
