@@ -511,7 +511,7 @@ export function HomePageClient() {
         </div>
 
         {/* Content Over Stadium */}
-        <div className="relative z-20 max-w-3xl p-6 sm:p-12 lg:p-16 space-y-6">
+        <div className="relative z-20 max-w-2xl xl:max-w-[48%] p-6 sm:p-12 lg:p-14 space-y-6">
           
           {/* Eyebrow - Matching Image 1 (Clean Gold Editorial Spaced Text) */}
           <div className="flex items-center gap-2.5 text-[#E5B358] text-[11px] sm:text-xs font-black tracking-[0.22em] uppercase">
@@ -596,26 +596,22 @@ export function HomePageClient() {
           </div>
         </div>
 
-        {/* Featured Tournament Horizontal Banner (Desktop Centered in Middle Highlight Area - DDPL 3.0) */}
-        <div
-          className="hidden lg:flex absolute z-10 w-[44%] xl:w-[46%] max-w-[620px] 2xl:max-w-[700px] flex-col items-center pointer-events-auto"
-          style={{ left: '60%', top: '48%', transform: 'translate(-50%, -50%)' }}
-        >
-          <Link
-            href="/tournaments"
-            className="block relative w-full rounded-2xl overflow-hidden border border-transparent shadow-[0_16px_45px_rgba(0,0,0,0.8)] group transition-all duration-300 hover:scale-[1.015] cursor-pointer"
-          >
-            {/* Transparent Seamless Edge Blend - No bright visible border line */}
-            <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl bg-gradient-to-t from-[#091322]/70 via-transparent to-black/15" />
+        {/* Large Grand Cinematic Hero Banner (Fills the entire highlighted middle-to-right area behind upcoming season box) */}
+        <div className="hidden lg:block absolute right-0 top-0 bottom-0 left-[35%] xl:left-[37%] z-10 overflow-hidden pointer-events-auto">
+          <Link href="/tournaments" className="block relative w-full h-full cursor-pointer group">
+            {/* High-res Banner Image filling entire space */}
             <Image
               src="/images/ddpl-3-hero-banner.jpg"
               alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
-              width={1280}
-              height={720}
+              fill
               priority
-              quality={95}
-              className="w-full h-auto object-contain rounded-2xl brightness-[0.92] contrast-[1.03] transition-transform duration-700"
+              quality={100}
+              className="object-cover object-center lg:object-right-top xl:object-center brightness-[0.88] contrast-[1.04] transition-transform duration-700 group-hover:scale-[1.01]"
             />
+            {/* Seamless Left Edge Blend: completely transparent melt into dark navy-blue background behind text */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#091322] via-[#091322]/55 to-transparent pointer-events-none" />
+            {/* Top and Bottom Vignette for Cinematic Depth */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#091322]/85 via-transparent to-[#091322]/40 pointer-events-none" />
           </Link>
         </div>
 
