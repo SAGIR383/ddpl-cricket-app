@@ -585,11 +585,12 @@ export function HomePageClient() {
               <Image
                 src="/images/ddpl-3-hero-banner.jpg"
                 alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
-                width={1280}
-                height={720}
+                width={1024}
+                height={576}
                 priority
-                quality={95}
-                className="w-full h-auto object-cover rounded-2xl brightness-[1.02] contrast-[1.02]"
+                quality={85}
+                sizes="(max-width: 768px) 100vw, 720px"
+                className="w-full h-auto object-cover rounded-2xl brightness-[1.04] contrast-[1.02]"
               />
             </Link>
           </div>
@@ -615,7 +616,8 @@ export function HomePageClient() {
                 alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
                 fill
                 priority
-                quality={100}
+                quality={85}
+                sizes="(max-width: 1024px) 100vw, (max-width: 1536px) 55vw, 750px"
                 className="object-cover object-[center_top] pt-1 xl:pt-1.5 brightness-[1.06] contrast-[1.04] saturate-[1.04] transition-transform duration-700 group-hover:scale-[1.02]"
               />
               {/* Soft directional edge fades that dissolve all 4 borders seamlessly into the dark stadium background */}
