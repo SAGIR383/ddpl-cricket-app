@@ -545,14 +545,25 @@ export default function AuctionPage() {
       incrementLogged = inc;
     }
 
-    if (team.allocated - team.spent < nextBid) {
-      alert(`Cannot bid: ${team.name} has insufficient remaining budget (${currencySymbol}${(team.allocated - team.spent).toLocaleString()} left)!`);
-      return;
-    }
-
     const effectiveCap = rules.maxSquadSize || team.maxSquad || 8;
     if (team.playersBought >= effectiveCap) {
       alert(`Cannot bid: ${team.name} has reached maximum squad capacity (${effectiveCap} players)!`);
+      return;
+    }
+
+    // Reserve Calculation Protection:
+    // Mandatory Reserve = (Remaining Players to Buy after this one) * Base Price (₹100)
+    // Maximum Allowed Bid = Remaining Purse - Mandatory Reserve
+    const playersNeededAfterThis = Math.max(0, effectiveCap - (team.playersBought + 1));
+    const basePricePerPlayer = rules.defaultPlayerBasePrice || 100;
+    const mandatoryReserve = playersNeededAfterThis * basePricePerPlayer;
+    const remainingPurse = team.allocated - team.spent;
+    const maxAllowedBid = remainingPurse - mandatoryReserve;
+
+    if (nextBid > maxAllowedBid) {
+      alert(
+        `Cannot bid ${currencySymbol}${nextBid.toLocaleString('en-IN')}: You must reserve at least ${currencySymbol}${mandatoryReserve.toLocaleString('en-IN')} to buy your remaining ${playersNeededAfterThis} squad player(s) at base price (${currencySymbol}${basePricePerPlayer.toLocaleString('en-IN')}). Max allowed bid is ${currencySymbol}${maxAllowedBid.toLocaleString('en-IN')}.`
+      );
       return;
     }
 
@@ -786,8 +797,14 @@ export default function AuctionPage() {
 
     const currentPrice = currentLot.currentBid;
     const remaining = rtmTeam.allocated - rtmTeam.spent;
-    if (remaining < currentPrice) {
-      alert(`Insufficient purse: ${rtmTeam.name} has ${currencySymbol}${remaining.toLocaleString()} left, but matching bid requires ${currencySymbol}${currentPrice.toLocaleString()}.`);
+    const effectiveCap = rules.maxSquadSize || rtmTeam.maxSquad || 8;
+    const playersNeededAfterThis = Math.max(0, effectiveCap - (rtmTeam.playersBought + 1));
+    const basePricePerPlayer = rules.defaultPlayerBasePrice || 100;
+    const mandatoryReserve = playersNeededAfterThis * basePricePerPlayer;
+    const maxAllowedBid = remaining - mandatoryReserve;
+
+    if (currentPrice > maxAllowedBid) {
+      alert(`Cannot invoke RTM: ${rtmTeam.name} must reserve at least ${currencySymbol}${mandatoryReserve.toLocaleString('en-IN')} to buy the remaining ${playersNeededAfterThis} squad player(s) at base price. Max allowed matching bid is ${currencySymbol}${maxAllowedBid.toLocaleString('en-IN')}.`);
       return;
     }
 
@@ -1514,9 +1531,13 @@ export default function AuctionPage() {
                         ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
                         : currentLot.currentBid + selectedIncrement;
                       const userRemaining = userTeam.allocated - userTeam.spent;
-                      const hasSufficientBudget = userRemaining >= targetBidAmount;
                       const userCap = userTeam.maxSquad && userTeam.maxSquad <= rules.maxSquadSize ? userTeam.maxSquad : rules.maxSquadSize;
                       const isSquadFull = userTeam.playersBought >= userCap;
+                      const userNeededAfter = Math.max(0, userCap - (userTeam.playersBought + 1));
+                      const userBasePrice = rules.defaultPlayerBasePrice || 100;
+                      const userMandatoryReserve = userNeededAfter * userBasePrice;
+                      const userMaxBid = Math.max(0, userRemaining - userMandatoryReserve);
+                      const hasSufficientBudget = targetBidAmount <= userMaxBid;
                       const isAlreadyLeading = currentLot.leadingTeam === userTeam.name;
 
                       return (
@@ -1539,6 +1560,18 @@ export default function AuctionPage() {
                                 Squad: {userTeam.playersBought}/{userCap}
                               </span>
                             </div>
+                          </div>
+
+                          <div className="px-3 py-1.5 rounded-lg bg-black/30 border border-[#D8AD55]/20 flex items-center justify-between text-[11px]">
+                            <span className="text-[#8793A5]">Reserve Protection:</span>
+                            <span className="font-mono text-emerald-400 font-bold">
+                              Max Bid: {currencySymbol}{userMaxBid.toLocaleString('en-IN')}
+                              {userNeededAfter > 0 && (
+                                <span className="text-[#8793A5] font-normal ml-1">
+                                  (Reserves {currencySymbol}{userMandatoryReserve.toLocaleString('en-IN')} for {userNeededAfter} remaining slots)
+                                </span>
+                              )}
+                            </span>
                           </div>
 
                           {isAlreadyLeading ? (
@@ -1587,9 +1620,13 @@ export default function AuctionPage() {
                           const isLeading = currentLot.leadingTeam === t.name;
                           const teamCap = t.maxSquad && t.maxSquad <= rules.maxSquadSize ? t.maxSquad : rules.maxSquadSize;
                           const isSquadFull = t.playersBought >= teamCap;
+                          const neededAfter = Math.max(0, teamCap - (t.playersBought + 1));
+                          const basePrice = rules.defaultPlayerBasePrice || 100;
+                          const mandatoryReserve = neededAfter * basePrice;
+                          const maxAllowedBid = Math.max(0, remaining - mandatoryReserve);
                           const canBid =
                             canUserBidForTeam(t) &&
-                            remaining >= targetBidAmount &&
+                            targetBidAmount <= maxAllowedBid &&
                             !isSquadFull &&
                             !isLeading;
 
@@ -1625,7 +1662,12 @@ export default function AuctionPage() {
                                 </span>
                               </div>
 
-                              <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between font-bold text-xs">
+                              <div className="mt-1 flex items-center justify-between text-[10px] font-mono">
+                                <span className="text-[#8793A5]">Max Allowed:</span>
+                                <span className="text-emerald-400 font-bold">{currencySymbol}{maxAllowedBid.toLocaleString('en-IN')}</span>
+                              </div>
+
+                              <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between font-bold text-xs">
                                 <span>
                                   {isLeading ? '👑 Leading Bidder' : canBid ? 'Bid This Amount:' : 'Status:'}
                                 </span>
@@ -1634,7 +1676,7 @@ export default function AuctionPage() {
                                     ? `${currencySymbol}${currentLot.currentBid.toLocaleString('en-IN')}`
                                     : canBid
                                     ? `${currencySymbol}${targetBidAmount.toLocaleString('en-IN')} (+${currencySymbol}${isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement})`
-                                    : isSquadFull ? 'Squad Full' : remaining < targetBidAmount ? 'Low Purse' : 'Spectator'}
+                                    : isSquadFull ? 'Squad Full' : targetBidAmount > maxAllowedBid ? 'Reserve Locked' : 'Low Purse'}
                                 </span>
                               </div>
                             </button>

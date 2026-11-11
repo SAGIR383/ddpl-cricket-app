@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { neonQuery } from '@/lib/db/neon';
+import { hashPassword } from '@/lib/auth/password';
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
@@ -101,6 +103,14 @@ export async function POST(req: NextRequest) {
 
       if (updateErr) {
         return NextResponse.json({ success: false, error: updateErr.message }, { status: 400 });
+      }
+
+      // Sync updated password hash directly to Neon
+      try {
+        const hashed = hashPassword(newPassword);
+        await neonQuery('UPDATE profiles SET password_hash = $1, updated_at = NOW() WHERE LOWER(email) = $2', [hashed, cleanEmail]);
+      } catch (neonErr) {
+        console.warn('[Neon Reset Password Sync Warn]:', neonErr);
       }
 
       return NextResponse.json({

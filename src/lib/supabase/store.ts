@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
+import { neonQuery } from '@/lib/db/neon';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
 const supabaseServiceKey = getServiceRoleKey();
@@ -44,9 +45,10 @@ export function invalidateStoreCache(key?: string) {
 /**
  * Universal Store helper with multi-tier caching:
  * 1. Fast in-memory cache (< 1ms)
- * 2. Request coalescing (deduplicates simultaneous concurrent queries to Supabase)
- * 3. Supabase cricpluse_store query
- * 4. Graceful filesystem fallback
+ * 2. Request coalescing (deduplicates simultaneous concurrent queries)
+ * 3. Primary: Neon Cloud PostgreSQL (High speed, zero egress penalty)
+ * 4. Secondary: Supabase cricpluse_store query
+ * 5. Tertiary: Graceful filesystem fallback
  */
 export async function getStoreData<T>(
   key: string,
@@ -56,7 +58,7 @@ export async function getStoreData<T>(
 ): Promise<T> {
   const now = Date.now();
 
-  // 1. Check in-memory cache
+  // 1. Check in-memory cache (< 1ms)
   if (!bypassCache) {
     const cached = memoryCache.get(key);
     if (cached && cached.expiry > now) {
@@ -79,37 +81,47 @@ export async function getStoreData<T>(
   // Define the actual fetcher
   const fetchPromise = (async (): Promise<T> => {
     let result: T = defaultValue as T;
+    let fetched = false;
 
-    // A. Try reading from Supabase
+    // A. Primary: Query Neon Cloud PostgreSQL directly
     try {
-      const { data, error } = await supabaseAdmin
-        .from('cricpluse_store')
-        .select('data')
-        .eq('key', key)
-        .single();
+      const rows = await neonQuery<{ data: any }>('SELECT data FROM cricpluse_store WHERE key = $1 LIMIT 1', [key]);
+      if (rows && rows.length > 0 && rows[0].data !== undefined && rows[0].data !== null) {
+        result = rows[0].data as T;
+        fetched = true;
+      }
+    } catch (neonErr) {
+      console.warn(`[cricpluse_store] Neon read warning for "${key}", falling back:`, (neonErr as any)?.message);
+    }
 
-      if (!error && data && data.data !== undefined) {
-        result = data.data as T;
-      } else if (fallbackFileName) {
-        // Fallback to local file if Supabase has no record yet
+    // B. Secondary: Fallback to Supabase if Neon returned nothing
+    if (!fetched) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('cricpluse_store')
+          .select('data')
+          .eq('key', key)
+          .single();
+
+        if (!error && data && data.data !== undefined) {
+          result = data.data as T;
+          fetched = true;
+        }
+      } catch (err) {
+        console.warn(`[cricpluse_store] Supabase read fallback warning for "${key}":`, err);
+      }
+    }
+
+    // C. Tertiary: Local file fallback
+    if (!fetched && fallbackFileName) {
+      try {
         const filePath = path.join(process.cwd(), 'src', 'data', fallbackFileName);
         if (fs.existsSync(filePath)) {
           const fileContent = fs.readFileSync(filePath, 'utf-8');
           result = JSON.parse(fileContent) as T;
         }
-      }
-    } catch (err) {
-      console.warn(`[cricpluse_store] Supabase read failed for "${key}", checking local fallback.`, err);
-      if (fallbackFileName) {
-        try {
-          const filePath = path.join(process.cwd(), 'src', 'data', fallbackFileName);
-          if (fs.existsSync(filePath)) {
-            const fileContent = fs.readFileSync(filePath, 'utf-8');
-            result = JSON.parse(fileContent) as T;
-          }
-        } catch (fsErr) {
-          console.error(`[cricpluse_store] Local file read error:`, fsErr);
-        }
+      } catch (fsErr) {
+        console.error(`[cricpluse_store] Local file read error:`, fsErr);
       }
     }
 
@@ -136,25 +148,27 @@ export async function setStoreData<T>(key: string, value: T, fallbackFileName?: 
   // Also clear in-flight requests for this key
   inFlightRequests.delete(key);
 
-  let savedToSupabase = false;
+  let savedSuccessfully = false;
 
-  // 2. Persist to Supabase cricpluse_store (resilient Update-first, then Upsert fallback to bypass RLS 42501)
+  // 2. Primary: Persist to Neon Cloud PostgreSQL
   try {
-    // Step A: First attempt an UPDATE (always allowed by Supabase RLS for existing keys like tournament_configs)
-    const { data: updateData, error: updateError } = await supabaseAdmin
-      .from('cricpluse_store')
-      .update({
-        data: value as any,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('key', key)
-      .select('key');
+    const jsonStr = JSON.stringify(value);
+    await neonQuery(
+      `INSERT INTO cricpluse_store (key, data, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (key) DO UPDATE
+       SET data = EXCLUDED.data, updated_at = NOW()`,
+      [key, jsonStr]
+    );
+    savedSuccessfully = true;
+  } catch (neonErr) {
+    console.error(`[cricpluse_store] Neon write error for "${key}":`, neonErr);
+  }
 
-    if (!updateError && updateData && updateData.length > 0) {
-      savedToSupabase = true;
-    } else {
-      // Step B: If the row does not exist yet, attempt insert/upsert
-      const { error: insertError } = await supabaseAdmin
+  // 3. Secondary: Keep Supabase in sync as backup (fire and forget / non-blocking)
+  try {
+    Promise.resolve(
+      supabaseAdmin
         .from('cricpluse_store')
         .upsert(
           {
@@ -163,19 +177,13 @@ export async function setStoreData<T>(key: string, value: T, fallbackFileName?: 
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'key' }
-        );
-
-      if (!insertError) {
-        savedToSupabase = true;
-      } else {
-        console.error(`[cricpluse_store] Supabase persist error for "${key}":`, insertError);
-      }
-    }
-  } catch (err) {
-    console.error(`[cricpluse_store] Supabase write exception for "${key}":`, err);
+        )
+    ).catch(() => {});
+  } catch {
+    // Non-blocking sync to Supabase backup
   }
 
-  // 3. Also write to local file for dev safety (if filesystem is writable)
+  // 4. Tertiary: Also write to local file for dev safety (if filesystem is writable)
   if (fallbackFileName) {
     try {
       const filePath = path.join(process.cwd(), 'src', 'data', fallbackFileName);
@@ -187,5 +195,5 @@ export async function setStoreData<T>(key: string, value: T, fallbackFileName?: 
     }
   }
 
-  return savedToSupabase;
+  return savedSuccessfully;
 }

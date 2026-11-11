@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { neonQuery } from '@/lib/db/neon';
+import { hashPassword } from '@/lib/auth/password';
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,6 +62,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (updateErr) throw updateErr;
+
+    // Direct sync to Neon PostgreSQL
+    try {
+      const hashed = hashPassword(newPassword);
+      await neonQuery('UPDATE profiles SET password_hash = $1, updated_at = NOW() WHERE LOWER(email) = $2', [hashed, email.toLowerCase().trim()]);
+    } catch (neonErr) {
+      console.warn('[Neon Password Sync Warn]:', neonErr);
+    }
 
     return NextResponse.json({
       success: true,
