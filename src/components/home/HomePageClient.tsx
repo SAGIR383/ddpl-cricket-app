@@ -595,22 +595,35 @@ export function HomePageClient() {
           </div>
         </div>
 
-        {/* Large Grand Cinematic Hero Banner (Fills the entire highlighted middle-to-right area behind upcoming season box) */}
-        <div className="hidden lg:block absolute right-0 top-0 bottom-0 left-[34%] xl:left-[36%] z-10 overflow-hidden pointer-events-auto">
-          <Link href="/tournaments" className="block relative w-full h-full cursor-pointer group">
-            {/* High-res Banner Image: object-contain with slight top padding ensures heads are never cut off */}
-            <Image
-              src="/images/ddpl-3-hero-banner.jpg"
-              alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
-              fill
-              priority
-              quality={100}
-              className="object-contain object-right xl:object-center brightness-[1.02] contrast-[1.02] transition-transform duration-700 group-hover:scale-[1.01] pt-1 sm:pt-2"
-            />
-            {/* Only a slim left seam blend (w-20) to smoothly merge with background without any grey/foggy haze over the image */}
-            <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-[#091322] to-transparent pointer-events-none" />
-            {/* Soft bottom fade behind upcoming season card */}
-            <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#091322]/80 to-transparent pointer-events-none" />
+        {/* Large Grand Cinematic Hero Banner (Fills the highlighted middle-to-right area with transparent feathered borderless edges) */}
+        <div className="hidden lg:block absolute right-0 top-0 bottom-0 left-[39%] xl:left-[41%] 2xl:left-[43%] z-10 overflow-hidden pointer-events-auto">
+          <Link
+            href="/tournaments"
+            className="block relative w-full h-full cursor-pointer group"
+          >
+            {/* Banner Container with Radial Feathering Mask so outer borders are completely transparent */}
+            <div
+              className="relative w-full h-full overflow-hidden"
+              style={{
+                WebkitMaskImage: 'radial-gradient(ellipse 96% 92% at 52% 48%, black 52%, rgba(0,0,0,0.85) 75%, transparent 100%)',
+                maskImage: 'radial-gradient(ellipse 96% 92% at 52% 48%, black 52%, rgba(0,0,0,0.85) 75%, transparent 100%)',
+              }}
+            >
+              {/* High-res Banner Image: object-cover with object-[center_top] and slight pt-1 pins heads so they are 100% visible */}
+              <Image
+                src="/images/ddpl-3-hero-banner.jpg"
+                alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
+                fill
+                priority
+                quality={100}
+                className="object-cover object-[center_top] pt-1 xl:pt-1.5 brightness-[1.06] contrast-[1.04] saturate-[1.04] transition-transform duration-700 group-hover:scale-[1.02]"
+              />
+              {/* Soft directional edge fades that dissolve all 4 borders seamlessly into the dark stadium background */}
+              <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#091322] via-[#091322]/80 to-transparent pointer-events-none" />
+              <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-[#091322] via-[#091322]/80 to-transparent pointer-events-none" />
+              <div className="absolute top-0 inset-x-0 h-10 bg-gradient-to-b from-[#091322]/60 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 inset-x-0 h-28 bg-gradient-to-t from-[#091322] via-[#091322]/90 to-transparent pointer-events-none" />
+            </div>
           </Link>
         </div>
 
