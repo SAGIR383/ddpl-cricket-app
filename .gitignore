@@ -34,6 +34,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local maintenance scripts
+# local maintenance scripts & exports
 scripts/
+exported_profile_photos/
+*.zip
 
