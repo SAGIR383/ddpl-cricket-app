@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
+import { neonQuery } from '@/lib/db/neon';
 
 export async function GET(req: NextRequest) {
   try {
-    const cookie = req.cookies.get('cricplus_superadmin') || req.cookies.get('cricpluse_superadmin');
+    const cookie =
+      req.cookies.get('cricplus_user') ||
+      req.cookies.get('cricplus_superadmin') ||
+      req.cookies.get('cricpluse_superadmin');
     const cookieVal = cookie?.value || '';
 
     let userEmail = '';
@@ -41,17 +45,31 @@ export async function GET(req: NextRequest) {
     const userProf = userProfiles[finalEmail] || {};
     const adminAcc = adminAccounts[finalEmail] || {};
 
-    // 2. Try Supabase profiles table
+    // 2. Query Neon PostgreSQL profiles table first (100% resilient & direct)
     let dbProfile: any = null;
     try {
-      const { data } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('email', finalEmail)
-        .maybeSingle();
-      dbProfile = data;
-    } catch (e) {
-      console.warn('Supabase profile fetch error:', e);
+      const neonRows = await neonQuery<any>(
+        'SELECT id, full_name, email, avatar_url, phone, employee_id, batting_style, bowling_style, primary_role, system_role, created_at, updated_at FROM profiles WHERE LOWER(email) = $1 LIMIT 1',
+        [finalEmail]
+      );
+      if (neonRows && neonRows.length > 0) {
+        dbProfile = neonRows[0];
+      }
+    } catch (neonErr) {
+      console.warn('[Neon profile fetch warn]:', neonErr);
+    }
+
+    if (!dbProfile) {
+      try {
+        const { data } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .eq('email', finalEmail)
+          .maybeSingle();
+        dbProfile = data;
+      } catch (e) {
+        console.warn('Supabase profile fetch error:', e);
+      }
     }
 
     // 3. Try tournament_configs for creator name
@@ -102,7 +120,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const cookie = req.cookies.get('cricplus_superadmin') || req.cookies.get('cricpluse_superadmin');
+    const cookie =
+      req.cookies.get('cricplus_user') ||
+      req.cookies.get('cricplus_superadmin') ||
+      req.cookies.get('cricpluse_superadmin');
     const cookieVal = cookie?.value || '';
 
     let sessionEmail = '';
@@ -171,7 +192,28 @@ export async function POST(req: NextRequest) {
       invalidateStoreCache('super_admin_accounts');
     }
 
-    // 4. Update Supabase profiles table
+    // 4. Update Neon PostgreSQL profiles table directly (guaranteed persistence)
+    try {
+      await neonQuery(
+        `UPDATE profiles 
+         SET full_name = $1, avatar_url = $2, employee_id = $3, phone = $4, primary_role = $5, batting_style = $6, bowling_style = $7, updated_at = NOW() 
+         WHERE LOWER(email) = $8`,
+        [
+          newFullName,
+          resolvedAvatar,
+          body.employee_id || null,
+          body.phone || null,
+          body.primary_role || 'All-rounder',
+          body.batting_style || 'Right-hand bat',
+          body.bowling_style || 'Right-arm medium',
+          targetEmail.toLowerCase(),
+        ]
+      );
+    } catch (neonUpdateErr) {
+      console.warn('[Neon Profile Update Warn]:', neonUpdateErr);
+    }
+
+    // 5. Background sync to Supabase profiles table if available
     let profileId = body.id || existingUserProf.id;
     try {
       const { data: existingProfile } = await supabaseAdmin

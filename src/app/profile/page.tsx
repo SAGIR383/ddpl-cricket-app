@@ -40,83 +40,38 @@ export default function ProfilePage() {
           ? localStorage.getItem(`cricplus_avatar_${effectiveEmail}`)
           : null;
 
-      // 1. Direct fetch from Supabase profiles table
+      // 1. Fetch unified profile via /api/profile endpoint (Direct from Neon PostgreSQL)
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const sessionUser = sessionData?.session?.user;
-        const lookupEmail = effectiveEmail || (sessionUser?.email || '').toLowerCase().trim();
-
-        let dbRecord: any = null;
-        if (sessionUser?.id) {
-          const { data: byId } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', sessionUser.id)
-            .maybeSingle();
-          dbRecord = byId;
-        }
-
-        if ((!dbRecord || !dbRecord.full_name) && lookupEmail) {
-          const { data: byEmail } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', lookupEmail)
-            .maybeSingle();
-          if (byEmail?.full_name) {
-            dbRecord = byEmail;
-          }
-        }
-
-        let resolvedAvatar =
-          dbRecord?.avatar_url ||
-          sessionUser?.user_metadata?.avatar_url ||
-          sessionUser?.user_metadata?.picture ||
-          authProfile?.avatar_url ||
-          localCachedAvatar ||
-          null;
-
-        // If avatar is not in direct profiles table, query /api/profile which checks user_profiles and super_admin_accounts
-        if (!resolvedAvatar && lookupEmail) {
-          try {
-            const apiRes = await fetch(`/api/profile?email=${encodeURIComponent(lookupEmail)}`, { cache: 'no-store' });
-            if (apiRes.ok) {
-              const apiData = await apiRes.json();
-              if (apiData?.profile?.avatar_url) {
-                resolvedAvatar = apiData.profile.avatar_url;
+        const queryEmail = (effectiveEmail || authUser?.email || authProfile?.email || '').toLowerCase().trim();
+        if (queryEmail) {
+          const res = await fetch(`/api/profile?email=${encodeURIComponent(queryEmail)}`, { cache: 'no-store' });
+          if (res.ok) {
+            const apiData = await res.json();
+            if (apiData?.success && apiData?.profile && apiData.profile.email?.toLowerCase().trim() === queryEmail) {
+              const finalAvatar = apiData.profile.avatar_url || localCachedAvatar || null;
+              setProfile((prev) => ({
+                ...prev,
+                ...apiData.profile,
+                avatar_url: finalAvatar,
+                full_name: apiData.profile.full_name || prev.full_name || '',
+              }));
+              if (finalAvatar && typeof window !== 'undefined') {
+                localStorage.setItem(`cricplus_avatar_${queryEmail}`, finalAvatar);
               }
+              if (finalAvatar && finalAvatar.startsWith('data:')) {
+                const kb = Math.round(((finalAvatar.length - 22) * 0.75) / 1024);
+                setPhotoInfo({ sizeInKb: kb });
+              }
+              setLoading(false);
+              return;
             }
-          } catch {}
-        }
-
-        if (resolvedAvatar && lookupEmail && typeof window !== 'undefined') {
-          localStorage.setItem(`cricplus_avatar_${lookupEmail}`, resolvedAvatar);
-        }
-
-        if (dbRecord) {
-          const resolvedName =
-            dbRecord.full_name ||
-            sessionUser?.user_metadata?.full_name ||
-            sessionUser?.user_metadata?.name ||
-            (lookupEmail ? lookupEmail.split('@')[0] : 'Tournament Athlete');
-
-          setProfile({
-            ...dbRecord,
-            full_name: resolvedName,
-            avatar_url: resolvedAvatar,
-          });
-
-          if (resolvedAvatar && resolvedAvatar.startsWith('data:')) {
-            const kb = Math.round(((resolvedAvatar.length - 22) * 0.75) / 1024);
-            setPhotoInfo({ sizeInKb: kb });
           }
-          setLoading(false);
-          return;
         }
-      } catch (dbErr) {
-        console.warn('Direct profiles fetch warning:', dbErr);
+      } catch (err) {
+        console.warn('API profile load error, falling back:', err);
       }
 
-      // 2. Fetch unified profile via /api/profile endpoint (strictly for this user's email)
+      // 2. Fallback to Supabase profiles table if available
       try {
         const queryEmail = (effectiveEmail || authUser?.email || authProfile?.email || '').toLowerCase().trim();
         if (queryEmail) {

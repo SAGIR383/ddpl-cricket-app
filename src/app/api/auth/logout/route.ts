@@ -38,7 +38,8 @@ export async function POST(req: NextRequest) {
     sameSite: 'lax' as const,
   };
 
-  // Explicitly expire Super Admin cookies
+  // Explicitly expire User and Super Admin cookies
+  response.cookies.set('cricplus_user', '', expiredOptions);
   response.cookies.set('cricplus_superadmin', '', expiredOptions);
   response.cookies.set('cricpluse_superadmin', '', expiredOptions);
 

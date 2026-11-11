@@ -157,7 +157,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    // 1. Regular user Supabase auth session check (Primary source of truth for accounts)
+    // 1. Unified Neon session check (/api/auth/me) - Primary source of truth for ALL users & admins
+    try {
+      const meRes = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        if (meData.authenticated && meData.user && meData.profile) {
+          setUser(meData.user);
+          setProfile(meData.profile);
+          setActiveRole((meData.role as SystemRole) || 'user');
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Neon unified session check fallback:', e);
+    }
+
+    // 2. Regular user Supabase auth session check (Secondary fallback)
     try {
       const { data } = await supabase.auth.getSession();
       const currentUser = data?.session?.user || null;
@@ -271,7 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Flush client cookies & local cache directly to guarantee mobile app & web logout
     if (typeof document !== 'undefined') {
-      const cookiesToWipe = ['cricplus_superadmin', 'cricpluse_superadmin'];
+      const cookiesToWipe = ['cricplus_user', 'cricplus_superadmin', 'cricpluse_superadmin'];
       document.cookie.split(';').forEach((cookie) => {
         const name = cookie.split('=')[0].trim();
         if (

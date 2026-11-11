@@ -15,7 +15,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { action, email, otp, newPassword } = body;
-    const cleanEmail = (email || '').trim().toLowerCase();
+    let cleanEmail = (email || '').trim().toLowerCase();
+    if (cleanEmail === 'admin' || cleanEmail === 'superadmin') {
+      cleanEmail = process.env.SUPERADMIN_IDENTIFIER?.toLowerCase() || 'arindamroyaec2009@gmail.com';
+    }
 
     if (!cleanEmail) {
       return NextResponse.json({ success: false, error: 'Email is required.' }, { status: 400 });
