@@ -580,30 +580,33 @@ export function HomePageClient() {
           <div className="block lg:hidden pt-2">
             <Link
               href="/tournaments"
-              className="block relative w-full rounded-2xl overflow-hidden border border-[#D8AD55]/30 shadow-lg group cursor-pointer"
+              className="block relative w-full rounded-2xl overflow-hidden border border-transparent shadow-lg group cursor-pointer"
             >
               <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl bg-gradient-to-t from-[#091322]/70 via-transparent to-black/20" />
               <Image
                 src="/images/ddpl-3-hero-banner.jpg"
                 alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
-                width={1024}
-                height={576}
+                width={1280}
+                height={720}
                 priority
-                className="w-full h-auto object-cover rounded-2xl brightness-[0.90] contrast-[1.02]"
+                quality={95}
+                className="w-full h-auto object-cover rounded-2xl brightness-[0.92] contrast-[1.03]"
               />
             </Link>
           </div>
         </div>
 
-        {/* Featured Tournament Horizontal Banner (Desktop Center-Right Exact Red Highlight Position - DDPL 3.0) */}
-        <div className="hidden lg:flex absolute left-[39%] xl:left-[40%] top-6 xl:top-8 z-10 w-[46%] xl:w-[48%] max-w-[640px] 2xl:max-w-[720px] flex-col items-center">
+        {/* Featured Tournament Horizontal Banner (Desktop Centered in Middle Highlight Area - DDPL 3.0) */}
+        <div
+          className="hidden lg:flex absolute z-10 w-[44%] xl:w-[46%] max-w-[620px] 2xl:max-w-[700px] flex-col items-center pointer-events-auto"
+          style={{ left: '60%', top: '48%', transform: 'translate(-50%, -50%)' }}
+        >
           <Link
             href="/tournaments"
-            className="block relative w-full rounded-2xl overflow-hidden border border-[#D8AD55]/40 shadow-[0_20px_50px_rgba(0,0,0,0.9)] group transition-all duration-300 hover:border-[#D8AD55]/70 hover:shadow-[0_24px_60px_rgba(216,173,85,0.25)] cursor-pointer"
+            className="block relative w-full rounded-2xl overflow-hidden border border-transparent shadow-[0_16px_45px_rgba(0,0,0,0.8)] group transition-all duration-300 hover:scale-[1.015] cursor-pointer"
           >
-            {/* Subtle Vignette & Tint for balanced visual comfort */}
-            <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl bg-gradient-to-t from-[#091322]/75 via-transparent to-black/20" />
-            <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl ring-1 ring-inset ring-white/15" />
+            {/* Transparent Seamless Edge Blend - No bright visible border line */}
+            <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl bg-gradient-to-t from-[#091322]/70 via-transparent to-black/15" />
             <Image
               src="/images/ddpl-3-hero-banner.jpg"
               alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
@@ -611,7 +614,7 @@ export function HomePageClient() {
               height={720}
               priority
               quality={95}
-              className="w-full h-auto object-contain rounded-2xl brightness-[0.92] contrast-[1.03] transition-transform duration-700 group-hover:scale-[1.01]"
+              className="w-full h-auto object-contain rounded-2xl brightness-[0.92] contrast-[1.03] transition-transform duration-700"
             />
           </Link>
         </div>
