@@ -582,7 +582,6 @@ export function HomePageClient() {
               href="/tournaments"
               className="block relative w-full rounded-2xl overflow-hidden border border-transparent shadow-lg group cursor-pointer"
             >
-              <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl bg-gradient-to-t from-[#091322]/70 via-transparent to-black/20" />
               <Image
                 src="/images/ddpl-3-hero-banner.jpg"
                 alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
@@ -590,28 +589,28 @@ export function HomePageClient() {
                 height={720}
                 priority
                 quality={95}
-                className="w-full h-auto object-cover rounded-2xl brightness-[0.92] contrast-[1.03]"
+                className="w-full h-auto object-cover rounded-2xl brightness-[1.02] contrast-[1.02]"
               />
             </Link>
           </div>
         </div>
 
         {/* Large Grand Cinematic Hero Banner (Fills the entire highlighted middle-to-right area behind upcoming season box) */}
-        <div className="hidden lg:block absolute right-0 top-0 bottom-0 left-[35%] xl:left-[37%] z-10 overflow-hidden pointer-events-auto">
+        <div className="hidden lg:block absolute right-0 top-0 bottom-0 left-[34%] xl:left-[36%] z-10 overflow-hidden pointer-events-auto">
           <Link href="/tournaments" className="block relative w-full h-full cursor-pointer group">
-            {/* High-res Banner Image filling entire space */}
+            {/* High-res Banner Image: object-contain with slight top padding ensures heads are never cut off */}
             <Image
               src="/images/ddpl-3-hero-banner.jpg"
               alt="DDPL 3.0 - Beyond Work, A Battle of Corporate Titans"
               fill
               priority
               quality={100}
-              className="object-cover object-center lg:object-right-top xl:object-center brightness-[0.88] contrast-[1.04] transition-transform duration-700 group-hover:scale-[1.01]"
+              className="object-contain object-right xl:object-center brightness-[1.02] contrast-[1.02] transition-transform duration-700 group-hover:scale-[1.01] pt-1 sm:pt-2"
             />
-            {/* Seamless Left Edge Blend: completely transparent melt into dark navy-blue background behind text */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#091322] via-[#091322]/55 to-transparent pointer-events-none" />
-            {/* Top and Bottom Vignette for Cinematic Depth */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#091322]/85 via-transparent to-[#091322]/40 pointer-events-none" />
+            {/* Only a slim left seam blend (w-20) to smoothly merge with background without any grey/foggy haze over the image */}
+            <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-[#091322] to-transparent pointer-events-none" />
+            {/* Soft bottom fade behind upcoming season card */}
+            <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#091322]/80 to-transparent pointer-events-none" />
           </Link>
         </div>
 
