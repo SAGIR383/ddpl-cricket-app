@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   Gavel, 
@@ -31,6 +31,7 @@ import {
   Volume2,
   VolumeX,
   Flame,
+  Search,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import confetti from 'canvas-confetti';
@@ -80,7 +81,7 @@ export default function AuctionPage() {
   const supabase = createClient();
   const channelRef = useRef<any>(null);
 
-  const [activeTournament, setActiveTournament] = useState<string>('');
+  const [activeTournament, setActiveTournament] = useState<string>('ddpl');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [bidStep, setBidStep] = useState(100);
   const [selectedIncrement, setSelectedIncrement] = useState<number>(100);
@@ -89,6 +90,10 @@ export default function AuctionPage() {
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'offline'>('connected');
   const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
   const [notification, setNotification] = useState<string | null>(null);
+
+  // Auction Player Pool Search & Filter State
+  const [poolSearchQuery, setPoolSearchQuery] = useState('');
+  const [poolRoleFilter, setPoolRoleFilter] = useState('ALL');
 
   // Dynamic Auction Rules (from /api/admin/rules)
   const [rules, setRules] = useState({
@@ -192,10 +197,11 @@ export default function AuctionPage() {
 
     async function loadInitialData() {
       try {
+        const tourneyKey = activeTournament || 'ddpl';
         const [regData, rulesData, auctionData] = await Promise.all([
-          fetchWithCache<any>(activeTournament ? `/api/tournaments/register?slug=${activeTournament}` : '/api/tournaments/register', { ttlMs: 15000 }),
-          activeTournament ? fetchWithCache<any>(`/api/admin/rules?tournament=${activeTournament}`, { ttlMs: 30000 }) : Promise.resolve(null),
-          activeTournament ? fetchWithCache<any>(`/api/auction/data?tournament=${activeTournament}`, { ttlMs: 3000 }) : Promise.resolve(null),
+          fetchWithCache<any>(`/api/tournaments/register?tournament=${tourneyKey}`, { ttlMs: 15000 }),
+          fetchWithCache<any>(`/api/admin/rules?tournament=${tourneyKey}`, { ttlMs: 30000 }),
+          fetchWithCache<any>(`/api/auction/data?tournament=${tourneyKey}`, { ttlMs: 3000 }),
         ]);
 
         if (!isMounted) return;
@@ -900,24 +906,88 @@ export default function AuctionPage() {
   // Handle Sync Registered Players from Tournament Registration
   async function handleSyncRegisteredPlayers() {
     try {
+      const tourneyKey = activeTournament || 'ddpl';
+      showToast('Syncing registered players into auction pool...');
       const res = await fetch('/api/tournaments/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'sync_to_auction',
-          tournament: activeTournament,
+          tournament: tourneyKey,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
-        window.location.reload();
+        showToast(data.message || `Successfully synced ${data.count} players!`);
+        // Immediately fetch refreshed state
+        try {
+          const auctionRes = await fetch(`/api/auction/data?tournament=${tourneyKey}`, { cache: 'no-store' });
+          const fresh = await auctionRes.json();
+          if (fresh.success && fresh.data) {
+            if (Array.isArray(fresh.data.playerPool)) {
+              setPlayerPool(fresh.data.playerPool);
+            }
+            if (fresh.data.currentLot) {
+              setCurrentLot(fresh.data.currentLot);
+            } else if (Array.isArray(fresh.data.playerPool) && fresh.data.playerPool.length > 0) {
+              const p0 = fresh.data.playerPool[0];
+              setCurrentLot({
+                id: p0.id,
+                name: p0.name,
+                role: p0.role,
+                avatarUrl: p0.avatarUrl || null,
+                basePrice: p0.basePrice || rules.defaultPlayerBasePrice || 100,
+                currentBid: p0.basePrice || rules.defaultPlayerBasePrice || 100,
+                leadingTeam: null,
+                history: [],
+              });
+            }
+            if (Array.isArray(fresh.data.teams)) {
+              setTeams(fresh.data.teams);
+            }
+          }
+        } catch {
+          // ignore error, will reload
+        }
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
       } else {
         alert(data.error || 'Failed to sync registered players');
       }
     } catch (e: any) {
       alert(`Sync error: ${e.message}`);
     }
+  }
+
+  // Handle direct boarding of a specific player by Super Admin / Organizer
+  function handleBoardPlayer(player: ParsedPlayer) {
+    if (!isAccessAllowed) return;
+    const resolvedDefaultBase = rules.defaultPlayerBasePrice || 100;
+    const newLot: any = {
+      id: player.id,
+      name: player.name,
+      role: player.role,
+      basePrice: player.basePrice || resolvedDefaultBase,
+      currentBid: player.basePrice || resolvedDefaultBase,
+      leadingTeam: null,
+      history: [],
+      avatarUrl: (player as any)?.avatarUrl || (player as any)?.photo || photoMap[player.name?.trim().toLowerCase()] || null,
+      isDiscounted: (player as any)?.isDiscounted,
+    };
+    setCurrentLot(newLot);
+    setIsOpeningAtBase(true);
+    setSelectedIncrement(100);
+    const roundTimer = isAcceleratedRoundRef.current ? 15 : 30;
+    setCountdown(roundTimer);
+    setAuctionStatus('live');
+    broadcastAuctionState({
+      currentLot: newLot,
+      countdown: roundTimer,
+      auctionStatus: 'live',
+      biddingAccessEnabled: true,
+    });
+    showToast(`Boarded ${player.name} to the live auction block!`);
   }
 
   // Handle File Change in Import Modal
@@ -1021,6 +1091,40 @@ export default function AuctionPage() {
   // Spectators (user), Scorers (scorer), and unauthenticated visitors are gated.
   // =========================================================================
   const isAccessAllowed = isOrganizer;
+
+  // Processed Names (Sold or Unsold)
+  const processedNamesSet = useMemo(() => {
+    return new Set([
+      ...soldTransactions.map((tx) => (tx.player || tx.name || '')?.toLowerCase().trim()),
+      ...unsoldPlayers.map((name) => String(name || '').toLowerCase().trim()),
+    ]);
+  }, [soldTransactions, unsoldPlayers]);
+
+  // Filtered Auction Player Pool for UI Display
+  const filteredPool = useMemo(() => {
+    return playerPool.filter((p) => {
+      const pName = (p.name || '').trim().toLowerCase();
+      // Skip if already sold or unsold
+      if (processedNamesSet.has(pName)) return false;
+
+      // Filter by role
+      if (poolRoleFilter !== 'ALL') {
+        const pRole = (p.role || '').toLowerCase();
+        if (poolRoleFilter === 'BATTER' && !pRole.includes('bat')) return false;
+        if (poolRoleFilter === 'BOWLER' && !pRole.includes('bowl')) return false;
+        if (poolRoleFilter === 'ALL-ROUNDER' && !pRole.includes('all')) return false;
+        if (poolRoleFilter === 'WICKET-KEEPER' && !pRole.includes('keep') && !pRole.includes('wk')) return false;
+      }
+
+      // Filter by search query
+      if (poolSearchQuery.trim()) {
+        const q = poolSearchQuery.toLowerCase().trim();
+        return pName.includes(q) || (p.role || '').toLowerCase().includes(q);
+      }
+
+      return true;
+    });
+  }, [playerPool, processedNamesSet, poolRoleFilter, poolSearchQuery]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
@@ -2033,6 +2137,171 @@ export default function AuctionPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* AUCTION PLAYER POOL & UPCOMING QUEUE SHOWCASE */}
+        {/* ========================================================================= */}
+        <div className="bg-[#0D1B2A]/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 space-y-6 border border-[#D8AD55]/30 shadow-2xl mt-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#D8AD55]/15 pb-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#D8AD55]/15 text-[#D8AD55] flex items-center justify-center border border-[#D8AD55]/30 shadow-inner">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-xl sm:text-2xl text-white">
+                    Auction Player Pool ({playerPool.length})
+                  </h3>
+                  <p className="text-xs text-[#8793A5]">
+                    {filteredPool.length} players available to be auctioned &bull; {soldTransactions.length} acquired &bull; {unsoldPlayers.length} unsold
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search player or role..."
+                  value={poolSearchQuery}
+                  onChange={(e) => setPoolSearchQuery(e.target.value)}
+                  className="pl-9 pr-7 py-1.5 rounded-xl bg-[#08111F] border border-white/10 text-white placeholder-gray-500 text-xs focus:border-[#D8AD55] focus:outline-none transition-all w-48 sm:w-60"
+                />
+                {poolSearchQuery && (
+                  <button
+                    onClick={() => setPoolSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Sync button */}
+              <button
+                onClick={handleSyncRegisteredPlayers}
+                className="px-3.5 py-1.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/40 text-[#F2D69A] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                title="Sync all registered players from tournament registration"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-[#D8AD55]" />
+                <span>Sync Registered</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Role Filter Tabs */}
+          <div className="flex flex-wrap items-center gap-2">
+            {['ALL', 'BATTER', 'BOWLER', 'ALL-ROUNDER', 'WICKET-KEEPER'].map((role) => (
+              <button
+                key={role}
+                onClick={() => setPoolRoleFilter(role)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  poolRoleFilter === role
+                    ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] shadow-lg shadow-[#D8AD55]/20'
+                    : 'bg-[#08111F] text-[#8793A5] hover:text-white border border-white/5'
+                }`}
+              >
+                {role === 'ALL' ? `All (${playerPool.length})` : role}
+              </button>
+            ))}
+          </div>
+
+          {/* Players Grid */}
+          {filteredPool.length === 0 ? (
+            <div className="p-8 text-center rounded-2xl bg-[#08111F] border border-dashed border-[#D8AD55]/30 space-y-2">
+              <p className="text-sm font-bold text-gray-300">
+                {playerPool.length === 0
+                  ? 'No players enrolled in the auction pool yet.'
+                  : 'No players match the selected filters.'}
+              </p>
+              <p className="text-xs text-[#8793A5]">
+                {playerPool.length === 0
+                  ? 'Click "Sync Registered Players" above to import all registered tournament players into the auction pool.'
+                  : 'Try clearing your search or choosing "All" roles.'}
+              </p>
+              {playerPool.length === 0 && (
+                <button
+                  onClick={handleSyncRegisteredPlayers}
+                  className="mt-3 px-5 py-2 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-bold text-xs uppercase tracking-wider shadow-lg cursor-pointer"
+                >
+                  Sync Registered Players Now
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[540px] overflow-y-auto pr-1">
+              {filteredPool.map((p, idx) => {
+                const isOnBlock = currentLot?.name?.trim().toLowerCase() === p.name.trim().toLowerCase();
+                const photo = p.avatarUrl || (p as any).photo || photoMap[p.name.trim().toLowerCase()] || null;
+
+                return (
+                  <div
+                    key={p.id || `pool-${idx}`}
+                    className={`p-3.5 rounded-2xl border transition-all relative flex flex-col justify-between ${
+                      isOnBlock
+                        ? 'bg-[#111D2D] border-emerald-500 shadow-xl shadow-emerald-500/10 ring-2 ring-emerald-500/30'
+                        : 'bg-[#08111F] border-white/5 hover:border-[#D8AD55]/40 hover:bg-[#0D1B2A]'
+                    }`}
+                  >
+                    {isOnBlock && (
+                      <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-black uppercase tracking-wider animate-pulse">
+                        On Block
+                      </span>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#111D2D] border border-[#D8AD55]/30 overflow-hidden shrink-0 flex items-center justify-center">
+                        {photo ? (
+                          <img
+                            src={photo}
+                            alt={p.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="font-display font-black text-sm text-[#D8AD55]">
+                            {p.name.substring(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-white text-sm truncate" title={p.name}>
+                          {p.name}
+                        </h4>
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-[#111D2D] border border-white/5 text-[10px] font-semibold text-[#8793A5] uppercase tracking-wider mt-0.5">
+                          {p.role || 'Player'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs">
+                      <span className="text-[#8793A5]">
+                        Base: <strong className="text-[#F2D69A] font-mono">{currencySymbol}{p.basePrice || rules.defaultPlayerBasePrice || 100}</strong>
+                      </span>
+
+                      {isAccessAllowed && (
+                        <button
+                          onClick={() => handleBoardPlayer(p)}
+                          disabled={isOnBlock}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                            isOnBlock
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-default'
+                              : 'bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 text-[#F2D69A] border border-[#D8AD55]/30'
+                          }`}
+                        >
+                          {isOnBlock ? 'Auctioning' : 'Board'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

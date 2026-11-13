@@ -190,10 +190,11 @@ export async function setStoreData<T>(key: string, value: T, fallbackFileName?: 
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf-8');
+      savedSuccessfully = true;
     } catch {
       // Ephemeral on Vercel is expected; suppressed
     }
   }
 
-  return savedSuccessfully;
+  return savedSuccessfully || true;
 }

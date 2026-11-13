@@ -1,0 +1,58 @@
+{
+  "ddpl": {
+    "name": "DDPL 3.0",
+    "shortName": "DDPL 3.0",
+    "fullName": "Desk to Dugout Premier League 3.0",
+    "tagline": "Beyond Work, A Battle of Corporate Titans!",
+    "season": "2026",
+    "totalSeasons": 3,
+    "overs": 7,
+    "format": "ddpl",
+    "tournamentType": "auction_league",
+    "groupsCount": 2,
+    "groupNames": [
+      "Group A",
+      "Group B"
+    ],
+    "bannerColor": "#D8AD55",
+    "badgeColor": "#F2D69A",
+    "status": "auction",
+    "pursePerTeam": 7000,
+    "ownerBasePrice": 100,
+    "defaultPlayerBasePrice": 100,
+    "maxSquad": 8,
+    "minSquad": 8,
+    "maxBowlerOvers": 2,
+    "ballsPerOver": 6,
+    "isPublic": true,
+    "slug": "ddpl"
+  },
+  "ddpl-3-0": {
+    "name": "DDPL 3.0",
+    "shortName": "DDPL 3.0",
+    "fullName": "Desk to Dugout Premier League 3.0",
+    "tagline": "Beyond Work, A Battle of Corporate Titans!",
+    "season": "2026",
+    "totalSeasons": 3,
+    "overs": 7,
+    "format": "ddpl",
+    "tournamentType": "auction_league",
+    "groupsCount": 2,
+    "groupNames": [
+      "Group A",
+      "Group B"
+    ],
+    "bannerColor": "#D8AD55",
+    "badgeColor": "#F2D69A",
+    "status": "auction",
+    "pursePerTeam": 7000,
+    "ownerBasePrice": 100,
+    "defaultPlayerBasePrice": 100,
+    "maxSquad": 8,
+    "minSquad": 8,
+    "maxBowlerOvers": 2,
+    "ballsPerOver": 6,
+    "isPublic": true,
+    "slug": "ddpl-3-0"
+  }
+}

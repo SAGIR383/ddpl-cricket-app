@@ -59,17 +59,31 @@ export async function GET(req: Request) {
   const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
 
   const allData = await readAllAuctionData();
-  const rawTournamentData = allData.tournaments?.[tournament] || EMPTY_TOURNAMENT_STATE;
-  const tournamentData = { ...rawTournamentData };
+  let rawTournamentData = allData.tournaments?.[tournament];
+  if ((!rawTournamentData || (!rawTournamentData.teams?.length && !rawTournamentData.playerPool?.length)) && (tournament === 'ddpl' || tournament === 'ddpl-3-0')) {
+    const alt = tournament === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
+    if (allData.tournaments?.[alt]) {
+      rawTournamentData = allData.tournaments[alt];
+    }
+  }
+  const tournamentData = { ...(rawTournamentData || EMPTY_TOURNAMENT_STATE) };
 
   // Enrich player pool, currentLot, and transactions with player photos from registrations
   // Also auto-reconcile any franchise owner present in registrations that may be missing from teams
   try {
-    const registrations = await getStoreData<any[]>(
+    let registrations = await getStoreData<any[]>(
       `tournament_registrations_${tournament}`,
       `registrations_${tournament}.json`,
       []
     );
+    if ((!Array.isArray(registrations) || registrations.length === 0) && (tournament === 'ddpl' || tournament === 'ddpl-3-0')) {
+      const alt = tournament === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
+      registrations = await getStoreData<any[]>(
+        `tournament_registrations_${alt}`,
+        `registrations_${alt}.json`,
+        []
+      );
+    }
     const photoMap = new Map<string, string>();
     if (Array.isArray(registrations)) {
       for (const r of registrations) {
@@ -288,6 +302,10 @@ export async function POST(req: Request) {
     };
 
     allData.tournaments[tournament] = updatedTournamentData;
+    if (tournament === 'ddpl' || tournament === 'ddpl-3-0') {
+      const alt = tournament === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
+      allData.tournaments[alt] = { ...updatedTournamentData };
+    }
 
     await saveAllAuctionData(allData);
 

@@ -1,3 +1,34 @@
 {
-  "tournaments": {}
+  "tournaments": {
+    "ddpl": {
+      "basePurse": 7000,
+      "ownerBlockedPrice": 100,
+      "defaultPlayerBasePrice": 100,
+      "bidSteps": [
+        50,
+        100,
+        200,
+        500
+      ],
+      "maxSquadSize": 8,
+      "minSquadSize": 8,
+      "matchOvers": 7,
+      "maxBowlerOvers": 2
+    },
+    "ddpl-3-0": {
+      "basePurse": 7000,
+      "ownerBlockedPrice": 100,
+      "defaultPlayerBasePrice": 100,
+      "bidSteps": [
+        50,
+        100,
+        200,
+        500
+      ],
+      "maxSquadSize": 8,
+      "minSquadSize": 8,
+      "matchOvers": 7,
+      "maxBowlerOvers": 2
+    }
+  }
 }

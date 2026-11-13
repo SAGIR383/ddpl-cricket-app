@@ -68,7 +68,7 @@ const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {};
 // GET /api/tournaments/register?tournament=...
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const requestedSlug = searchParams.get('tournament')?.toLowerCase();
+  const requestedSlug = (searchParams.get('tournament') || searchParams.get('slug'))?.toLowerCase();
 
   const [storedConfigs, rulesContainer] = await Promise.all([
     getStoreData<Record<string, TournamentConfig>>(
@@ -829,25 +829,39 @@ export async function POST(req: Request) {
 
     // 4. SYNC REGISTERED PLAYERS TO LIVE AUCTION POOL
     if (action === 'sync_to_auction') {
-      const registrations = await getStoreData<TournamentPlayerRegistration[]>(
+      let registrations = await getStoreData<TournamentPlayerRegistration[]>(
         `tournament_registrations_${tSlug}`,
         `registrations_${tSlug}.json`,
         []
       );
 
+      // If registrations empty for 'ddpl' or 'ddpl-3-0', cross-check alternative slug
+      if ((!Array.isArray(registrations) || registrations.length === 0) && (tSlug === 'ddpl' || tSlug === 'ddpl-3-0')) {
+        const altSlug = tSlug === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
+        const altRegs = await getStoreData<TournamentPlayerRegistration[]>(
+          `tournament_registrations_${altSlug}`,
+          `registrations_${altSlug}.json`,
+          []
+        );
+        if (Array.isArray(altRegs) && altRegs.length > 0) {
+          registrations = altRegs;
+        }
+      }
+
       const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', {
         tournaments: {},
       });
 
-      const currentTourneyData = allAuction.tournaments?.[tSlug] || {
+      const currentTourneyData = allAuction.tournaments?.[tSlug] || 
+        ((tSlug === 'ddpl' || tSlug === 'ddpl-3-0') ? allAuction.tournaments?.[tSlug === 'ddpl' ? 'ddpl-3-0' : 'ddpl'] : null) || {
         teams: [],
         playerPool: [],
         soldTransactions: [],
         unsoldPlayers: [],
       };
 
-      // Filter out franchise owners (they are already in their teams)
-      const nonOwners = registrations.filter((r) => !r.isOwner);
+      // Filter out franchise owners (they are already retained in their teams)
+      const nonOwners = (registrations || []).filter((r) => !r.isOwner);
 
       // Deduplicate non-owners by name to prevent duplicate player cards in the auction pool
       const seenRegNames = new Set<string>();
@@ -863,14 +877,14 @@ export async function POST(req: Request) {
         getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
         getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
       ]);
-      const currentRules = allRulesContainer?.tournaments?.[tSlug] || {};
-      const currentConf = allConfigs?.[tSlug] || {};
+      const currentRules = allRulesContainer?.tournaments?.[tSlug] || allRulesContainer?.tournaments?.['ddpl'] || {};
+      const currentConf = allConfigs?.[tSlug] || allConfigs?.['ddpl'] || {};
       const defaultBase = currentRules.defaultPlayerBasePrice || currentConf.defaultPlayerBasePrice || currentRules.ownerBlockedPrice || currentConf.ownerBasePrice || 100;
 
       const newPool = uniqueNonOwners.map((r, idx) => ({
         id: `p-reg-${idx + 1}`,
         name: r.name.trim(),
-        role: r.role,
+        role: r.role || 'All-rounder',
         basePrice: r.basePrice || defaultBase,
         avatarUrl: r.avatarUrl,
         battingStyle: r.battingStyle,
@@ -895,6 +909,16 @@ export async function POST(req: Request) {
         [tSlug]: currentTourneyData,
       };
 
+      // If 'ddpl' or 'ddpl-3-0', mirror into both tournament keys so live bidding is 100% synchronized
+      if (tSlug === 'ddpl' || tSlug === 'ddpl-3-0') {
+        const mirrorKey = tSlug === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
+        allAuction.tournaments[mirrorKey] = {
+          ...currentTourneyData,
+        };
+      }
+
+      invalidateStoreCache('auction_data_ddpl');
+      invalidateStoreCache(`tournament_registrations_${tSlug}`);
       await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
 
       return NextResponse.json({
