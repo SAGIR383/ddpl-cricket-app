@@ -3,12 +3,11 @@ import fs from 'fs';
 import path from 'path';
 
 import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
-import { neonQuery } from '@/lib/db/neon';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
 const supabaseServiceKey = getServiceRoleKey();
 
-// Database client with elevated service privileges for server-side persistence
+// Database client with elevated service privileges for server-side persistence (Supabase Pro)
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { persistSession: false },
 });
@@ -24,14 +23,14 @@ const inFlightRequests = new Map<string, Promise<any>>();
 
 // Helper to determine optimal TTL based on key type (extended for high-traffic bandwidth efficiency)
 function getOptimalTtlMs(key: string): number {
-  if (key.startsWith('auction_data_')) return 6000; // 6s for live auction
-  if (key.startsWith('tournament_schedule_')) return 30000; // 30s for match schedule
-  if (key === 'tournament_rules' || key.startsWith('tournament_rules_')) return 120000; // 2 mins for rules
-  if (key === 'tournament_configs') return 120000; // 2 mins for tournament configs
-  if (key === 'user_roles' || key === 'super_admin_accounts') return 300000; // 5 mins for accounts/roles
-  if (key.startsWith('tournament_registrations_')) return 20000; // 20s for registrations
-  if (key === 'cricplus_articles' || key.startsWith('blog_')) return 180000; // 3 mins for articles
-  return 30000; // 30s default
+  if (key.startsWith('auction_data_')) return 4000; // 4s for live auction
+  if (key.startsWith('tournament_schedule_')) return 20000; // 20s for match schedule
+  if (key === 'tournament_rules' || key.startsWith('tournament_rules_')) return 60000; // 1 min for rules
+  if (key === 'tournament_configs') return 60000; // 1 min for tournament configs
+  if (key === 'user_roles' || key === 'super_admin_accounts') return 120000; // 2 mins for accounts/roles
+  if (key.startsWith('tournament_registrations_')) return 15000; // 15s for registrations
+  if (key === 'cricplus_articles' || key.startsWith('blog_')) return 120000; // 2 mins for articles
+  return 20000; // 20s default
 }
 
 export function invalidateStoreCache(key?: string) {
@@ -46,9 +45,8 @@ export function invalidateStoreCache(key?: string) {
  * Universal Store helper with multi-tier caching:
  * 1. Fast in-memory cache (< 1ms)
  * 2. Request coalescing (deduplicates simultaneous concurrent queries)
- * 3. Primary: Neon Cloud PostgreSQL (High speed, zero egress penalty)
- * 4. Secondary: Supabase cricpluse_store query
- * 5. Tertiary: Graceful filesystem fallback
+ * 3. Primary: Supabase Pro Database (High speed, unlimited Pro quota)
+ * 4. Secondary: Graceful filesystem fallback
  */
 export async function getStoreData<T>(
   key: string,
@@ -83,36 +81,23 @@ export async function getStoreData<T>(
     let result: T = defaultValue as T;
     let fetched = false;
 
-    // A. Primary: Query Neon Cloud PostgreSQL directly
+    // A. Primary: Query Supabase Pro Cloud Database
     try {
-      const rows = await neonQuery<{ data: any }>('SELECT data FROM cricpluse_store WHERE key = $1 LIMIT 1', [key]);
-      if (rows && rows.length > 0 && rows[0].data !== undefined && rows[0].data !== null) {
-        result = rows[0].data as T;
+      const { data, error } = await supabaseAdmin
+        .from('cricpluse_store')
+        .select('data')
+        .eq('key', key)
+        .single();
+
+      if (!error && data && data.data !== undefined && data.data !== null) {
+        result = data.data as T;
         fetched = true;
       }
-    } catch (neonErr) {
-      console.warn(`[cricpluse_store] Neon read warning for "${key}", falling back:`, (neonErr as any)?.message);
+    } catch (err) {
+      console.warn(`[cricpluse_store] Supabase read warning for "${key}":`, err);
     }
 
-    // B. Secondary: Fallback to Supabase if Neon returned nothing
-    if (!fetched) {
-      try {
-        const { data, error } = await supabaseAdmin
-          .from('cricpluse_store')
-          .select('data')
-          .eq('key', key)
-          .single();
-
-        if (!error && data && data.data !== undefined) {
-          result = data.data as T;
-          fetched = true;
-        }
-      } catch (err) {
-        console.warn(`[cricpluse_store] Supabase read fallback warning for "${key}":`, err);
-      }
-    }
-
-    // C. Tertiary: Local file fallback
+    // B. Secondary: Local file fallback
     if (!fetched && fallbackFileName) {
       try {
         const filePath = path.join(process.cwd(), 'src', 'data', fallbackFileName);
@@ -145,45 +130,33 @@ export async function setStoreData<T>(key: string, value: T, fallbackFileName?: 
   // 1. Immediately update in-memory cache so subsequent reads get the new value at 0ms
   const ttl = getOptimalTtlMs(key);
   memoryCache.set(key, { data: value, expiry: Date.now() + ttl });
-  // Also clear in-flight requests for this key
   inFlightRequests.delete(key);
 
   let savedSuccessfully = false;
 
-  // 2. Primary: Persist to Neon Cloud PostgreSQL
+  // 2. Primary: Persist to Supabase Pro Database
   try {
-    const jsonStr = JSON.stringify(value);
-    await neonQuery(
-      `INSERT INTO cricpluse_store (key, data, updated_at)
-       VALUES ($1, $2::jsonb, NOW())
-       ON CONFLICT (key) DO UPDATE
-       SET data = EXCLUDED.data, updated_at = NOW()`,
-      [key, jsonStr]
-    );
-    savedSuccessfully = true;
-  } catch (neonErr) {
-    console.error(`[cricpluse_store] Neon write error for "${key}":`, neonErr);
+    const { error } = await supabaseAdmin
+      .from('cricpluse_store')
+      .upsert(
+        {
+          key,
+          data: value as any,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'key' }
+      );
+
+    if (!error) {
+      savedSuccessfully = true;
+    } else {
+      console.warn(`[cricpluse_store] Supabase upsert notice for "${key}":`, error.message);
+    }
+  } catch (err) {
+    console.error(`[cricpluse_store] Supabase write error for "${key}":`, err);
   }
 
-  // 3. Secondary: Keep Supabase in sync as backup (fire and forget / non-blocking)
-  try {
-    Promise.resolve(
-      supabaseAdmin
-        .from('cricpluse_store')
-        .upsert(
-          {
-            key,
-            data: value as any,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'key' }
-        )
-    ).catch(() => {});
-  } catch {
-    // Non-blocking sync to Supabase backup
-  }
-
-  // 4. Tertiary: Also write to local file for dev safety (if filesystem is writable)
+  // 3. Secondary: Also write to local file for dev safety (if filesystem is writable)
   if (fallbackFileName) {
     try {
       const filePath = path.join(process.cwd(), 'src', 'data', fallbackFileName);

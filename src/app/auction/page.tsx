@@ -124,8 +124,9 @@ export default function AuctionPage() {
   // 3D Mascot Reaction Overlay State (12 SOLD + 12 UNSOLD Variations)
   const [activeMascotEvent, setActiveMascotEvent] = useState<MascotEventData | null>(null);
 
-  // 30-Second Live Bidding Timer & Auction Automation State
-  const [countdown, setCountdown] = useState<number>(30);
+  // 2-Minute (120-Second) Live Bidding Timer & Auction Automation State
+  const [countdown, setCountdown] = useState<number>(120);
+  const [customBidInput, setCustomBidInput] = useState<string>('');
   const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('stopped');
   const [biddingAccessEnabled, setBiddingAccessEnabled] = useState<boolean>(true);
   const [teamBiddingAccess, setTeamBiddingAccess] = useState<Record<string, boolean>>({});
@@ -521,8 +522,8 @@ export default function AuctionPage() {
     showToast('Auction squads CSV downloaded successfully!');
   }
 
-  // Handle Placing a Bid with Dynamic Increments
-  function handleBid(team: TeamBudget, customIncrement?: number) {
+  // Handle Placing a Bid with Dynamic Increments or Custom Exact Bid
+  function handleBid(team: TeamBudget, customIncrement?: number, exactBid?: number) {
     if (!currentLot || auctionStatus !== 'live' || isAutoTransitioning) return;
 
     if (!canUserBidForTeam(team)) {
@@ -535,24 +536,45 @@ export default function AuctionPage() {
       return;
     }
 
-    const inc = customIncrement !== undefined ? customIncrement : selectedIncrement;
-
     let nextBid: number;
     let incrementLogged: number;
 
-    if (!currentLot.leadingTeam) {
-      // 1st Opening Bid: Can be base price or base price + chosen jump
-      if (isOpeningAtBase && customIncrement === undefined) {
-        nextBid = currentLot.basePrice;
-        incrementLogged = 0;
+    const parsedCustom = exactBid !== undefined ? exactBid : (customBidInput.trim() ? parseInt(customBidInput.trim(), 10) : NaN);
+    const isOpeningRound = !currentLot.leadingTeam;
+
+    if (!isNaN(parsedCustom) && parsedCustom > 0) {
+      if (isOpeningRound) {
+        if (parsedCustom < currentLot.basePrice) {
+          alert(`Custom bid (${currencySymbol}${parsedCustom}) cannot be less than the player base price (${currencySymbol}${currentLot.basePrice})!`);
+          return;
+        }
+        nextBid = parsedCustom;
+        incrementLogged = parsedCustom - currentLot.basePrice;
       } else {
-        nextBid = currentLot.basePrice + inc;
-        incrementLogged = inc;
+        if (parsedCustom <= currentLot.currentBid) {
+          alert(`Custom bid (${currencySymbol}${parsedCustom}) must be higher than the current highest bid (${currencySymbol}${currentLot.currentBid})!`);
+          return;
+        }
+        nextBid = parsedCustom;
+        incrementLogged = parsedCustom - currentLot.currentBid;
       }
     } else {
-      // Subsequent counter-bids: Current Highest Bid + chosen increment
-      nextBid = currentLot.currentBid + inc;
-      incrementLogged = inc;
+      const inc = customIncrement !== undefined ? customIncrement : selectedIncrement;
+
+      if (!currentLot.leadingTeam) {
+        // 1st Opening Bid: Can be base price or base price + chosen jump
+        if (isOpeningAtBase && customIncrement === undefined) {
+          nextBid = currentLot.basePrice;
+          incrementLogged = 0;
+        } else {
+          nextBid = currentLot.basePrice + inc;
+          incrementLogged = inc;
+        }
+      } else {
+        // Subsequent counter-bids: Current Highest Bid + chosen increment
+        nextBid = currentLot.currentBid + inc;
+        incrementLogged = inc;
+      }
     }
 
     const effectiveCap = rules.maxSquadSize || team.maxSquad || 8;
@@ -600,9 +622,11 @@ export default function AuctionPage() {
     };
 
     setCurrentLot(updatedLot);
+    setCustomBidInput('');
     setIsOpeningAtBase(false); // Bid has been initiated
-    setCountdown(30); // RESET 30s TIMER ON EVERY NEW BID!
-    broadcastAuctionState({ currentLot: updatedLot, countdown: 30 });
+    const roundTimer = isAcceleratedRoundRef.current ? 30 : 120;
+    setCountdown(roundTimer); // RESET 2m TIMER ON EVERY NEW BID!
+    broadcastAuctionState({ currentLot: updatedLot, countdown: roundTimer });
 
     // Persist active lot to server asynchronously
     fetch(`/api/auction/data?tournament=${activeTournament}`, {
@@ -610,7 +634,7 @@ export default function AuctionPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         currentLot: updatedLot,
-        timerSeconds: 30,
+        timerSeconds: roundTimer,
         timerLastReset: new Date().toISOString(),
       }),
     }).catch((err) => console.warn('Failed to sync bid to server:', err));
@@ -646,8 +670,9 @@ export default function AuctionPage() {
     }
 
     setCurrentLot(updatedLot);
-    setCountdown(30);
-    broadcastAuctionState({ currentLot: updatedLot, countdown: 30 });
+    const roundTimer = isAcceleratedRoundRef.current ? 30 : 120;
+    setCountdown(roundTimer);
+    broadcastAuctionState({ currentLot: updatedLot, countdown: roundTimer });
   }
 
   // Next Player from Pool
@@ -677,7 +702,7 @@ export default function AuctionPage() {
       setCurrentLot(newLot);
       setIsOpeningAtBase(true);
       setSelectedIncrement(100);
-      const roundTimer = isAcceleratedRoundRef.current ? 15 : 30;
+      const roundTimer = isAcceleratedRoundRef.current ? 30 : 120;
       setCountdown(roundTimer);
       broadcastAuctionState({ currentLot: newLot, countdown: roundTimer });
       return newLot;
@@ -735,7 +760,7 @@ export default function AuctionPage() {
     auctionAudio.playGavelStrike();
 
     const msg = isAuto
-      ? `⏰ 30s Up! AUTO-SOLD: ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 4s...`
+      ? `⏰ 2m Timer Expired! AUTO-SOLD: ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 4s...`
       : `🔨 HAMMER SOLD! ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 4s...`;
     setTransitionMessage(msg);
 
@@ -751,7 +776,7 @@ export default function AuctionPage() {
       advanceToNextPlayer(newSold, unsoldPlayers);
       setIsAutoTransitioning(false);
       setTransitionMessage(null);
-      setCountdown(isAcceleratedRoundRef.current ? 15 : 30);
+      setCountdown(isAcceleratedRoundRef.current ? 30 : 120);
     }, 4000);
   }
 
@@ -775,7 +800,7 @@ export default function AuctionPage() {
     setActiveMascotEvent(unsoldEvent);
 
     const msg = isAuto
-      ? `⏰ 30s Expired with 0 bids! ${unsoldPlayer} marked as UNSOLD (moved to Phase 2 Pool). Boarding next player in 4s...`
+      ? `⏰ 2m Timer Expired with 0 bids! ${unsoldPlayer} marked as UNSOLD (moved to Phase 2 Pool). Boarding next player in 4s...`
       : `🔨 PASS AS UNSOLD: ${unsoldPlayer} moved to Phase 2 Pool. Boarding next player in 4s...`;
     setTransitionMessage(msg);
 
@@ -790,7 +815,7 @@ export default function AuctionPage() {
       advanceToNextPlayer(soldTransactions, newUnsold);
       setIsAutoTransitioning(false);
       setTransitionMessage(null);
-      setCountdown(isAcceleratedRoundRef.current ? 15 : 30);
+      setCountdown(isAcceleratedRoundRef.current ? 30 : 120);
     }, 4000);
   }
 
@@ -1499,9 +1524,9 @@ export default function AuctionPage() {
                         <span>Live on the Block</span>
                       </div>
 
-                      {/* 30-Second Live Broadcast Circular Countdown Dial */}
+                      {/* 2-Minute (120-Second) Live Broadcast Circular Countdown Dial */}
                       <div className="flex items-center gap-3">
-                        <div className="relative w-14 h-14 flex items-center justify-center">
+                        <div className="relative w-16 h-16 flex items-center justify-center">
                           {/* Circular SVG Ring */}
                           <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 56 56">
                             <circle
@@ -1517,24 +1542,24 @@ export default function AuctionPage() {
                               cy="28"
                               r="23"
                               className={`transition-all duration-1000 ease-linear ${
-                                countdown <= 8
+                                countdown <= 15
                                   ? 'stroke-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.8)]'
-                                  : countdown <= 15
+                                  : countdown <= 30
                                   ? 'stroke-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]'
                                   : 'stroke-[#D8AD55] drop-shadow-[0_0_8px_rgba(216,173,85,0.8)]'
                               }`}
                               strokeWidth="3.5"
                               strokeDasharray={144.5}
-                              strokeDashoffset={144.5 - (144.5 * Math.max(0, countdown)) / 30}
+                              strokeDashoffset={144.5 - (144.5 * Math.max(0, countdown)) / (isAcceleratedRound ? 30 : 120)}
                               strokeLinecap="round"
                               fill="transparent"
                             />
                           </svg>
                           <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`font-mono font-black text-sm ${
-                              countdown <= 8 ? 'text-rose-400 animate-pulse' : countdown <= 15 ? 'text-amber-300' : 'text-[#F2D69A]'
+                            <span className={`font-mono font-black text-xs ${
+                              countdown <= 15 ? 'text-rose-400 animate-pulse' : countdown <= 30 ? 'text-amber-300' : 'text-[#F2D69A]'
                             }`}>
-                              {countdown}s
+                              {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}
                             </span>
                           </div>
                         </div>
@@ -1542,14 +1567,15 @@ export default function AuctionPage() {
                         {isAccessAllowed && (
                           <button
                             onClick={() => {
-                              setCountdown(30);
-                              broadcastAuctionState({ countdown: 30 });
-                              showToast('Timer reset to 30s');
+                              const t = isAcceleratedRound ? 30 : 120;
+                              setCountdown(t);
+                              broadcastAuctionState({ countdown: t });
+                              showToast(`Timer reset to ${t >= 60 ? `${Math.floor(t / 60)}m` : `${t}s`}`);
                             }}
-                            title="Reset Timer to 30s"
+                            title="Reset Timer to 2m"
                             className="px-2.5 py-1.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all shadow-sm cursor-pointer"
                           >
-                            ↺ 30s
+                            ↺ 2m
                           </button>
                         )}
                       </div>
@@ -1610,7 +1636,11 @@ export default function AuctionPage() {
                     {/* Dynamic Increment Selection & Live Math Strip */}
                     {(() => {
                       const isOpeningRound = !currentLot.leadingTeam;
-                      const targetBidAmount = isOpeningRound
+                      const parsedCustom = customBidInput.trim() ? parseInt(customBidInput.trim(), 10) : NaN;
+                      const hasValidCustom = !isNaN(parsedCustom) && parsedCustom > (isOpeningRound ? 0 : currentLot.currentBid);
+                      const targetBidAmount = hasValidCustom
+                        ? parsedCustom
+                        : isOpeningRound
                         ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
                         : currentLot.currentBid + selectedIncrement;
 
@@ -1620,12 +1650,12 @@ export default function AuctionPage() {
                             <div>
                               <span className="text-xs font-black uppercase text-[#F2D69A] tracking-wider flex items-center gap-1.5">
                                 <Zap className="w-4 h-4 text-[#D8AD55]" />
-                                <span>{isOpeningRound ? 'Opening Bid Strategy' : 'Select Bid Increment'}</span>
+                                <span>{isOpeningRound ? 'Opening Bid Strategy' : 'Select Bid Increment or Type Custom Bid'}</span>
                               </span>
                               <p className="text-[11px] text-[#8793A5] mt-0.5">
                                 {isOpeningRound
-                                  ? `Open bid at Base Price (${currencySymbol}${currentLot.basePrice}) or jump directly with +${currencySymbol}50, +${currencySymbol}100, +${currencySymbol}200:`
-                                  : `Choose increment to top the current highest bid (${currencySymbol}${currentLot.currentBid.toLocaleString('en-IN')}):`}
+                                  ? `Open bid at Base Price (${currencySymbol}${currentLot.basePrice}), jump by +${currencySymbol}50/+${currencySymbol}100/+${currencySymbol}200, or type custom amount:`
+                                  : `Top highest bid (${currencySymbol}${currentLot.currentBid.toLocaleString('en-IN')}) via quick increment or type an exact custom bid:`}
                               </p>
                             </div>
 
@@ -1633,9 +1663,12 @@ export default function AuctionPage() {
                               {isOpeningRound && (
                                 <button
                                   type="button"
-                                  onClick={() => setIsOpeningAtBase(true)}
+                                  onClick={() => {
+                                    setIsOpeningAtBase(true);
+                                    setCustomBidInput('');
+                                  }}
                                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                                    isOpeningAtBase
+                                    isOpeningAtBase && !customBidInput
                                       ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-lg shadow-[#D8AD55]/20'
                                       : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20'
                                   }`}
@@ -1650,9 +1683,10 @@ export default function AuctionPage() {
                                   onClick={() => {
                                     setIsOpeningAtBase(false);
                                     setSelectedIncrement(step);
+                                    setCustomBidInput('');
                                   }}
                                   className={`btn-press px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                                    (!isOpeningRound && selectedIncrement === step) || (isOpeningRound && !isOpeningAtBase && selectedIncrement === step)
+                                    !customBidInput && ((!isOpeningRound && selectedIncrement === step) || (isOpeningRound && !isOpeningAtBase && selectedIncrement === step))
                                       ? 'bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-black shadow-lg shadow-[#D8AD55]/25 scale-105'
                                       : 'bg-[#0D1B2A] text-gray-300 hover:text-white border border-[#D8AD55]/20'
                                   }`}
@@ -1660,6 +1694,38 @@ export default function AuctionPage() {
                                   +{currencySymbol}{step}
                                 </button>
                               ))}
+
+                              {/* Custom Numeric Bid Input Box */}
+                              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border transition-all ${
+                                customBidInput
+                                  ? 'bg-[#08111F] border-[#D8AD55] ring-1 ring-[#D8AD55]'
+                                  : 'bg-[#0D1B2A] border-[#D8AD55]/30 hover:border-[#D8AD55]/60'
+                              }`}>
+                                <span className="text-[#D8AD55] text-xs font-mono font-bold">{currencySymbol}</span>
+                                <input
+                                  type="number"
+                                  min={isOpeningRound ? currentLot.basePrice : currentLot.currentBid + 1}
+                                  placeholder="Type Bid..."
+                                  value={customBidInput}
+                                  onChange={(e) => {
+                                    setCustomBidInput(e.target.value);
+                                    if (e.target.value) {
+                                      setIsOpeningAtBase(false);
+                                    }
+                                  }}
+                                  className="w-20 bg-transparent text-xs font-mono font-bold text-white placeholder-[#8793A5] focus:outline-none"
+                                />
+                                {customBidInput && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setCustomBidInput('')}
+                                    className="text-[#8793A5] hover:text-white text-xs px-1"
+                                    title="Clear custom bid"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -1667,7 +1733,15 @@ export default function AuctionPage() {
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold text-gray-300 bg-[#0D1B2A] p-3.5 rounded-xl border border-white/5">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-[#8793A5] uppercase text-[10px] tracking-wider font-bold">Calculation:</span>
-                              {isOpeningRound ? (
+                              {hasValidCustom ? (
+                                <span className="flex items-center gap-1.5 font-mono">
+                                  <span className="text-[#8793A5]">Custom Direct Bid:</span>
+                                  <strong className="text-[#F2D69A] font-bold text-sm">{currencySymbol}{targetBidAmount.toLocaleString('en-IN')}</strong>
+                                  <span className="text-[#8793A5] text-[10px]">
+                                    ({isOpeningRound ? `Jump of +${currencySymbol}${(targetBidAmount - currentLot.basePrice).toLocaleString('en-IN')}` : `+${currencySymbol}${(targetBidAmount - currentLot.currentBid).toLocaleString('en-IN')} over highest`})
+                                  </span>
+                                </span>
+                              ) : isOpeningRound ? (
                                 isOpeningAtBase ? (
                                   <span className="font-mono text-[#F2D69A] font-bold">
                                     Base Price {currencySymbol}{currentLot.basePrice} (Opening Bid)
@@ -1693,7 +1767,7 @@ export default function AuctionPage() {
                             </div>
 
                             <span className="text-[11px] text-[#D8AD55] font-medium">
-                              {isOpeningRound ? 'Ready for 1st Franchise' : 'Ready to Submit Bid'}
+                              {hasValidCustom ? 'Custom Bid Ready' : isOpeningRound ? 'Ready for 1st Franchise' : 'Ready to Submit Bid'}
                             </span>
                           </div>
                         </div>
@@ -1703,7 +1777,11 @@ export default function AuctionPage() {
                     {/* Franchise Owner Dedicated 1-Tap Bidding Hero Card */}
                     {isFranchiseOwner && userTeam && (() => {
                       const isOpeningRound = !currentLot.leadingTeam;
-                      const targetBidAmount = isOpeningRound
+                      const parsedCustom = customBidInput.trim() ? parseInt(customBidInput.trim(), 10) : NaN;
+                      const hasValidCustom = !isNaN(parsedCustom) && parsedCustom > (isOpeningRound ? 0 : currentLot.currentBid);
+                      const targetBidAmount = hasValidCustom
+                        ? parsedCustom
+                        : isOpeningRound
                         ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
                         : currentLot.currentBid + selectedIncrement;
                       const userRemaining = userTeam.allocated - userTeam.spent;
@@ -1758,7 +1836,7 @@ export default function AuctionPage() {
                           ) : (
                             <button
                               type="button"
-                              onClick={() => handleBid(userTeam, isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement)}
+                              onClick={() => handleBid(userTeam, undefined, hasValidCustom ? parsedCustom : undefined)}
                               disabled={!canUserBidForTeam(userTeam) || !hasSufficientBudget || isSquadFull}
                               className="btn-press shimmer-btn w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] hover:brightness-110 text-[#08111F] font-display font-black text-base sm:text-lg tracking-wider uppercase shadow-2xl shadow-[#D8AD55]/25 transition-all flex flex-col sm:flex-row items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
@@ -1769,7 +1847,7 @@ export default function AuctionPage() {
                                 </span>
                               </div>
                               <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-black/20 text-[#08111F]">
-                                {isOpeningRound ? (isOpeningAtBase ? 'Base Price' : `+${currencySymbol}${selectedIncrement} Jump`) : `+${currencySymbol}${selectedIncrement}`}
+                                {hasValidCustom ? 'Custom Amount' : isOpeningRound ? (isOpeningAtBase ? 'Base Price' : `+${currencySymbol}${selectedIncrement} Jump`) : `+${currencySymbol}${selectedIncrement}`}
                               </span>
                             </button>
                           )}
@@ -1790,7 +1868,11 @@ export default function AuctionPage() {
                         {teams.map((t) => {
                           const remaining = t.allocated - t.spent;
                           const isOpeningRound = !currentLot.leadingTeam;
-                          const targetBidAmount = isOpeningRound
+                          const parsedCustom = customBidInput.trim() ? parseInt(customBidInput.trim(), 10) : NaN;
+                          const hasValidCustom = !isNaN(parsedCustom) && parsedCustom > (isOpeningRound ? 0 : currentLot.currentBid);
+                          const targetBidAmount = hasValidCustom
+                            ? parsedCustom
+                            : isOpeningRound
                             ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
                             : currentLot.currentBid + selectedIncrement;
                           const isLeading = currentLot.leadingTeam === t.name;
@@ -1811,7 +1893,7 @@ export default function AuctionPage() {
                               key={t.id}
                               type="button"
                               disabled={!canBid}
-                              onClick={() => handleBid(t, isOpeningRound && isOpeningAtBase ? 0 : selectedIncrement)}
+                              onClick={() => handleBid(t, undefined, hasValidCustom ? parsedCustom : undefined)}
                               className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
                                 isLeading
                                   ? 'bg-[#D8AD55]/20 border-[#D8AD55] text-white shadow-xl shadow-[#D8AD55]/20 ring-1 ring-[#D8AD55]'

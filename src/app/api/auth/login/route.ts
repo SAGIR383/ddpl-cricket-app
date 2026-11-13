@@ -3,7 +3,6 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 
 import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
-import { neonQuery } from '@/lib/db/neon';
 import { verifyPassword, hashPassword } from '@/lib/auth/password';
 import { getStoreData } from '@/lib/supabase/store';
 
@@ -76,14 +75,19 @@ export async function POST(req: NextRequest) {
 
     const targetEmail = normalized;
 
-    // 2. Direct Neon PostgreSQL Auth (100% Independent & Offline resilient)
+    // 2. Direct Supabase Profiles Auth Check
     try {
-      const neonProfiles = await neonQuery<any>(
-        'SELECT id, full_name, email, avatar_url, phone, employee_id, batting_style, bowling_style, primary_role, system_role, password_hash FROM profiles WHERE LOWER(email) = $1 LIMIT 1',
-        [targetEmail]
-      );
-      if (neonProfiles && neonProfiles.length > 0 && neonProfiles[0].password_hash) {
-        const p = neonProfiles[0];
+      const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+        auth: { persistSession: false },
+      });
+      const { data: supaProfiles } = await adminClient
+        .from('profiles')
+        .select('id, full_name, email, avatar_url, phone, employee_id, batting_style, bowling_style, primary_role, system_role, password_hash')
+        .ilike('email', targetEmail)
+        .limit(1);
+
+      if (supaProfiles && supaProfiles.length > 0 && supaProfiles[0].password_hash) {
+        const p = supaProfiles[0];
         if (verifyPassword(password, p.password_hash)) {
           const userRoles = await getStoreData<Record<string, string>>('user_roles', 'roles.json', {});
           const finalRole = userRoles[targetEmail] || p.system_role || 'user';
@@ -112,11 +116,11 @@ export async function POST(req: NextRequest) {
           return response;
         }
       }
-    } catch (neonAuthErr) {
-      console.warn('[Neon Direct Auth Warn]:', neonAuthErr);
+    } catch (supaDirectAuthErr) {
+      console.warn('[Supabase Direct Auth Warn]:', supaDirectAuthErr);
     }
 
-    // 3. Supabase Auth via SSR (With Automatic Background Sync to Neon for Old Users)
+    // 3. Supabase Auth via SSR
     const cookieActions: Array<{ name: string; value: string; options: any }> = [];
 
     const ssrClient = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -139,11 +143,6 @@ export async function POST(req: NextRequest) {
     });
 
     if (!authError && authData?.user) {
-      // Auto-migrate verified password hash directly into Neon for 100% future independence
-      try {
-        const hashed = hashPassword(password);
-        neonQuery('UPDATE profiles SET password_hash = $1, updated_at = NOW() WHERE LOWER(email) = $2', [hashed, targetEmail]).catch(() => {});
-      } catch {}
 
       // 3. Fast parallel fetch of role & profile
       const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {

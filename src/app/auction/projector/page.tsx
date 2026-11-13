@@ -41,12 +41,12 @@ function AuctionProjectorContent() {
   const [photoMap, setPhotoMap] = useState<Record<string, string>>({});
   const [teams, setTeams] = useState<any[]>([]);
   const [soldTransactions, setSoldTransactions] = useState<any[]>([]);
-  const [countdown, setCountdown] = useState<number>(30);
+  const [countdown, setCountdown] = useState<number>(120);
   const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('live');
   const [lastSoldEvent, setLastSoldEvent] = useState<any | null>(null);
 
   const prevBidRef = useRef<number>(0);
-  const prevCountdownRef = useRef<number>(30);
+  const prevCountdownRef = useRef<number>(120);
 
   // Initialize audio mute state
   useEffect(() => {
@@ -309,16 +309,16 @@ function AuctionProjectorContent() {
                 <span>Current Highest Bid</span>
               </span>
 
-              {/* 30-Second Countdown Radial */}
+              {/* 2-Minute Countdown Radial */}
               <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border font-mono font-black text-lg ${
-                countdown <= 5
+                countdown <= 15
                   ? 'bg-rose-500/25 border-rose-500 text-rose-300 animate-pulse'
-                  : countdown <= 10
+                  : countdown <= 30
                   ? 'bg-amber-500/20 border-amber-500 text-amber-300'
                   : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
               }`}>
                 <Clock className="w-5 h-5" />
-                <span>{countdown}s</span>
+                <span>{Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}</span>
               </div>
             </div>
 
