@@ -1492,7 +1492,7 @@ export default function AuctionPage() {
               </div>
               <div>
                 <div className="text-xs font-bold text-white">
-                  Active Auction Rule Set: Base Purse <span className="text-[#F2D69A] font-extrabold">{currencySymbol}{rules.basePurse.toLocaleString('en-IN')} pts</span> • {rules.matchOvers || 10} Overs Innings • Squad Cap {rules.maxSquadSize || 11} Players
+                  Active Auction Rule Set: Base Purse <span className="text-[#F2D69A] font-extrabold">{currencySymbol}{rules.basePurse.toLocaleString('en-IN')} pts</span> • {rules.matchOvers || 7} Overs Innings • Squad Cap {rules.maxSquadSize || 8} Players
                 </div>
                 <div className="text-[11px] text-[#8793A5] mt-0.5">
                   Franchise owner retention: <span className="text-[#F2D69A] font-bold">{currencySymbol}{rules.ownerBlockedPrice} pts</span> • Remaining Starting Purse: <span className="text-white font-bold">{currencySymbol}{(rules.basePurse - rules.ownerBlockedPrice).toLocaleString('en-IN')} pts</span> • Base Player Price: <span className="text-white font-bold">{currencySymbol}{rules.defaultPlayerBasePrice} pts</span>

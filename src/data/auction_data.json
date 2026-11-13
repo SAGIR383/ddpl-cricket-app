@@ -22,7 +22,8 @@
           "allocated": 7000,
           "remaining": 6900,
           "ownerEmail": "mdsagirhossain560@gmail.com",
-          "playersBought": 1
+          "playersBought": 1,
+          "budget": 7000
         },
         {
           "id": "t-matrix",
@@ -44,7 +45,8 @@
           "allocated": 7000,
           "remaining": 6900,
           "ownerEmail": "hiranmoy.saha@teoco.com",
-          "playersBought": 1
+          "playersBought": 1,
+          "budget": 7000
         },
         {
           "id": "t-quantum",
@@ -65,8 +67,9 @@
           "maxSquad": 8,
           "allocated": 7000,
           "remaining": 6900,
-          "ownerEmail": "ajaz.ghalib@teoco.com",
-          "playersBought": 1
+          "ownerEmail": "ajaz.mg@gmail.com",
+          "playersBought": 1,
+          "budget": 7000
         },
         {
           "id": "t-apex",
@@ -87,8 +90,9 @@
           "maxSquad": 8,
           "allocated": 7000,
           "remaining": 6900,
-          "ownerEmail": "sudipto.chowdhury@teoco.com",
-          "playersBought": 1
+          "ownerEmail": "sudiptochowdhury721@gmail.com",
+          "playersBought": 1,
+          "budget": 7000
         },
         {
           "id": "t-nova",
@@ -110,7 +114,8 @@
           "allocated": 7000,
           "remaining": 6900,
           "ownerEmail": "surojit.das@teoco.com",
-          "playersBought": 1
+          "playersBought": 1,
+          "budget": 7000
         },
         {
           "id": "t-nebula",
@@ -131,8 +136,9 @@
           "maxSquad": 8,
           "allocated": 7000,
           "remaining": 6900,
-          "ownerEmail": "gour.singha@teoco.com",
-          "playersBought": 1
+          "ownerEmail": "goursingha21@gmail.com",
+          "playersBought": 1,
+          "budget": 7000
         }
       ],
       "currentLot": {

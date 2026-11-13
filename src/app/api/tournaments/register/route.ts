@@ -962,14 +962,14 @@ export async function POST(req: Request) {
       const targetBasePrice = currentRules.defaultPlayerBasePrice || currentConf.defaultPlayerBasePrice || 100;
       const targetSquadCap = currentRules.maxSquadSize || currentConf.maxSquad || 8;
 
-      // Define standard DDPL 3.0 franchises & owners
+      // Define standard DDPL 3.0 franchises & owners (matching actual Supabase auth registrations)
       const franchiseConfigs = [
         { name: 'FALCON', short: 'FA', owner: 'Md Sagir Hossain', email: 'mdsagirhossain560@gmail.com', group: 'Group A' },
         { name: 'MATRIX', short: 'MA', owner: 'Hiranmoy Saha', email: 'hiranmoy.saha@teoco.com', group: 'Group B' },
-        { name: 'QUANTUM', short: 'QA', owner: 'Ajaz Md Ghalib', email: 'ajaz.ghalib@teoco.com', group: 'Group A' },
-        { name: 'APEX', short: 'AP', owner: 'Sudipto Chowdhury', email: 'sudipto.chowdhury@teoco.com', group: 'Group B' },
+        { name: 'QUANTUM', short: 'QA', owner: 'Ajaz Md Ghalib', email: 'ajaz.mg@gmail.com', group: 'Group A' },
+        { name: 'APEX', short: 'AP', owner: 'Sudipto Chowdhury', email: 'sudiptochowdhury721@gmail.com', group: 'Group B' },
         { name: 'NOVA', short: 'NO', owner: 'Surojit Das', email: 'surojit.das@teoco.com', group: 'Group A' },
-        { name: 'NEBULA', short: 'NE', owner: 'Gour Singha', email: 'gour.singha@teoco.com', group: 'Group B' },
+        { name: 'NEBULA', short: 'NE', owner: 'Gour Singha', email: 'goursingha21@gmail.com', group: 'Group B' },
       ];
 
       // Build photo lookup from registrations
