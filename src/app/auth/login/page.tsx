@@ -38,6 +38,7 @@ export default function LoginPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
+  const [resetActionLink, setResetActionLink] = useState<string | null>(null);
 
   // Common UI state
   const [loading, setLoading] = useState(false);
@@ -227,10 +228,49 @@ export default function LoginPage() {
         setAuthMode('signin');
         setEmail(targetEmail);
         setPassword('');
-        setSuccessMsg('Your password has been updated in Neon. You can now sign in!');
+        setSuccessMsg('Your password has been updated in Supabase Pro! You can now sign in.');
       }, 1500);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to update password.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Request Supabase Recovery Link / Email
+  async function handleSendResetEmail() {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setResetActionLink(null);
+
+    const targetEmail = resetEmail.trim().toLowerCase();
+    if (!targetEmail) {
+      setErrorMsg('Please enter your registered email address.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_email',
+          email: targetEmail,
+        }),
+      });
+
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to send reset email.');
+      }
+
+      setSuccessMsg(result.message || 'Password reset link sent to your email!');
+      if (result.actionLink) {
+        setResetActionLink(result.actionLink);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to send reset email.');
     } finally {
       setLoading(false);
     }
@@ -414,6 +454,35 @@ export default function LoginPage() {
               <span>{loading ? 'Updating Password…' : 'Update Password & Return to Sign In'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            <div className="pt-2 space-y-2">
+              <button
+                type="button"
+                disabled={loading || !resetEmail.trim()}
+                onClick={handleSendResetEmail}
+                className="w-full py-2.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Mail className="w-3.5 h-3.5 text-[#D8AD55]" />
+                <span>Or Send Reset Link to My Email</span>
+              </button>
+
+              {resetActionLink && (
+                <div className="p-3.5 rounded-xl bg-[#08111F] border border-emerald-500/40 text-left space-y-2 shadow-inner">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Instant Recovery Link Generated:</span>
+                  </div>
+                  <a
+                    href={resetActionLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#F2D69A] underline break-all block hover:text-white font-mono"
+                  >
+                    Click here to open password reset link directly ↗
+                  </a>
+                </div>
+              )}
+            </div>
 
             <div className="pt-2 text-center text-xs">
               <button
