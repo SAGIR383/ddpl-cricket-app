@@ -258,7 +258,7 @@ export default function AuctionPage() {
           const normalizedTeams = (Array.isArray(d.teams) ? d.teams : []).map((t: any) => ({
             ...t,
             allocated: t.allocated || targetPurse,
-            maxSquad: t.maxSquad || targetCap,
+            maxSquad: targetCap,
           }));
           setTeams(normalizedTeams);
 
@@ -990,6 +990,64 @@ export default function AuctionPage() {
     showToast(`Boarded ${player.name} to the live auction block!`);
   }
 
+  // Handle Complete Auction Reset to Fresh Clean Slate
+  async function handleResetAuction() {
+    if (!isAccessAllowed) return;
+    const confirmed = window.confirm(
+      '⚠️ ARE YOU SURE YOU WANT TO RESET THE AUCTION TO A CLEAN SLATE?\n\n' +
+      'This will:\n' +
+      '• Clear all previously sold players (retaining only the 6 franchise owners at ₹100)\n' +
+      '• Restore all 6 team remaining purses to ₹6,900 and squads to 1/8 players\n' +
+      '• Clear the unsold players list\n' +
+      '• Reload all 42 registered players fresh into the auction pool\n' +
+      '• Board the 1st player (Arghya Dutta) on the block ready for bidding\n\n' +
+      'Proceed with Auction Reset?'
+    );
+    if (!confirmed) return;
+
+    try {
+      const tourneyKey = activeTournament || 'ddpl';
+      showToast('Resetting auction to clean slate...');
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reset_auction',
+          tournament: tourneyKey,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || 'Auction successfully reset!');
+        const freshState = data.data;
+        if (freshState) {
+          if (Array.isArray(freshState.teams)) setTeams(freshState.teams);
+          if (Array.isArray(freshState.soldTransactions)) setSoldTransactions(freshState.soldTransactions);
+          if (Array.isArray(freshState.unsoldPlayers)) setUnsoldPlayers(freshState.unsoldPlayers);
+          if (Array.isArray(freshState.playerPool)) setPlayerPool(freshState.playerPool);
+          if (freshState.currentLot) setCurrentLot(freshState.currentLot);
+          setAuctionStatus('stopped');
+          broadcastAuctionState({
+            auctionStatus: 'stopped',
+            biddingAccessEnabled: false,
+            currentLot: freshState.currentLot || null,
+            teams: freshState.teams || [],
+            soldTransactions: freshState.soldTransactions || [],
+            unsoldPlayers: [],
+            playerPool: freshState.playerPool || [],
+          });
+        }
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        alert(data.error || 'Failed to reset auction');
+      }
+    } catch (e: any) {
+      alert(`Reset error: ${e.message}`);
+    }
+  }
+
   // Handle File Change in Import Modal
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1174,6 +1232,16 @@ export default function AuctionPage() {
               >
                 <Users className="w-4 h-4 text-blue-400" />
                 <span>Sync Registered Players</span>
+              </button>
+
+              {/* Reset Auction to Clean Slate */}
+              <button
+                onClick={handleResetAuction}
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+                title="Reset auction squads to 1/8 (owners only), clear sold history, and load 42 fresh players into auction pool"
+              >
+                <RotateCcw className="w-4 h-4 text-rose-400" />
+                <span>Reset Auction</span>
               </button>
 
               {/* Import Button */}
@@ -1986,6 +2054,14 @@ export default function AuctionPage() {
                           >
                             Sync Registered Players
                           </button>
+                          <button
+                            onClick={handleResetAuction}
+                            className="btn-press px-5 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+                            title="Reset auction squads to 1/8 (owners only) and restore fresh player pool"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Reset Auction</span>
+                          </button>
                         </div>
                       )}
                     </>
@@ -2087,7 +2163,7 @@ export default function AuctionPage() {
                               )}
                             </div>
                             <span className="text-xs font-bold text-[#8793A5]">
-                              {t.playersBought} / {t.maxSquad} Players
+                              {t.playersBought} / {rules.maxSquadSize || 8} Players
                             </span>
                           </div>
 
@@ -2190,6 +2266,18 @@ export default function AuctionPage() {
                 <RefreshCw className="w-3.5 h-3.5 text-[#D8AD55]" />
                 <span>Sync Registered</span>
               </button>
+
+              {/* Reset Auction button */}
+              {isAccessAllowed && (
+                <button
+                  onClick={handleResetAuction}
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                  title="Reset auction squads to 1/8 (owners only), clear sold history, and load 42 fresh players into auction pool"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Reset Auction</span>
+                </button>
+              )}
             </div>
           </div>
 

@@ -928,6 +928,175 @@ export async function POST(req: Request) {
       });
     }
 
+    // 4B. COMPLETE RESET OF AUCTION TO FRESH CLEAN SLATE
+    if (action === 'reset_auction') {
+      let registrations = await getStoreData<TournamentPlayerRegistration[]>(
+        `tournament_registrations_${tSlug}`,
+        `registrations_${tSlug}.json`,
+        []
+      );
+
+      if ((!Array.isArray(registrations) || registrations.length === 0) && (tSlug === 'ddpl' || tSlug === 'ddpl-3-0')) {
+        const altSlug = tSlug === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
+        const altRegs = await getStoreData<TournamentPlayerRegistration[]>(
+          `tournament_registrations_${altSlug}`,
+          `registrations_${altSlug}.json`,
+          []
+        );
+        if (Array.isArray(altRegs) && altRegs.length > 0) {
+          registrations = altRegs;
+        }
+      }
+
+      // Load rules and configs to get target purse & squad limit
+      const [allRulesContainer, allConfigs] = await Promise.all([
+        getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+      ]);
+      const currentRules = allRulesContainer?.tournaments?.[tSlug] || allRulesContainer?.tournaments?.['ddpl'] || {};
+      const currentConf = allConfigs?.[tSlug] || allConfigs?.['ddpl'] || {};
+      const targetPurse = currentRules.basePurse || currentConf.pursePerTeam || 7000;
+      const targetOwnerPrice = currentRules.ownerBlockedPrice !== undefined ? currentRules.ownerBlockedPrice : (currentConf.ownerBasePrice || 100);
+      const targetBasePrice = currentRules.defaultPlayerBasePrice || currentConf.defaultPlayerBasePrice || 100;
+      const targetSquadCap = currentRules.maxSquadSize || currentConf.maxSquad || 8;
+
+      // Define standard DDPL 3.0 franchises & owners
+      const franchiseConfigs = [
+        { name: 'FALCON', short: 'FA', owner: 'Md Sagir Hossain', email: 'mdsagirhossain560@gmail.com', group: 'Group A' },
+        { name: 'MATRIX', short: 'MA', owner: 'Hiranmoy Saha', email: 'hiranmoy.saha@teoco.com', group: 'Group B' },
+        { name: 'QUANTUM', short: 'QA', owner: 'Ajaz Md Ghalib', email: 'ajaz.ghalib@teoco.com', group: 'Group A' },
+        { name: 'APEX', short: 'AP', owner: 'Sudipto Chowdhury', email: 'sudipto.chowdhury@teoco.com', group: 'Group B' },
+        { name: 'NOVA', short: 'NO', owner: 'Surojit Das', email: 'surojit.das@teoco.com', group: 'Group A' },
+        { name: 'NEBULA', short: 'NE', owner: 'Gour Singha', email: 'gour.singha@teoco.com', group: 'Group B' },
+      ];
+
+      // Build photo lookup from registrations
+      const photoLookup = new Map<string, string>();
+      for (const r of registrations || []) {
+        const photo = r.avatarUrl || (r as any).photo;
+        if (r.name && photo) {
+          photoLookup.set(r.name.trim().toLowerCase(), photo);
+        }
+      }
+
+      // Reconstruct 6 clean teams (each with only the retained owner)
+      const freshTeams = franchiseConfigs.map((fc) => {
+        const ownerPhoto = photoLookup.get(fc.owner.toLowerCase()) || null;
+        return {
+          id: `t-${fc.name.toLowerCase()}`,
+          name: fc.name,
+          short: fc.short,
+          owner: fc.owner,
+          ownerEmail: fc.email,
+          allocated: targetPurse,
+          spent: targetOwnerPrice,
+          remaining: targetPurse - targetOwnerPrice,
+          playersBought: 1,
+          maxSquad: targetSquadCap,
+          captain: `${fc.owner} (C)`,
+          viceCaptain: 'To be assigned',
+          group: fc.group,
+          players: [
+            {
+              name: fc.owner,
+              role: 'All-rounder (Franchise Owner)',
+              price: targetOwnerPrice,
+              avatarUrl: ownerPhoto,
+            },
+          ],
+        };
+      });
+
+      // Exactly 6 owner retention transactions
+      const freshSoldTransactions = freshTeams.map((t, idx) => ({
+        id: `tx-owner-${idx + 1}`,
+        player: t.owner,
+        team: t.name,
+        price: targetOwnerPrice,
+        role: 'Franchise Owner',
+        avatarUrl: t.players[0].avatarUrl,
+      }));
+
+      // Filter out franchise owners to get the pure pool
+      const ownerNames = new Set(franchiseConfigs.map(fc => fc.owner.toLowerCase()));
+      const nonOwners = (registrations || []).filter((r) => {
+        const norm = (r.name || '').trim().toLowerCase();
+        return !r.isOwner && !ownerNames.has(norm);
+      });
+
+      // Deduplicate non-owners
+      const seenRegNames = new Set<string>();
+      const freshPool = nonOwners
+        .filter((r) => {
+          const norm = r.name?.trim().toLowerCase();
+          if (!norm || seenRegNames.has(norm)) return false;
+          seenRegNames.add(norm);
+          return true;
+        })
+        .map((r, idx) => ({
+          id: `p-${idx + 1}`,
+          name: r.name.trim(),
+          role: r.role || 'All-rounder',
+          basePrice: r.basePrice || targetBasePrice,
+          avatarUrl: r.avatarUrl || photoLookup.get(r.name.trim().toLowerCase()) || null,
+          battingStyle: r.battingStyle || null,
+          bowlingStyle: r.bowlingStyle || null,
+          phone: r.phone || null,
+        }));
+
+      const freshLot = freshPool.length > 0 ? {
+        id: freshPool[0].id,
+        name: freshPool[0].name,
+        role: freshPool[0].role,
+        avatarUrl: freshPool[0].avatarUrl,
+        basePrice: freshPool[0].basePrice || targetBasePrice,
+        currentBid: freshPool[0].basePrice || targetBasePrice,
+        leadingTeam: null,
+        history: [],
+      } : null;
+
+      const cleanAuctionState = {
+        teams: freshTeams,
+        soldTransactions: freshSoldTransactions,
+        playerPool: freshPool,
+        unsoldPlayers: [],
+        currentLotIndex: 0,
+        lastUpdated: new Date().toISOString(),
+        auctionStatus: 'stopped',
+        biddingAccessEnabled: false,
+        teamBiddingAccess: {},
+        timerSeconds: 30,
+        timerRunning: false,
+        timerLastReset: new Date().toISOString(),
+        autoBoardingEnabled: true,
+        currentLot: freshLot,
+      };
+
+      const allAuction = await getStoreData<any>('auction_data_ddpl', 'auction_data.json', {
+        tournaments: {},
+      });
+
+      allAuction.tournaments = {
+        ...allAuction.tournaments,
+        [tSlug]: cleanAuctionState,
+      };
+
+      if (tSlug === 'ddpl' || tSlug === 'ddpl-3-0') {
+        const mirrorKey = tSlug === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
+        allAuction.tournaments[mirrorKey] = { ...cleanAuctionState };
+      }
+
+      invalidateStoreCache('auction_data_ddpl');
+      await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
+
+      return NextResponse.json({
+        success: true,
+        message: `Auction reset to clean slate! 6 franchises restored, ${freshPool.length} registered players loaded into auction pool!`,
+        data: cleanAuctionState,
+        count: freshPool.length,
+      });
+    }
+
     // 5. CREATE CUSTOM TOURNAMENT (Super Admin & Global Tournament Organizers)
     if (action === 'create_tournament') {
       const { 
