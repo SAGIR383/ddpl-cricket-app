@@ -119,27 +119,42 @@ export async function GET(req: Request) {
   const rulesMap = container.tournaments || {};
   const currentConfig = configs[tournament];
 
-  // If this tournament has its own config or separate rules, prioritize live custom values
-  let targetRules = rulesMap[tournament] || separateRules;
-  if (!targetRules) {
-    if (currentConfig) {
-      targetRules = {
-        ...DEFAULT_DDPL_RULES,
-        matchOvers: currentConfig.overs || 10,
-        basePurse: currentConfig.pursePerTeam || 10000,
-        ownerBlockedPrice: currentConfig.ownerBasePrice || 100,
-        defaultPlayerBasePrice: currentConfig.defaultPlayerBasePrice || currentConfig.ownerBasePrice || 100,
-        maxSquadSize: currentConfig.maxSquad || 11,
-        minSquadSize: currentConfig.minSquad || 7,
-      };
-      // Persist into rulesMap so all pages stay 100% in sync
-      rulesMap[tournament] = targetRules;
-      container.tournaments = rulesMap;
-      saveAllRules(container).catch(() => {});
-    } else {
-      targetRules = DEFAULT_DDPL_RULES;
-    }
+  // Deep-merge separateRules, rulesMap, and currentConfig to ensure live custom values (venue, groundName, knockoutFormat) are preserved
+  let targetRules = {
+    ...DEFAULT_DDPL_RULES,
+    ...(currentConfig ? {
+      matchOvers: currentConfig.overs || 7,
+      basePurse: currentConfig.pursePerTeam || 7000,
+      ownerBlockedPrice: currentConfig.ownerBasePrice || 100,
+      defaultPlayerBasePrice: currentConfig.defaultPlayerBasePrice || 100,
+      maxSquadSize: currentConfig.maxSquad || 8,
+      minSquadSize: currentConfig.minSquad || 8,
+      venue: currentConfig.venue || currentConfig.groundName,
+      groundName: currentConfig.groundName || currentConfig.venue,
+    } : {}),
+    ...(separateRules || {}),
+    ...(rulesMap[tournament] || {}),
+  };
+
+  if (separateRules?.groundName && (!targetRules.groundName || targetRules.groundName.startsWith('Arena Ground'))) {
+    targetRules.groundName = separateRules.groundName;
   }
+  if (separateRules?.venue && (!targetRules.venue || targetRules.venue.startsWith('Arena Ground'))) {
+    targetRules.venue = separateRules.venue;
+  }
+  if (currentConfig?.venue && (!targetRules.venue || targetRules.venue.startsWith('Arena Ground'))) {
+    targetRules.venue = currentConfig.venue;
+    targetRules.groundName = currentConfig.venue;
+  }
+  if (separateRules?.knockoutFormat) {
+    targetRules.knockoutFormat = separateRules.knockoutFormat;
+  }
+  if (separateRules?.stages && separateRules.stages.length > 0) {
+    targetRules.stages = separateRules.stages;
+  }
+  if (separateRules?.pathwayTitle) targetRules.pathwayTitle = separateRules.pathwayTitle;
+  if (separateRules?.pathwayBadge) targetRules.pathwayBadge = separateRules.pathwayBadge;
+  if (separateRules?.qualificationRule) targetRules.qualificationRule = separateRules.qualificationRule;
 
   // Auto-heal group configuration if rules set to group_stage_knockout
   if (targetRules?.knockoutFormat === 'group_stage_knockout' && currentConfig && (currentConfig.groupsCount <= 1 || !currentConfig.groupNames || currentConfig.groupNames.length < 2)) {
@@ -149,10 +164,12 @@ export async function GET(req: Request) {
     setStoreData('tournament_configs', configs, 'tournament_configs.json').catch(() => {});
   }
 
-  const matchOvers = Number(targetRules.matchOvers) || Number(currentConfig?.overs) || 10;
+  const matchOvers = Number(targetRules.matchOvers) || Number(currentConfig?.overs) || 7;
   const defaultBowlerLimit = targetRules.maxBowlerOvers !== undefined
     ? Number(targetRules.maxBowlerOvers)
     : Math.max(1, Math.ceil(matchOvers / 5));
+
+  const resolvedVenue = targetRules.groundName || targetRules.venue || currentConfig?.venue || currentConfig?.groundName || 'Arena Ground';
 
   return NextResponse.json(
     {
@@ -163,14 +180,14 @@ export async function GET(req: Request) {
         ...targetRules,
         matchOvers,
         maxBowlerOvers: defaultBowlerLimit,
-        groundName: targetRules.groundName || targetRules.venue || currentConfig?.venue || 'Arena Ground',
-        venue: targetRules.groundName || targetRules.venue || currentConfig?.venue || 'Arena Ground',
-        effectivePurse: (targetRules.basePurse || 10000) - (targetRules.ownerBlockedPrice || 100),
+        groundName: resolvedVenue,
+        venue: resolvedVenue,
+        effectivePurse: (targetRules.basePurse || 7000) - (targetRules.ownerBlockedPrice || 100),
       },
     },
     {
       headers: {
-        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=45',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     }
   );
@@ -277,16 +294,26 @@ export async function POST(req: Request) {
       configs[tournament].groundName = resolvedGround;
 
       // Group format sync
-      if (updated.knockoutFormat === 'group_stage_knockout') {
+      if (updated.knockoutFormat === 'group_stage_knockout' || updated.knockoutFormat === 'dual_groups') {
         configs[tournament].groupsCount = Math.max(configs[tournament].groupsCount || 2, 2);
         if (!configs[tournament].groupNames || configs[tournament].groupNames.length < 2) {
           configs[tournament].groupNames = ['Group A', 'Group B'];
         }
         configs[tournament].format = 'group-stage-playoffs';
+        configs[tournament].formatTitle = `T${parsedMatchOvers} • Dual Group Stage + SF & Final`;
       } else if (['ipl_playoffs', 'semis_final', 'direct_final', 'pure_knockout'].includes(updated.knockoutFormat)) {
         configs[tournament].groupsCount = 1;
         configs[tournament].groupNames = ['Pool A'];
         configs[tournament].format = 'round-robin-playoffs';
+        if (updated.knockoutFormat === 'ipl_playoffs') {
+          configs[tournament].formatTitle = `T${parsedMatchOvers} • Single Pool + IPL Playoffs`;
+        } else if (updated.knockoutFormat === 'semis_final') {
+          configs[tournament].formatTitle = `T${parsedMatchOvers} • Single Pool + Top 4 Semis`;
+        } else if (updated.knockoutFormat === 'direct_final') {
+          configs[tournament].formatTitle = `T${parsedMatchOvers} • Single Pool + Top 2 Final`;
+        } else {
+          configs[tournament].formatTitle = `T${parsedMatchOvers} • Single Elimination Knockout`;
+        }
       }
     }
 

@@ -110,9 +110,32 @@ const KNOCKOUT_PRESETS: Record<string, {
   stages: { title: string; badge: string; desc: string }[];
   qualificationRule: string;
 }> = {
+  group_stage_knockout: {
+    name: 'Dual Group Stage + SF & Final',
+    badge: 'Dual Groups (A & B)',
+    title: 'Knockout Pathway: Dual Group Stage ➔ Semi-Finals ➔ Grand Final',
+    stages: [
+      {
+        title: 'Stage 1: Multi-Pool League',
+        badge: 'Group Stage',
+        desc: 'Franchises compete in Group A & Group B. Top 2 teams from each pool advance to the Cross-Group Playoffs.',
+      },
+      {
+        title: 'Stage 2: Cross-Group Semi-Finals',
+        badge: 'Top 4 Teams',
+        desc: 'Pool A Leader vs Pool B Runner-Up, and Pool B Leader vs Pool A Runner-Up clash for a place in the Grand Final.',
+      },
+      {
+        title: 'Stage 3: Grand Final',
+        badge: 'Championship',
+        desc: 'The two victorious semi-finalists face off in the Grand Final for the official corporate tournament trophy!',
+      },
+    ],
+    qualificationRule: 'Top 2 teams from each pool advance to the Cross-Group Semi-Finals.',
+  },
   ipl_playoffs: {
-    name: 'IPL Playoffs (Top 4: Q1, Eliminator, Q2, Final)',
-    badge: 'Official League Structure',
+    name: 'Single Pool + IPL Playoffs',
+    badge: 'IPL Page Playoffs',
     title: 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
     stages: [
       {
@@ -134,8 +157,8 @@ const KNOCKOUT_PRESETS: Record<string, {
     qualificationRule: 'Top 4 franchises secure direct playoff qualification based on points and Net Run Rate (NRR).',
   },
   semis_final: {
-    name: 'Semi-Finals & Grand Final (Top 4)',
-    badge: 'Top 4 Knockouts',
+    name: 'Single Pool + Top 4 Semis',
+    badge: 'Top 4 Knockout',
     title: 'Knockout Pathway: League Stage ➔ Semi-Finals ➔ Grand Final',
     stages: [
       {
@@ -157,7 +180,7 @@ const KNOCKOUT_PRESETS: Record<string, {
     qualificationRule: 'Top 4 franchises secure direct qualification to the Semi-Finals.',
   },
   direct_final: {
-    name: 'Top 2 Direct Final (Round Robin ➔ Final)',
+    name: 'Single Pool + Top 2 Final',
     badge: 'Top 2 Direct Final',
     title: 'Knockout Pathway: League Stage ➔ Grand Final',
     stages: [
@@ -178,29 +201,6 @@ const KNOCKOUT_PRESETS: Record<string, {
       },
     ],
     qualificationRule: 'Top 2 franchises on the points table secure direct qualification to the Grand Final.',
-  },
-  group_stage_knockout: {
-    name: 'Multi-Group Stage ➔ Semi-Finals ➔ Final',
-    badge: 'Multi-Group League',
-    title: 'Knockout Pathway: Multi-Group Stage ➔ Semi-Finals ➔ Grand Final',
-    stages: [
-      {
-        title: 'Stage 1: Multi-Pool League',
-        badge: 'Group Stage',
-        desc: 'Franchises compete within assigned pools. Top 2 teams from each pool advance to the Cross-Group Playoffs.',
-      },
-      {
-        title: 'Stage 2: Cross-Group Semi-Finals',
-        badge: 'Top 4 Teams',
-        desc: 'Pool A Leader vs Pool B Runner-Up, and Pool B Leader vs Pool A Runner-Up clash for a place in the Grand Final.',
-      },
-      {
-        title: 'Stage 3: Grand Final',
-        badge: 'Championship',
-        desc: 'The two victorious semi-finalists face off in the Grand Final for the official corporate tournament trophy!',
-      },
-    ],
-    qualificationRule: 'Top 2 teams from each pool advance to the Cross-Group Semi-Finals.',
   },
   pure_knockout: {
     name: 'Single Elimination Knockout',
@@ -868,6 +868,61 @@ export default function AdminDashboardPage() {
       alert(`Error deleting franchise: ${err.message}`);
     } finally {
       setIsDeletingTeamId(null);
+    }
+  };
+
+  // --- CHANGE FRANCHISE OWNER HANDLER ---
+  const [editingTeamOwner, setEditingTeamOwner] = useState<any | null>(null);
+  const [newOwnerType, setNewOwnerType] = useState<'registered' | 'custom'>('registered');
+  const [newOwnerName, setNewOwnerName] = useState('');
+  const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [isSavingOwner, setIsSavingOwner] = useState(false);
+
+  const handleSaveTeamOwner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTeamOwner || !newOwnerName.trim()) return;
+    setIsSavingOwner(true);
+    try {
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_franchise_owner',
+          tournament: selectedTournament,
+          teamId: editingTeamOwner.id,
+          teamName: editingTeamOwner.name,
+          newOwnerName: newOwnerName.trim(),
+          newOwnerEmail: newOwnerEmail.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.teams) {
+          setTeams(data.teams.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            short: t.short,
+            owner: t.owner,
+            ownerEmail: t.ownerEmail,
+            captain: t.captain || (t.owner ? `${t.owner} (C)` : `${t.name} (C)`),
+            viceCaptain: t.viceCaptain || 'To be assigned',
+            budget: t.allocated || t.budget || auctionRules.basePurse || 7000,
+            squadCount: t.playersBought || (t.players ? t.players.length : 1),
+          })));
+        }
+        if (data.registrations) {
+          setTournamentRegistrations(data.registrations);
+        }
+        invalidateClientCache();
+        showNotification(data.message || 'Franchise owner successfully updated across all sections!');
+        setEditingTeamOwner(null);
+      } else {
+        alert(data.error || 'Failed to update franchise owner');
+      }
+    } catch (err: any) {
+      alert(`Error updating owner: ${err.message}`);
+    } finally {
+      setIsSavingOwner(false);
     }
   };
 
@@ -1596,6 +1651,21 @@ export default function AdminDashboardPage() {
       stages: JSON.parse(JSON.stringify(preset.stages)),
       qualificationRule: preset.qualificationRule,
     }));
+    if (presetKey === 'group_stage_knockout') {
+      setSchedulerFormat('dual_groups');
+    } else if (presetKey === 'ipl_playoffs') {
+      setSchedulerFormat('ipl_playoffs');
+    } else if (presetKey === 'semis_final') {
+      setSchedulerFormat('semis_final');
+    } else if (presetKey === 'direct_final') {
+      setSchedulerFormat('direct_final');
+    }
+  };
+
+  const handleSelectSchedulerFormat = (fmtId: 'dual_groups' | 'ipl_playoffs' | 'semis_final' | 'direct_final') => {
+    setSchedulerFormat(fmtId);
+    const presetKey = fmtId === 'dual_groups' ? 'group_stage_knockout' : fmtId;
+    applyKnockoutPreset(presetKey);
   };
 
   // Synchronize auto-scheduler format when auctionRules or tournament format changes
@@ -2755,10 +2825,29 @@ export default function AdminDashboardPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3.5 text-xs text-gray-300">
-                            <div className="font-semibold text-white">{t.owner}</div>
-                            {t.ownerEmail && (
-                              <div className="text-[11px] text-cricket-muted">{t.ownerEmail}</div>
-                            )}
+                            <div className="flex items-center justify-between gap-1.5">
+                              <div>
+                                <div className="font-semibold text-white">{t.owner}</div>
+                                {t.ownerEmail && (
+                                  <div className="text-[11px] text-cricket-muted">{t.ownerEmail}</div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTeamOwner(t);
+                                  setNewOwnerName(t.owner || '');
+                                  setNewOwnerEmail(t.ownerEmail || '');
+                                  setNewOwnerType('registered');
+                                }}
+                                className="p-1.5 rounded-lg bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/40 text-[#F2D69A] hover:text-white transition-all text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0 shadow-sm"
+                                title="Change Franchise Owner"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-[#D8AD55]" />
+                                <span className="hidden sm:inline">Change Owner</span>
+                              </button>
+                            </div>
                           </td>
                           <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <button
@@ -3354,7 +3443,7 @@ export default function AdminDashboardPage() {
                     <button
                       key={fmt.id}
                       type="button"
-                      onClick={() => setSchedulerFormat(fmt.id as any)}
+                      onClick={() => handleSelectSchedulerFormat(fmt.id as any)}
                       className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 cursor-pointer ${
                         schedulerFormat === fmt.id
                           ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border-teal-400 text-white shadow-lg ring-1 ring-teal-400/50'
@@ -5928,6 +6017,146 @@ export default function AdminDashboardPage() {
                       <span>Create Tournament</span>
                     </>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Franchise Owner Modal */}
+      {editingTeamOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="glass-card max-w-lg w-full p-6 sm:p-7 space-y-5 border border-[#D8AD55]/40 bg-[#08111F]/95 shadow-2xl relative rounded-3xl">
+            <div className="flex items-start justify-between border-b border-[#D8AD55]/20 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/30">
+                  <Users className="w-6 h-6 text-[#D8AD55]" />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-xl text-white">Change Franchise Owner</h3>
+                  <p className="text-xs text-[#F2D69A] font-bold uppercase tracking-wider">
+                    {editingTeamOwner.name} ({editingTeamOwner.short}) • {selectedTournament.toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTeamOwner(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTeamOwner} className="space-y-4 text-sm">
+              <div className="p-3.5 rounded-xl bg-[#0D1B2A] border border-white/5 text-xs text-gray-300 space-y-1">
+                <div className="text-[#8793A5] uppercase font-bold text-[10px] tracking-wider">Current Assigned Owner:</div>
+                <div className="font-bold text-white text-sm">{editingTeamOwner.owner || 'None'}</div>
+                {editingTeamOwner.ownerEmail && (
+                  <div className="text-[#F2D69A] font-mono text-[11px]">{editingTeamOwner.ownerEmail}</div>
+                )}
+              </div>
+
+              {/* Mode Toggle */}
+              <div className="flex items-center gap-2 p-1 bg-[#0D1B2A] rounded-xl border border-white/10 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setNewOwnerType('registered')}
+                  className={`flex-1 py-2 rounded-lg transition-all cursor-pointer ${
+                    newOwnerType === 'registered'
+                      ? 'bg-[#D8AD55] text-[#08111F] shadow'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Select from Registered Players ({tournamentRegistrations.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewOwnerType('custom')}
+                  className={`flex-1 py-2 rounded-lg transition-all cursor-pointer ${
+                    newOwnerType === 'custom'
+                      ? 'bg-[#D8AD55] text-[#08111F] shadow'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Enter Custom Name & Email
+                </button>
+              </div>
+
+              {newOwnerType === 'registered' ? (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
+                    Choose New Owner from Registered Pool
+                  </label>
+                  <select
+                    value={newOwnerEmail}
+                    onChange={(e) => {
+                      const selected = tournamentRegistrations.find(r => r.email === e.target.value);
+                      if (selected) {
+                        setNewOwnerName(selected.name);
+                        setNewOwnerEmail(selected.email);
+                      } else {
+                        setNewOwnerEmail(e.target.value);
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#08111F] border border-[#D8AD55]/40 text-white text-sm focus:outline-none focus:border-[#D8AD55]"
+                  >
+                    <option value="">-- Select Registered Player --</option>
+                    {tournamentRegistrations.map((p) => (
+                      <option key={p.id} value={p.email}>
+                        {p.name} ({p.role}) • {p.email} {p.isOwner ? '• [Currently Owner]' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-[#8793A5]">Selecting a player automatically imports their verified email and registration details.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">New Owner Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Tariq Ahmed"
+                      value={newOwnerName}
+                      onChange={(e) => setNewOwnerName(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-[#08111F] border border-white/10 text-white text-sm focus:outline-none focus:border-[#D8AD55]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">New Owner Email</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. owner@example.com"
+                      value={newOwnerEmail}
+                      onChange={(e) => setNewOwnerEmail(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-[#08111F] border border-white/10 text-white text-sm focus:outline-none focus:border-[#D8AD55]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="p-3 rounded-xl bg-[#0D1B2A] border border-[#D8AD55]/20 text-xs text-[#8793A5] space-y-1">
+                <span className="font-bold text-[#F2D69A] block">Auto-Sync Protocol:</span>
+                <span>Saving will update the owner in the live auction room, retain them in the squad for ₹{auctionRules.ownerBlockedPrice}, assign bidding permissions, and sync across the entire website.</span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTeamOwner(null)}
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingOwner || !newOwnerName.trim()}
+                  className="btn-press shimmer-btn px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg hover:brightness-110 active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSavingOwner ? 'Updating Owner...' : 'Confirm & Save New Owner'}
                 </button>
               </div>
             </form>

@@ -3,7 +3,7 @@
     "name": "DDPL 3.0",
     "slug": "ddpl-3-0",
     "overs": 7,
-    "format": "ddpl",
+    "format": "group-stage-playoffs",
     "season": "2026",
     "status": "auction",
     "tagline": "Beyond Work, A Battle of Corporate Titans!",
@@ -25,6 +25,10 @@
     "maxBowlerOvers": 2,
     "ownerBasePrice": 100,
     "tournamentType": "auction_league",
-    "defaultPlayerBasePrice": 100
+    "defaultPlayerBasePrice": 100,
+    "groundName": "AC Block Football Ground",
+    "venue": "AC Block Football Ground",
+    "knockoutFormat": "group_stage_knockout",
+    "formatTitle": "T7 • Dual Group Stage + SF & Final"
   }
 }

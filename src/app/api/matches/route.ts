@@ -794,7 +794,7 @@ export async function GET(req: Request) {
     },
     {
       headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     }
   );
@@ -875,7 +875,7 @@ export async function POST(req: Request) {
         currentConfig?.venue ||
         currentRules.groundName ||
         currentRules.venue ||
-        'Arena Ground 1'
+        'AC Block Football Ground'
       ).trim();
 
       let generatedMatches: MatchFixture[];

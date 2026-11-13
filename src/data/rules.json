@@ -13,7 +13,30 @@
       "minSquadSize": 8,
       "maxBowlerOvers": 2,
       "ownerBlockedPrice": 100,
-      "defaultPlayerBasePrice": 100
+      "defaultPlayerBasePrice": 100,
+      "groundName": "AC Block Football Ground",
+      "venue": "AC Block Football Ground",
+      "knockoutFormat": "group_stage_knockout",
+      "pathwayTitle": "Knockout Pathway: Dual Group Stage ➔ Semi-Finals ➔ Grand Final",
+      "pathwayBadge": "Dual Groups (A & B)",
+      "stages": [
+        {
+          "title": "Stage 1: Multi-Pool League",
+          "badge": "Group Stage",
+          "desc": "Franchises compete in Group A & Group B. Top 2 teams from each pool advance to the Cross-Group Playoffs."
+        },
+        {
+          "title": "Stage 2: Cross-Group Semi-Finals",
+          "badge": "Top 4 Teams",
+          "desc": "Pool A Leader vs Pool B Runner-Up, and Pool B Leader vs Pool A Runner-Up clash for a place in the Grand Final."
+        },
+        {
+          "title": "Stage 3: Grand Final",
+          "badge": "Championship",
+          "desc": "The two victorious semi-finalists face off in the Grand Final for the official corporate tournament trophy!"
+        }
+      ],
+      "qualificationRule": "Top 2 teams from each pool advance to the Cross-Group Semi-Finals."
     }
   }
 }

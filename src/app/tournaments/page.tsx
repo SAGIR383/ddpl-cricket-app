@@ -267,7 +267,17 @@ export default function TournamentsPage() {
             currency: cfg.currency || 'INR',
             currencySymbol: cfg.currencySymbol || '₹',
             format: cfg.format || 'ddpl',
-            formatTitle: cfg.formatTitle || (cfg.overs ? `T${overs} • ${cfg.format === 'game-of-run' ? 'Group Stage' : 'Round Robin'}` : 'Cricket League'),
+            formatTitle: cfg.formatTitle || (
+              cfg.knockoutFormat === 'group_stage_knockout' || cfg.format === 'group-stage-playoffs' || (cfg.groupsCount && cfg.groupsCount > 1)
+                ? `T${overs} • Dual Group Stage + SF & Final`
+                : cfg.knockoutFormat === 'ipl_playoffs'
+                ? `T${overs} • Single Pool + IPL Playoffs`
+                : cfg.knockoutFormat === 'semis_final'
+                ? `T${overs} • Single Pool + Top 4 Semis`
+                : cfg.knockoutFormat === 'direct_final'
+                ? `T${overs} • Single Pool + Top 2 Final`
+                : (cfg.overs ? `T${overs} • ${cfg.format === 'game-of-run' ? 'Group Stage' : 'Round Robin'}` : 'Cricket League')
+            ),
             creatorEmail: cfg.creatorEmail || undefined,
             adminEmails: Array.isArray(cfg.adminEmails) ? cfg.adminEmails : [],
           };

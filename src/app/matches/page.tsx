@@ -70,10 +70,10 @@ export default function MatchesPage() {
       if (matches.length === 0) setLoading(true);
       try {
         const [regData, mData, rulesData, aData] = await Promise.all([
-          fetchWithCache<any>('/api/tournaments/register', { ttlMs: 20000 }),
-          selectedTournament ? fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 20000 }) : Promise.resolve(null),
-          selectedTournament ? fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 30000 }) : Promise.resolve(null),
-          selectedTournament ? fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 20000 }) : Promise.resolve(null),
+          fetchWithCache<any>('/api/tournaments/register', { ttlMs: 5000 }),
+          selectedTournament ? fetchWithCache<any>(`/api/matches?tournament=${selectedTournament}`, { ttlMs: 5000 }) : Promise.resolve(null),
+          selectedTournament ? fetchWithCache<any>(`/api/admin/rules?tournament=${selectedTournament}`, { ttlMs: 5000 }) : Promise.resolve(null),
+          selectedTournament ? fetchWithCache<any>(`/api/auction/data?tournament=${selectedTournament}`, { ttlMs: 5000 }) : Promise.resolve(null),
         ]);
 
         if (!isMounted) return;
@@ -105,6 +105,7 @@ export default function MatchesPage() {
           rulesData?.rules?.groundName ||
           rulesData?.rules?.venue ||
           activeTourneyMeta?.venue ||
+          activeTourneyMeta?.groundName ||
           'Arena Ground';
         setVenueName(officialGround);
 

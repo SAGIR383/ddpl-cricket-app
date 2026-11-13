@@ -702,6 +702,172 @@ export async function POST(req: Request) {
       });
     }
 
+    // 3.2 UPDATE FRANCHISE OWNER (Super Admin)
+    if (action === 'update_franchise_owner' || action === 'update_owner') {
+      const { teamId, teamName, newOwnerName, newOwnerEmail } = body;
+      if (!teamId && !teamName) {
+        return NextResponse.json({ success: false, error: 'Team ID or Name is required' }, { status: 400 });
+      }
+      if (!newOwnerName || !newOwnerName.trim()) {
+        return NextResponse.json({ success: false, error: 'New owner name is required' }, { status: 400 });
+      }
+
+      const cleanOwnerName = newOwnerName.trim();
+      const cleanOwnerEmail = (newOwnerEmail || '').trim().toLowerCase();
+
+      // 1. Fetch current auction data, rules, registrations
+      const [allAuction, rulesContainer, configs, registrations] = await Promise.all([
+        getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }),
+        getStoreData<any>('tournament_rules', 'rules.json', { tournaments: {} }),
+        getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+        getStoreData<TournamentPlayerRegistration[]>(
+          `tournament_registrations_${tSlug}`,
+          `registrations_${tSlug}.json`,
+          []
+        ),
+      ]);
+
+      const currentTourneyData = allAuction.tournaments?.[tSlug] || { teams: [], soldTransactions: [] };
+      const currentRules = rulesContainer?.tournaments?.[tSlug] || rulesContainer?.[tSlug] || {};
+      const currentConf = configs?.[tSlug] || {};
+      const ownerBlockedPrice = Number(currentRules.ownerBlockedPrice !== undefined ? currentRules.ownerBlockedPrice : (currentConf.ownerBasePrice || 100));
+
+      const targetTeam = (currentTourneyData.teams || []).find(
+        (t: any) => t.id === teamId || (teamName && t.name.toLowerCase() === teamName.toLowerCase())
+      );
+
+      if (!targetTeam) {
+        return NextResponse.json({ success: false, error: 'Franchise team not found' }, { status: 404 });
+      }
+
+      const oldOwnerName = targetTeam.owner;
+      const oldOwnerEmail = targetTeam.ownerEmail;
+
+      // Find new owner profile / registration to get avatar and details
+      const newOwnerReg = registrations.find(
+        (r) =>
+          (cleanOwnerEmail && r.email?.toLowerCase() === cleanOwnerEmail) ||
+          (cleanOwnerName && r.name?.toLowerCase() === cleanOwnerName.toLowerCase())
+      );
+
+      const resolvedOwnerEmail = newOwnerReg?.email || cleanOwnerEmail || (cleanOwnerName ? `${cleanOwnerName.toLowerCase().replace(/[^a-z0-9]/g, '')}@cricplus.com` : 'owner@cricplus.com');
+      const resolvedOwnerPhoto = newOwnerReg?.avatarUrl || (newOwnerReg as any)?.photo || null;
+
+      // 2. Update Registrations: Release old owner, assign new owner
+      const updatedRegs = registrations.map((r) => {
+        if (oldOwnerEmail && r.email?.toLowerCase() === oldOwnerEmail.toLowerCase()) {
+          return { ...r, isOwner: false, franchiseTeam: undefined };
+        }
+        if (oldOwnerName && r.name?.toLowerCase() === oldOwnerName.toLowerCase()) {
+          return { ...r, isOwner: false, franchiseTeam: undefined };
+        }
+        if (resolvedOwnerEmail && r.email?.toLowerCase() === resolvedOwnerEmail.toLowerCase()) {
+          return { ...r, isOwner: true, franchiseTeam: targetTeam.name };
+        }
+        if (cleanOwnerName && r.name?.toLowerCase() === cleanOwnerName.toLowerCase()) {
+          return { ...r, isOwner: true, franchiseTeam: targetTeam.name };
+        }
+        return r;
+      });
+
+      // If new owner wasn't in registrations, add them as registered owner player
+      if (!newOwnerReg) {
+        updatedRegs.push({
+          id: `reg-owner-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name: cleanOwnerName,
+          email: resolvedOwnerEmail,
+          phone: '',
+          role: 'All-rounder (Franchise Owner)',
+          battingStyle: 'Right-hand bat',
+          bowlingStyle: 'Right-arm medium',
+          isOwner: true,
+          franchiseTeam: targetTeam.name,
+          registeredAt: new Date().toISOString(),
+        });
+      }
+
+      // 3. Update Auction Team Data
+      targetTeam.owner = cleanOwnerName;
+      targetTeam.ownerEmail = resolvedOwnerEmail;
+
+      // Update team.players (replace old owner retention player with new owner)
+      const nonOwnerPlayers = (targetTeam.players || []).filter(
+        (p: any) =>
+          !p.role?.includes('Franchise Owner') &&
+          (!oldOwnerName || p.name?.toLowerCase().trim() !== oldOwnerName.toLowerCase().trim())
+      );
+
+      const newOwnerPlayerItem = {
+        name: cleanOwnerName,
+        role: 'All-rounder (Franchise Owner)',
+        price: ownerBlockedPrice,
+        avatarUrl: resolvedOwnerPhoto,
+      };
+
+      targetTeam.players = [newOwnerPlayerItem, ...nonOwnerPlayers];
+      targetTeam.captain = `${cleanOwnerName} (C)`;
+
+      // Recalculate spent & remaining
+      const totalSpent = (targetTeam.players || []).reduce((sum: number, p: any) => sum + (Number(p.price) || 0), 0);
+      targetTeam.spent = totalSpent;
+      targetTeam.remaining = Math.max(0, Number(targetTeam.allocated || targetTeam.budget || 7000) - totalSpent);
+      targetTeam.playersBought = targetTeam.players.length;
+
+      // 4. Update soldTransactions in Auction Data
+      const otherTransactions = (currentTourneyData.soldTransactions || []).filter(
+        (tx: any) =>
+          !(
+            tx.team?.toLowerCase() === targetTeam.name.toLowerCase() &&
+            (tx.isOwner || tx.role?.includes('Franchise Owner') || (oldOwnerName && tx.player?.toLowerCase() === oldOwnerName.toLowerCase()))
+          )
+      );
+
+      const newOwnerTx = {
+        id: `tx-owner-${targetTeam.id}`,
+        player: cleanOwnerName,
+        team: targetTeam.name,
+        price: ownerBlockedPrice,
+        role: 'Franchise Owner',
+        isOwner: true,
+        basePrice: ownerBlockedPrice,
+        avatarUrl: resolvedOwnerPhoto,
+      };
+
+      currentTourneyData.soldTransactions = [newOwnerTx, ...otherTransactions];
+      currentTourneyData.lastUpdated = new Date().toISOString();
+
+      allAuction.tournaments = {
+        ...allAuction.tournaments,
+        [tSlug]: currentTourneyData,
+      };
+
+      // 5. Update user_roles in Supabase Pro
+      try {
+        const rolesRow = await getStoreData<Record<string, string>>('user_roles', 'user_roles.json', {});
+        rolesRow[resolvedOwnerEmail] = 'organizer';
+        await setStoreData('user_roles', rolesRow, 'user_roles.json');
+        invalidateStoreCache('user_roles');
+      } catch (roleErr) {
+        console.warn('Role assignment warning for new owner:', roleErr);
+      }
+
+      // Persist registrations and auction data
+      await Promise.all([
+        setStoreData(`tournament_registrations_${tSlug}`, updatedRegs, `registrations_${tSlug}.json`),
+        setStoreData('auction_data_ddpl', allAuction, 'auction_data.json'),
+      ]);
+
+      invalidateStoreCache('auction_data_ddpl');
+      invalidateStoreCache(`tournament_registrations_${tSlug}`);
+
+      return NextResponse.json({
+        success: true,
+        message: `Franchise "${targetTeam.name}" owner updated to ${cleanOwnerName} (${resolvedOwnerEmail}) successfully! Synced across Auction, Player Pool, and Permissions.`,
+        teams: currentTourneyData.teams,
+        registrations: updatedRegs,
+      });
+    }
+
     // 3.1 DELETE PLAYER FROM TOURNAMENT (Super Admin / Organizer)
     if (action === 'delete_player' || action === 'remove_player') {
       const { playerId, playerName, email: playerEmail } = body;
