@@ -92,12 +92,12 @@ export default function AuctionPage() {
 
   // Dynamic Auction Rules (from /api/admin/rules)
   const [rules, setRules] = useState({
-    basePurse: 10000,
+    basePurse: 7000,
     ownerBlockedPrice: 100,
     defaultPlayerBasePrice: 100,
     bidSteps: [50, 100, 200, 500],
-    maxSquadSize: 11,
-    matchOvers: 10,
+    maxSquadSize: 8,
+    matchOvers: 7,
     maxBowlerOvers: 2,
   });
 
@@ -235,22 +235,24 @@ export default function AuctionPage() {
         const resolvedDefaultBase = rulesData?.rules?.defaultPlayerBasePrice !== undefined ? rulesData.rules.defaultPlayerBasePrice : 100;
         if (rulesData?.success && rulesData.rules) {
           setRules({
-            basePurse: rulesData.rules.basePurse || 10000,
+            basePurse: rulesData.rules.basePurse || 7000,
             ownerBlockedPrice: rulesData.rules.ownerBlockedPrice !== undefined ? rulesData.rules.ownerBlockedPrice : 100,
             defaultPlayerBasePrice: resolvedDefaultBase,
             bidSteps: rulesData.rules.bidSteps || [50, 100, 200, 500],
-            maxSquadSize: rulesData.rules.maxSquadSize || 11,
-            matchOvers: rulesData.rules.matchOvers || 10,
+            maxSquadSize: rulesData.rules.maxSquadSize || 8,
+            matchOvers: rulesData.rules.matchOvers || 7,
             maxBowlerOvers: rulesData.rules.maxBowlerOvers || 2,
           });
         }
 
         if (auctionData?.success && auctionData.data) {
           const d = auctionData.data;
-          const targetCap = rulesData?.rules?.maxSquadSize || 11;
+          const targetCap = rulesData?.rules?.maxSquadSize || 8;
+          const targetPurse = rulesData?.rules?.basePurse || 7000;
           const normalizedTeams = (Array.isArray(d.teams) ? d.teams : []).map((t: any) => ({
             ...t,
-            maxSquad: Math.max(t.maxSquad || 11, targetCap),
+            allocated: t.allocated || targetPurse,
+            maxSquad: t.maxSquad || targetCap,
           }));
           setTeams(normalizedTeams);
 
@@ -547,7 +549,7 @@ export default function AuctionPage() {
       incrementLogged = inc;
     }
 
-    const effectiveCap = Math.max(rules.maxSquadSize || 11, team.maxSquad || 11);
+    const effectiveCap = rules.maxSquadSize || team.maxSquad || 8;
     if (team.playersBought >= effectiveCap) {
       alert(`Cannot bid: ${team.name} has reached maximum squad capacity (${effectiveCap} players)!`);
       return;
@@ -799,7 +801,7 @@ export default function AuctionPage() {
 
     const currentPrice = currentLot.currentBid;
     const remaining = rtmTeam.allocated - rtmTeam.spent;
-    const effectiveCap = Math.max(rules.maxSquadSize || 11, rtmTeam.maxSquad || 11);
+    const effectiveCap = rules.maxSquadSize || rtmTeam.maxSquad || 8;
     const playersNeededAfterThis = Math.max(0, effectiveCap - (rtmTeam.playersBought + 1));
     const basePricePerPlayer = rules.defaultPlayerBasePrice || 100;
     const mandatoryReserve = playersNeededAfterThis * basePricePerPlayer;
@@ -1620,7 +1622,7 @@ export default function AuctionPage() {
                             ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
                             : currentLot.currentBid + selectedIncrement;
                           const isLeading = currentLot.leadingTeam === t.name;
-                          const teamCap = Math.max(rules.maxSquadSize || 11, t.maxSquad || 11);
+                          const teamCap = rules.maxSquadSize || t.maxSquad || 8;
                           const isSquadFull = t.playersBought >= teamCap;
                           const neededAfter = Math.max(0, teamCap - (t.playersBought + 1));
                           const basePrice = rules.defaultPlayerBasePrice || 100;

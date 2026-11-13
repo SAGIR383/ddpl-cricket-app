@@ -392,7 +392,8 @@ function AuctionProjectorContent() {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
           {teams.map((t) => {
             const isLeading = currentLot?.leadingTeam === t.name;
-            const remaining = (t.allocated || 10000) - (t.spent || 0);
+            const remaining = (t.allocated || tournamentConfig?.pursePerTeam || 7000) - (t.spent || 0);
+            const teamSquadCap = t.maxSquad || tournamentConfig?.maxSquad || 8;
             return (
               <div
                 key={t.id}
@@ -404,7 +405,7 @@ function AuctionProjectorContent() {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-white truncate">{t.short || t.name}</span>
-                  <span className="text-[10px] text-[#8793A5] font-mono">{t.playersBought || 1}/11</span>
+                  <span className="text-[10px] text-[#8793A5] font-mono">{t.playersBought || 1}/{teamSquadCap}</span>
                 </div>
                 <div className="font-display font-black text-sm text-[#F2D69A] mt-1">
                   {currencySymbol}{remaining.toLocaleString()}
