@@ -26,7 +26,8 @@ import { fetchWithCache } from '@/lib/clientCache';
 
 function AuctionProjectorContent() {
   const searchParams = useSearchParams();
-  const activeTournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
+  const rawTourney = (searchParams.get('tournament') || 'ddpl-3-0').toLowerCase();
+  const activeTournament = rawTourney === 'ddpl' ? 'ddpl-3-0' : rawTourney;
   const supabase = createClient();
 
   const [isFullscreen, setIsFullscreen] = useState(false);

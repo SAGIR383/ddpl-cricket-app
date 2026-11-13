@@ -68,7 +68,8 @@ const DEFAULT_CONFIGS: Record<string, TournamentConfig> = {};
 // GET /api/tournaments/register?tournament=...
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const requestedSlug = (searchParams.get('tournament') || searchParams.get('slug'))?.toLowerCase();
+  const rawRequested = (searchParams.get('tournament') || searchParams.get('slug'))?.toLowerCase();
+  const requestedSlug = rawRequested === 'ddpl' ? 'ddpl-3-0' : rawRequested;
 
   const [storedConfigs, rulesContainer] = await Promise.all([
     getStoreData<Record<string, TournamentConfig>>(
@@ -161,7 +162,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { action } = body;
-    const tSlug = (body.slug || body.tournament || 'ddpl').toLowerCase();
+    const rawSlug = (body.slug || body.tournament || 'ddpl-3-0').toLowerCase();
+    const tSlug = (rawSlug === 'ddpl' && action !== 'delete_tournament') ? 'ddpl-3-0' : rawSlug;
 
     // 1. UPDATE TOURNAMENT STATUS (Super Admin)
     if (action === 'update_status') {
@@ -1586,10 +1588,6 @@ export async function POST(req: Request) {
         allConfigs: configs,
         tournamentsList: Object.values(configs),
       });
-
-      // Clear any session cookie bound to the deleted tournament
-      response.cookies.delete('cricplus_superadmin');
-      response.cookies.delete('cricpluse_superadmin');
 
       return response;
     }

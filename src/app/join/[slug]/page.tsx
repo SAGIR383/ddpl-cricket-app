@@ -27,7 +27,14 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function JoinTournamentPage() {
   const params = useParams();
   const router = useRouter();
-  const slug = (params.slug as string) || 'ddpl';
+  const rawSlug = (params.slug as string) || 'ddpl-3-0';
+  const slug = rawSlug === 'ddpl' ? 'ddpl-3-0' : rawSlug;
+
+  useEffect(() => {
+    if (params.slug === 'ddpl') {
+      router.replace('/join/ddpl-3-0');
+    }
+  }, [params.slug, router]);
   const { user, profile, refreshProfile } = useAuth();
   const supabase = createClient();
 

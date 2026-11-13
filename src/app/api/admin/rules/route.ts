@@ -181,7 +181,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { searchParams } = new URL(req.url);
-    const tournament = (body.tournament || searchParams.get('tournament') || 'ddpl').toLowerCase();
+    const rawTourney = (body.tournament || searchParams.get('tournament') || 'ddpl-3-0').toLowerCase();
+    const tournament = rawTourney === 'ddpl' ? 'ddpl-3-0' : rawTourney;
 
     const {
       basePurse,

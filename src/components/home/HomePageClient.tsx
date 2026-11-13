@@ -353,7 +353,7 @@ export function HomePageClient() {
         const allRulesTourneys = rulesData?.tournaments || regData?.rulesMap || {};
 
         const resolvedTourneys: TournamentCardItem[] = baseList.map((t: any) => {
-          const slug = t.slug || 'ddpl';
+          const slug = t.slug || 'ddpl-3-0';
           const cfg = allConfigs[slug] || t;
           const tAuction = allAuctionTourneys[slug] || (slug === activeSlug ? aData?.data : null);
           const tRules = allRulesTourneys[slug] || (slug === activeSlug ? rulesData?.rules : null);

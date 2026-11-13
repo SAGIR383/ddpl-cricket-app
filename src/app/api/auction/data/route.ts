@@ -56,7 +56,8 @@ async function saveAllAuctionData(data: any) {
 // GET /api/auction/data?tournament=ddpl
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tournament = (searchParams.get('tournament') || 'ddpl').toLowerCase();
+  const rawTourney = (searchParams.get('tournament') || 'ddpl-3-0').toLowerCase();
+  const tournament = rawTourney === 'ddpl' ? 'ddpl-3-0' : rawTourney;
 
   const allData = await readAllAuctionData();
   let rawTournamentData = allData.tournaments?.[tournament];
@@ -220,7 +221,8 @@ export async function POST(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const body = await req.json();
-    const tournament = (body.tournament || searchParams.get('tournament') || 'ddpl').toLowerCase();
+    const rawTourney = (body.tournament || searchParams.get('tournament') || 'ddpl-3-0').toLowerCase();
+    const tournament = rawTourney === 'ddpl' ? 'ddpl-3-0' : rawTourney;
 
     const allData = await readAllAuctionData();
     if (!allData.tournaments) {

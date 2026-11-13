@@ -81,7 +81,7 @@ export default function AuctionPage() {
   const supabase = createClient();
   const channelRef = useRef<any>(null);
 
-  const [activeTournament, setActiveTournament] = useState<string>('ddpl');
+  const [activeTournament, setActiveTournament] = useState<string>('ddpl-3-0');
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [bidStep, setBidStep] = useState(100);
   const [selectedIncrement, setSelectedIncrement] = useState<number>(100);
@@ -198,7 +198,7 @@ export default function AuctionPage() {
 
     async function loadInitialData() {
       try {
-        const tourneyKey = activeTournament || 'ddpl';
+        const tourneyKey = (activeTournament === 'ddpl' ? 'ddpl-3-0' : activeTournament) || 'ddpl-3-0';
         const [regData, rulesData, auctionData] = await Promise.all([
           fetchWithCache<any>(`/api/tournaments/register?tournament=${tourneyKey}`, { ttlMs: 15000 }),
           fetchWithCache<any>(`/api/admin/rules?tournament=${tourneyKey}`, { ttlMs: 30000 }),

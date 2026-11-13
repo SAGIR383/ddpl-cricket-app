@@ -746,7 +746,8 @@ export function generateMultiGroupFixtures(
 // GET /api/matches?tournament=...
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const tournament = (searchParams.get('tournament') || '').toLowerCase();
+  const rawTournament = (searchParams.get('tournament') || 'ddpl-3-0').toLowerCase();
+  const tournament = rawTournament === 'ddpl' ? 'ddpl-3-0' : rawTournament;
 
   if (!tournament) {
     return NextResponse.json(
@@ -803,7 +804,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const tournament = (body.tournament || 'ddpl').toLowerCase();
+    const rawTourney = (body.tournament || 'ddpl-3-0').toLowerCase();
+    const tournament = rawTourney === 'ddpl' ? 'ddpl-3-0' : rawTourney;
     const action = body.action;
 
     let schedule = await getStoreData<TournamentScheduleState>(
