@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { neonQuery } from '@/lib/db/neon';
-import { getStoreData } from '@/lib/supabase/store';
+import { supabaseAdmin, getStoreData } from '@/lib/supabase/store';
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,18 +63,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Fetch user profile from Neon PostgreSQL
+    // Fetch user profile from Supabase Pro profiles table
     let dbProfile: any = null;
     try {
-      const rows = await neonQuery<any>(
-        'SELECT id, full_name, email, avatar_url, phone, employee_id, batting_style, bowling_style, primary_role, system_role, created_at, updated_at FROM profiles WHERE LOWER(email) = $1 LIMIT 1',
-        [targetEmail]
-      );
-      if (rows && rows.length > 0) {
-        dbProfile = rows[0];
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, email, avatar_url, phone, employee_id, batting_style, bowling_style, primary_role, system_role, created_at, updated_at')
+        .ilike('email', targetEmail)
+        .maybeSingle();
+      if (profile) {
+        dbProfile = profile;
       }
     } catch (e) {
-      console.warn('[Me Route Neon Query Warn]:', e);
+      console.warn('[Me Route Supabase Profile Fetch Warn]:', e);
     }
 
     // Fetch user roles store

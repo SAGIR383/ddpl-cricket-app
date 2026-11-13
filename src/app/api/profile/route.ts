@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, getStoreData, setStoreData, invalidateStoreCache } from '@/lib/supabase/store';
-import { neonQuery } from '@/lib/db/neon';
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,31 +44,17 @@ export async function GET(req: NextRequest) {
     const userProf = userProfiles[finalEmail] || {};
     const adminAcc = adminAccounts[finalEmail] || {};
 
-    // 2. Query Neon PostgreSQL profiles table first (100% resilient & direct)
+    // 2. Query Supabase Pro profiles table directly
     let dbProfile: any = null;
     try {
-      const neonRows = await neonQuery<any>(
-        'SELECT id, full_name, email, avatar_url, phone, employee_id, batting_style, bowling_style, primary_role, system_role, created_at, updated_at FROM profiles WHERE LOWER(email) = $1 LIMIT 1',
-        [finalEmail]
-      );
-      if (neonRows && neonRows.length > 0) {
-        dbProfile = neonRows[0];
-      }
-    } catch (neonErr) {
-      console.warn('[Neon profile fetch warn]:', neonErr);
-    }
-
-    if (!dbProfile) {
-      try {
-        const { data } = await supabaseAdmin
-          .from('profiles')
-          .select('*')
-          .eq('email', finalEmail)
-          .maybeSingle();
-        dbProfile = data;
-      } catch (e) {
-        console.warn('Supabase profile fetch error:', e);
-      }
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .ilike('email', finalEmail)
+        .maybeSingle();
+      dbProfile = data;
+    } catch (e) {
+      console.warn('Supabase profile fetch error:', e);
     }
 
     // 3. Try tournament_configs for creator name
@@ -192,34 +177,13 @@ export async function POST(req: NextRequest) {
       invalidateStoreCache('super_admin_accounts');
     }
 
-    // 4. Update Neon PostgreSQL profiles table directly (guaranteed persistence)
-    try {
-      await neonQuery(
-        `UPDATE profiles 
-         SET full_name = $1, avatar_url = $2, employee_id = $3, phone = $4, primary_role = $5, batting_style = $6, bowling_style = $7, updated_at = NOW() 
-         WHERE LOWER(email) = $8`,
-        [
-          newFullName,
-          resolvedAvatar,
-          body.employee_id || null,
-          body.phone || null,
-          body.primary_role || 'All-rounder',
-          body.batting_style || 'Right-hand bat',
-          body.bowling_style || 'Right-arm medium',
-          targetEmail.toLowerCase(),
-        ]
-      );
-    } catch (neonUpdateErr) {
-      console.warn('[Neon Profile Update Warn]:', neonUpdateErr);
-    }
-
-    // 5. Background sync to Supabase profiles table if available
+    // 4. Update Supabase Pro profiles table directly
     let profileId = body.id || existingUserProf.id;
     try {
       const { data: existingProfile } = await supabaseAdmin
         .from('profiles')
         .select('id')
-        .eq('email', targetEmail)
+        .ilike('email', targetEmail)
         .maybeSingle();
 
       if (existingProfile?.id) {
@@ -236,7 +200,7 @@ export async function POST(req: NextRequest) {
             bowling_style: body.bowling_style || 'Right-arm medium',
             updated_at: new Date().toISOString(),
           })
-          .eq('id', profileId);
+          .eq('id', existingProfile.id);
       } else {
         profileId = profileId || `profile-${Date.now()}`;
         await supabaseAdmin
