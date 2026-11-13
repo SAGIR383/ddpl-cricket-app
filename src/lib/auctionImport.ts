@@ -70,6 +70,8 @@ export function parseAuctionWorkbook(
   rawFranchiseRows.forEach((row) => {
     // Look for franchise column
     const teamNameRaw =
+      row['6 Franchise'] ||
+      row['6 Franchises'] ||
       row['4 Franchise'] ||
       row['Franchise'] ||
       row['Franchise Name'] ||

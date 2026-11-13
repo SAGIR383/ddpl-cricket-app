@@ -76,7 +76,7 @@ interface TeamBudget {
 const DEFAULT_AUCTION_PLAYER_POOL: ParsedPlayer[] = [];
 
 export default function AuctionPage() {
-  const { isOrganizer, isSuperAdmin, role, user } = useAuth();
+  const { isOrganizer, isSuperAdmin, role, user, profile } = useAuth();
   const supabase = createClient();
   const channelRef = useRef<any>(null);
 
@@ -122,7 +122,7 @@ export default function AuctionPage() {
   // 30-Second Live Bidding Timer & Auction Automation State
   const [countdown, setCountdown] = useState<number>(30);
   const [auctionStatus, setAuctionStatus] = useState<'live' | 'paused' | 'stopped'>('stopped');
-  const [biddingAccessEnabled, setBiddingAccessEnabled] = useState<boolean>(false);
+  const [biddingAccessEnabled, setBiddingAccessEnabled] = useState<boolean>(true);
   const [teamBiddingAccess, setTeamBiddingAccess] = useState<Record<string, boolean>>({});
   const [isAutoTransitioning, setIsAutoTransitioning] = useState<boolean>(false);
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
@@ -155,15 +155,17 @@ export default function AuctionPage() {
     showToast(next ? '🔇 Auction Sound Effects Muted' : '🔊 Auction Sound Effects Enabled');
   };
 
-  // Franchise Owner Detection
+  // Franchise Owner Detection (Supports all 6 DDPL 3.0 franchises reliably)
   const userTeam = teams.find((t) => {
-    if (!user) return false;
-    const userEmail = user.email?.toLowerCase();
-    const ownerEmail = (t as any).ownerEmail?.toLowerCase();
+    if (!user && !profile) return false;
+    const userEmail = (user?.email || profile?.email || '')?.toLowerCase().trim();
+    const ownerEmail = ((t as any).ownerEmail || '')?.toLowerCase().trim();
     if (ownerEmail && userEmail && ownerEmail === userEmail) return true;
-    const userName = (user as any).name?.toLowerCase() || (user as any).user_metadata?.full_name?.toLowerCase();
-    const ownerName = t.owner?.toLowerCase();
+
+    const userName = (profile?.full_name || (user as any)?.name || user?.user_metadata?.full_name || '')?.toLowerCase().trim();
+    const ownerName = (t.owner || '')?.toLowerCase().trim();
     if (userName && ownerName && (ownerName === userName || ownerName.includes(userName) || userName.includes(ownerName))) return true;
+
     return false;
   });
 
@@ -173,7 +175,7 @@ export default function AuctionPage() {
     if (auctionStatus !== 'live' || isAutoTransitioning) return false;
     if (isSuperAdmin) return true;
     if (!isFranchiseOwner) return false;
-    if (!biddingAccessEnabled) return false;
+    if (biddingAccessEnabled === false) return false;
     if (teamBiddingAccess && teamBiddingAccess[team.id] === false) return false;
     return team.id === userTeam?.id;
   };
@@ -237,7 +239,7 @@ export default function AuctionPage() {
             ownerBlockedPrice: rulesData.rules.ownerBlockedPrice !== undefined ? rulesData.rules.ownerBlockedPrice : 100,
             defaultPlayerBasePrice: resolvedDefaultBase,
             bidSteps: rulesData.rules.bidSteps || [50, 100, 200, 500],
-            maxSquadSize: rulesData.rules.maxSquadSize || 8,
+            maxSquadSize: rulesData.rules.maxSquadSize || 11,
             matchOvers: rulesData.rules.matchOvers || 10,
             maxBowlerOvers: rulesData.rules.maxBowlerOvers || 2,
           });
@@ -245,10 +247,10 @@ export default function AuctionPage() {
 
         if (auctionData?.success && auctionData.data) {
           const d = auctionData.data;
-          const targetCap = rulesData?.rules?.maxSquadSize || 8;
+          const targetCap = rulesData?.rules?.maxSquadSize || 11;
           const normalizedTeams = (Array.isArray(d.teams) ? d.teams : []).map((t: any) => ({
             ...t,
-            maxSquad: t.maxSquad && t.maxSquad <= targetCap ? t.maxSquad : targetCap,
+            maxSquad: Math.max(t.maxSquad || 11, targetCap),
           }));
           setTeams(normalizedTeams);
 
@@ -545,7 +547,7 @@ export default function AuctionPage() {
       incrementLogged = inc;
     }
 
-    const effectiveCap = rules.maxSquadSize || team.maxSquad || 8;
+    const effectiveCap = Math.max(rules.maxSquadSize || 11, team.maxSquad || 11);
     if (team.playersBought >= effectiveCap) {
       alert(`Cannot bid: ${team.name} has reached maximum squad capacity (${effectiveCap} players)!`);
       return;
@@ -643,12 +645,12 @@ export default function AuctionPage() {
   // Next Player from Pool
   function advanceToNextPlayer(updatedSoldList = soldTransactions, updatedUnsoldList = unsoldPlayers) {
     const allProcessedNames = new Set([
-      ...updatedSoldList.map((tx) => tx.player.toLowerCase()),
-      ...updatedUnsoldList.map((name) => name.toLowerCase()),
+      ...updatedSoldList.map((tx) => (tx.player || tx.name || '')?.toLowerCase().trim()),
+      ...updatedUnsoldList.map((name) => String(name || '').toLowerCase().trim()),
     ]);
 
     const remaining = playerPool.filter(
-      (p) => !allProcessedNames.has(p.name.toLowerCase())
+      (p) => !allProcessedNames.has((p.name || '').toLowerCase().trim())
     );
 
     if (remaining.length > 0) {
@@ -797,7 +799,7 @@ export default function AuctionPage() {
 
     const currentPrice = currentLot.currentBid;
     const remaining = rtmTeam.allocated - rtmTeam.spent;
-    const effectiveCap = rules.maxSquadSize || rtmTeam.maxSquad || 8;
+    const effectiveCap = Math.max(rules.maxSquadSize || 11, rtmTeam.maxSquad || 11);
     const playersNeededAfterThis = Math.max(0, effectiveCap - (rtmTeam.playersBought + 1));
     const basePricePerPlayer = rules.defaultPlayerBasePrice || 100;
     const mandatoryReserve = playersNeededAfterThis * basePricePerPlayer;
@@ -935,7 +937,7 @@ export default function AuctionPage() {
       });
 
       if (parsed.teams.length === 0 && parsed.playerPool.length === 0) {
-        setImportError('Could not detect franchises or players in the uploaded file. Ensure column names include "Players name" and "4 Franchise" / "Franchise".');
+        setImportError('Could not detect franchises or players in the uploaded file. Ensure column names include "Players name" and "Franchise" / "Team".');
         setParsedPreview(null);
       } else {
         setParsedPreview(parsed);
@@ -1618,7 +1620,7 @@ export default function AuctionPage() {
                             ? (isOpeningAtBase ? currentLot.basePrice : currentLot.basePrice + selectedIncrement)
                             : currentLot.currentBid + selectedIncrement;
                           const isLeading = currentLot.leadingTeam === t.name;
-                          const teamCap = t.maxSquad && t.maxSquad <= rules.maxSquadSize ? t.maxSquad : rules.maxSquadSize;
+                          const teamCap = Math.max(rules.maxSquadSize || 11, t.maxSquad || 11);
                           const isSquadFull = t.playersBought >= teamCap;
                           const neededAfter = Math.max(0, teamCap - (t.playersBought + 1));
                           const basePrice = rules.defaultPlayerBasePrice || 100;
