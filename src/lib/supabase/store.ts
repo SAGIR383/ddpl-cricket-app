@@ -2,9 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 
-import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
+import { getServiceRoleKey, getSupabaseUrl } from '@/lib/supabase/serviceKey';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
+const supabaseUrl = getSupabaseUrl();
 const supabaseServiceKey = getServiceRoleKey();
 
 // Database client with elevated service privileges for server-side persistence (Supabase Pro)

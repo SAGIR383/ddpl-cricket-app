@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStoreData, supabaseAdmin } from '@/lib/supabase/store';
 import { createClient } from '@supabase/supabase-js';
 
-import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
+import { getServiceRoleKey, getSupabaseUrl } from '@/lib/supabase/serviceKey';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const SUPERADMIN_IDENTIFIER = process.env.SUPERADMIN_IDENTIFIER || '';
 const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || '';
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
+const SUPABASE_URL = getSupabaseUrl();
 const SUPABASE_SERVICE_KEY = getServiceRoleKey();
 
 export async function POST(req: NextRequest) {

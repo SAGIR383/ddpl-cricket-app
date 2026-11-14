@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getStoreData, setStoreData } from '@/lib/supabase/store';
+import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/supabase/serviceKey';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_OTwkrFMSeuzq_QbWS6htWQ_FicJF8Tf';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const supabaseUrl = getSupabaseUrl();
+const supabaseKey = getSupabaseAnonKey();
 
 async function getStoredRoles(): Promise<Record<string, string>> {
   return getStoreData<Record<string, string>>('user_roles', 'roles.json', {});

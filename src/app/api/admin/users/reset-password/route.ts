@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { hashPassword } from '@/lib/auth/password';
 import { supabaseAdmin } from '@/lib/supabase/store';
-import { getServiceRoleKey } from '@/lib/supabase/serviceKey';
+import { getServiceRoleKey, getSupabaseUrl } from '@/lib/supabase/serviceKey';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zucpetuipfdufwvrcgcl.supabase.co';
-const SERVICE_KEY = getServiceRoleKey();
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 function getAdminClient() {
-  return createClient(SUPABASE_URL, SERVICE_KEY, {
+  const url = getSupabaseUrl();
+  const serviceKey = getServiceRoleKey();
+  return createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
