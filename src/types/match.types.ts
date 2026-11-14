@@ -127,6 +127,7 @@ export interface InningsData {
   bowlers: BowlerRecord[];
   fallOfWickets: FOWRecord[];
   deliveries: DeliveryEvent[];
+  currentPartnership?: { runs: number; balls: number };
 }
 
 export interface SquadPlayer {
@@ -150,6 +151,7 @@ export interface MatchToss {
   winner: string;
   decision: 'bat' | 'bowl';
   text: string;
+  isCompleted?: boolean;
 }
 
 export interface MatchLiveState {

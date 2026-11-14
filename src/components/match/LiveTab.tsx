@@ -60,64 +60,83 @@ export function LiveTab({ state, onNavigateToTab, onOpenManageCrease }: LiveTabP
 
   return (
     <div className="space-y-6">
-      {/* 1. CREX-STYLE ACTIVE PITCH CREASE & BOWLER SPELL */}
-      <div className="rounded-3xl overflow-hidden bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/30 shadow-2xl">
-        {/* Top Header Strip */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border-b border-[#D8AD55]/15 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-black text-white uppercase tracking-wider">
-              Active Crease • {currentInnings.battingTeamShort} vs {currentInnings.bowlingTeamShort}
-            </span>
+      {/* 1. PRE-TOSS STANDBY CARD (When Toss is Pending) */}
+      {state.status === 'upcoming' && !state.toss?.isCompleted ? (
+        <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-[#0D1B2A] to-[#08111F] border border-[#D8AD55]/30 shadow-2xl text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-3xl bg-[#D8AD55]/15 border border-[#D8AD55]/40 flex items-center justify-center text-3xl shadow-lg">
+            🪙
           </div>
-
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-[#8793A5]">
-              Partnership:{' '}
-              <strong className="text-[#F2D69A]">
-                {currentPartnershipRuns} ({currentPartnershipBalls}b)
-              </strong>
-            </span>
+          <div className="space-y-1">
+            <h3 className="font-display font-black text-xl sm:text-2xl text-white">
+              Awaiting Official Coin Toss
+            </h3>
+            <p className="text-sm text-[#8793A5] max-w-lg mx-auto">
+              Match <strong className="text-white">{state.title}</strong> is scheduled. Batting and bowling roles will be activated once the toss is conducted by the official match referee.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-[#F2D69A]">
+            <span>📋 Active Crease &amp; Live Scoring will unlock after coin toss</span>
           </div>
         </div>
-
-        {/* Crease Content Grid */}
-        <div className="p-5 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-[#08111F]/60">
-          {/* Batters (7 cols on lg) */}
-          <div className="lg:col-span-7 space-y-3">
-            <div className="text-[11px] font-bold text-[#D8AD55] uppercase tracking-wider flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span>Batters at Crease</span>
-                {onOpenManageCrease && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenManageCrease('batters')}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/40 text-[#F2D69A] text-[10px] font-bold tracking-normal normal-case transition-all cursor-pointer shadow-sm active:scale-95"
-                    title="Change Batters or Swap Strike"
-                  >
-                    <span>✏️</span>
-                    <span>Change / Swap</span>
-                  </button>
-                )}
-              </div>
-              <span className="text-gray-400 font-normal">R (B • 4s • 6s • SR)</span>
+      ) : (
+        /* 1. CREX-STYLE ACTIVE PITCH CREASE & BOWLER SPELL */
+        <div className="rounded-3xl overflow-hidden bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/30 shadow-2xl">
+          {/* Top Header Strip */}
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border-b border-[#D8AD55]/15 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-black text-white uppercase tracking-wider">
+                Active Crease • {currentInnings.battingTeamShort} vs {currentInnings.bowlingTeamShort}
+              </span>
             </div>
 
-            <div className="space-y-2.5">
-              {/* Striker (Active on strike) */}
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-[#111D2D] via-[#0D1B2A] to-[#111D2D] border-2 border-[#D8AD55]/60 shadow-lg shadow-[#D8AD55]/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-display font-black text-base shadow">
-                    ★
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-sm sm:text-base tracking-tight">
-                        {striker?.name}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40 uppercase tracking-wider">
-                        Strike
-                      </span>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-[#8793A5]">
+                Partnership:{' '}
+                <strong className="text-[#F2D69A]">
+                  {currentPartnershipRuns} ({currentPartnershipBalls}b)
+                </strong>
+              </span>
+            </div>
+          </div>
+
+          {/* Crease Content Grid */}
+          <div className="p-5 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-[#08111F]/60">
+            {/* Batters (7 cols on lg) */}
+            <div className="lg:col-span-7 space-y-3">
+              <div className="text-[11px] font-bold text-[#D8AD55] uppercase tracking-wider flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span>Batters at Crease</span>
+                  {onOpenManageCrease && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenManageCrease('batters')}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#D8AD55]/15 hover:bg-[#D8AD55]/25 border border-[#D8AD55]/40 text-[#F2D69A] text-[10px] font-bold tracking-normal normal-case transition-all cursor-pointer shadow-sm active:scale-95"
+                      title="Change Batters or Swap Strike"
+                    >
+                      <span>✏️</span>
+                      <span>Change / Swap</span>
+                    </button>
+                  )}
+                </div>
+                <span className="text-gray-400 font-normal">R (B • 4s • 6s • SR)</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {/* Striker (Active on strike) */}
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-[#111D2D] via-[#0D1B2A] to-[#111D2D] border-2 border-[#D8AD55]/60 shadow-lg shadow-[#D8AD55]/10 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D8AD55] to-[#F2D69A] text-[#08111F] flex items-center justify-center font-display font-black text-base shadow">
+                      ★
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-sm sm:text-base tracking-tight">
+                          {striker?.name}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40 uppercase tracking-wider">
+                          Strike
+                        </span>
                     </div>
                     <div className="text-xs text-[#8793A5] mt-0.5">
                       SR: <strong className="text-[#F2D69A]">{striker?.strikeRate || '0.00'}</strong>
@@ -257,6 +276,7 @@ export function LiveTab({ state, onNavigateToTab, onOpenManageCrease }: LiveTabP
           </div>
         </div>
       </div>
+      )}
 
       {/* 2. QUICK ACTION PILLS (Insights, Points Table, Leaderboard) */}
       <div className="grid grid-cols-3 gap-2.5 sm:gap-4">

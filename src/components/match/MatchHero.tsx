@@ -199,9 +199,15 @@ export function MatchHero({
                   )}
                 </h2>
                 <div className="text-xs text-[#8793A5] font-semibold flex items-center gap-2 mt-0.5">
-                  <span>1st Innings</span>
-                  {state.toss?.winner === teamAName && (
-                    <span className="text-[#D8AD55] font-bold">• Toss Winner</span>
+                  {state.toss?.isCompleted ? (
+                    <>
+                      <span>1st Innings</span>
+                      {state.toss?.winner === teamAName && (
+                        <span className="text-[#D8AD55] font-bold">• Toss Winner</span>
+                      )}
+                    </>
+                  ) : (
+                    <span>Team A</span>
                   )}
                 </div>
               </div>
@@ -209,14 +215,22 @@ export function MatchHero({
 
             {/* Innings 1 Score */}
             <div className="text-right lg:ml-auto">
-              <div className="font-display font-black text-2xl sm:text-3xl text-white">
-                {state.innings1.totalRuns}
-                <span className="text-[#D8AD55]/70 font-light text-xl mx-0.5">/</span>
-                {state.innings1.wickets}
-              </div>
-              <div className="text-xs text-[#8793A5] font-medium">
-                {calculateOversString(state.innings1.legalBalls)} / {state.rules.matchOvers}.0 ov
-              </div>
+              {state.status === 'upcoming' && !state.toss?.isCompleted ? (
+                <div className="text-xs font-bold text-[#8793A5] italic bg-[#08111F] px-3 py-1.5 rounded-xl border border-white/5">
+                  Yet to Bat
+                </div>
+              ) : (
+                <>
+                  <div className="font-display font-black text-2xl sm:text-3xl text-white">
+                    {state.innings1.totalRuns}
+                    <span className="text-[#D8AD55]/70 font-light text-xl mx-0.5">/</span>
+                    {state.innings1.wickets}
+                  </div>
+                  <div className="text-xs text-[#8793A5] font-medium">
+                    {calculateOversString(state.innings1.legalBalls)} / {state.rules.matchOvers}.0 ov
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -261,9 +275,15 @@ export function MatchHero({
                   )}
                 </h2>
                 <div className="text-xs text-[#8793A5] font-semibold flex items-center lg:justify-end gap-2 mt-0.5">
-                  <span>2nd Innings</span>
-                  {state.toss?.winner === teamBName && (
-                    <span className="text-[#D8AD55] font-bold">• Toss Winner</span>
+                  {state.toss?.isCompleted ? (
+                    <>
+                      <span>2nd Innings</span>
+                      {state.toss?.winner === teamBName && (
+                        <span className="text-[#D8AD55] font-bold">• Toss Winner</span>
+                      )}
+                    </>
+                  ) : (
+                    <span>Team B</span>
                   )}
                 </div>
               </div>
@@ -311,9 +331,15 @@ export function MatchHero({
               <span>•</span>
               <span>Max Bowler: <strong className="text-[#F2D69A] font-bold">{state.rules.maxBowlerOvers} Ov</strong></span>
             </div>
-            {state.toss && (
-              <div className="text-xs text-white/90 font-medium italic">
-                {state.toss.text}
+            {state.toss?.isCompleted ? (
+              <div className="text-xs text-[#F2D69A] font-semibold italic flex items-center gap-1.5">
+                <span>🪙</span>
+                <span>{state.toss.text}</span>
+              </div>
+            ) : (
+              <div className="text-xs text-[#8793A5] font-semibold italic flex items-center gap-1.5">
+                <span>🪙</span>
+                <span>Coin toss pending • Awaiting official toss</span>
               </div>
             )}
           </div>

@@ -39,6 +39,7 @@ import { SquadsTab } from '@/components/match/SquadsTab';
 import { ScorerConsole } from '@/components/match/ScorerConsole';
 import { WagonWheel } from '@/components/match/WagonWheel';
 import { ManageCreaseModal } from '@/components/match/ManageCreaseModal';
+import { ConductTossModal } from '@/components/match/ConductTossModal';
 
 export default function MatchDetailPage() {
   const params = useParams();
@@ -54,6 +55,7 @@ export default function MatchDetailPage() {
 
   // Segmented Tab Navigation State
   const [activeTab, setActiveTab] = useState<MatchCentreTab>('live');
+  const [conductTossModalOpen, setConductTossModalOpen] = useState(false);
 
   // Realtime Sync Status
   const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'offline'>('connected');
@@ -223,6 +225,43 @@ export default function MatchDetailPage() {
     }
   };
 
+  const handleConductToss = async (params: {
+    winner: string;
+    decision: 'bat' | 'bowl';
+    strikerName: string;
+    nonStrikerName: string;
+    openingBowlerName: string;
+    startLive: boolean;
+  }) => {
+    if (!isScorer) return;
+    setSyncStatus('syncing');
+
+    try {
+      const res = await fetch(`/api/matches/${matchId}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'conduct_toss',
+          ...params,
+          userEmail: user?.email,
+          userRole: role,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.state) {
+          setMatchState(data.state);
+          broadcastUpdatedState(data.state);
+        }
+      }
+    } catch (e) {
+      console.error('Error conducting toss:', e);
+    } finally {
+      setSyncStatus('connected');
+    }
+  };
+
   const handleUpdateToss = async (winner: string, decision: 'bat' | 'bowl') => {
     if (!isScorer) return;
     setSyncStatus('syncing');
@@ -372,6 +411,41 @@ export default function MatchDetailPage() {
         isRefreshing={isRefreshing}
       />
 
+      {/* COIN TOSS ACTION BANNER (When Coin Toss is Pending) */}
+      {!matchState.toss?.isCompleted && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#D8AD55]/15 via-[#0D1B2A] to-[#D8AD55]/15 border border-[#D8AD55]/40 shadow-xl flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#D8AD55]/20 border border-[#D8AD55]/40 flex items-center justify-center text-2xl shadow">
+              🪙
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-display font-black text-white text-base">
+                  Match Coin Toss Pending
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40 uppercase tracking-wider">
+                  Standby
+                </span>
+              </div>
+              <p className="text-xs text-[#8793A5] mt-0.5">
+                Official referee toss will set 1st Innings batting and bowling franchises to activate live match scoring.
+              </p>
+            </div>
+          </div>
+
+          {isScorer && (
+            <button
+              type="button"
+              onClick={() => setConductTossModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-display font-black text-xs sm:text-sm bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] shadow-lg shadow-[#D8AD55]/20 hover:opacity-95 transition-all cursor-pointer active:scale-95"
+            >
+              <span>🪙</span>
+              <span>Conduct Toss &amp; Set Innings</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 2. SEGMENTED NAVIGATION TABS & ACTIONS */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedTabs
@@ -467,6 +541,7 @@ export default function MatchDetailPage() {
           onUndoBall={handleUndoBall}
           onSwitchInnings={handleSwitchInnings}
           onUpdateToss={handleUpdateToss}
+          onOpenConductToss={() => setConductTossModalOpen(true)}
           onApplyDls={handleApplyDlsAction}
           onOpenManageCrease={handleOpenManageCrease}
         />
@@ -492,6 +567,15 @@ export default function MatchDetailPage() {
         state={matchState}
         onUpdateCrease={handleUpdateCrease}
         initialFocusTab={creaseFocusTab}
+      />
+
+      {/* 6. CONDUCT COIN TOSS & SET INNINGS MODAL */}
+      <ConductTossModal
+        isOpen={conductTossModalOpen}
+        onClose={() => setConductTossModalOpen(false)}
+        state={matchState}
+        onConductToss={handleConductToss}
+        isSubmitting={syncStatus === 'syncing'}
       />
     </div>
   );

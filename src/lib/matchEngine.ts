@@ -64,29 +64,6 @@ export function createInitialInnings(
       dismissal: null,
       strikeRate: 0,
     });
-  } else {
-    defaultBatters.push({
-      id: 'b-1',
-      name: 'Opening Batter 1',
-      runs: 0,
-      balls: 0,
-      fours: 0,
-      sixes: 0,
-      isOut: false,
-      dismissal: null,
-      strikeRate: 0,
-    });
-    defaultBatters.push({
-      id: 'b-2',
-      name: 'Opening Batter 2',
-      runs: 0,
-      balls: 0,
-      fours: 0,
-      sixes: 0,
-      isOut: false,
-      dismissal: null,
-      strikeRate: 0,
-    });
   }
 
   const defaultBowlers: BowlerRecord[] = [];
@@ -96,21 +73,6 @@ export function createInitialInnings(
       id: openingBowler.id || 'bw-1',
       name: openingBowler.name,
       avatar: openingBowler.avatar,
-      overs: 0,
-      ballsInOver: 0,
-      oversStr: '0.0',
-      maidens: 0,
-      runsConceded: 0,
-      wickets: 0,
-      economy: 0,
-      dots: 0,
-      noBalls: 0,
-      wides: 0,
-    });
-  } else {
-    defaultBowlers.push({
-      id: 'bw-1',
-      name: 'Opening Bowler',
       overs: 0,
       ballsInOver: 0,
       oversStr: '0.0',

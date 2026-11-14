@@ -219,9 +219,12 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
     teamBName,
     teamBShort,
     matchOvers,
-    squadA,
-    squadB
+    [],
+    []
   );
+  // Ensure fresh match starts with clean pre-toss standby state
+  initialInnings1.batters = [];
+  initialInnings1.bowlers = [];
 
   const initialState: MatchLiveState = {
     matchId,
@@ -235,9 +238,10 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
     matchTime: fixture?.matchTime || '10:00 AM',
     status: fixture?.status === 'live' ? 'live' : 'upcoming',
     toss: {
-      winner: teamAName,
+      winner: '',
       decision: 'bat',
-      text: `${teamAName} won toss & elected to bat first`,
+      text: 'Toss pending (awaiting coin toss)',
+      isCompleted: false,
     },
     currentInnings: 1,
     innings1: initialInnings1,
@@ -361,7 +365,34 @@ export async function GET(
       const squadAChanged = JSON.stringify(reconciledSquadA) !== JSON.stringify(state.teamASquad);
       const squadBChanged = JSON.stringify(reconciledSquadB) !== JSON.stringify(state.teamBSquad);
 
-      if (squadAChanged || squadBChanged) {
+      // Auto-sanitize pre-toss standby state if match is upcoming and 0 deliveries have been bowled
+      let tossSanitized = false;
+      if (
+        state.status === 'upcoming' &&
+        (!state.toss || !state.toss.isCompleted) &&
+        (!state.innings1?.deliveries || state.innings1.deliveries.length === 0)
+      ) {
+        if (!state.toss || !state.toss.isCompleted || (state.innings1.batters && state.innings1.batters.length > 0)) {
+          state.toss = {
+            winner: '',
+            decision: 'bat',
+            text: 'Toss pending (awaiting coin toss)',
+            isCompleted: false,
+          };
+          if (state.innings1) {
+            state.innings1.batters = [];
+            state.innings1.bowlers = [];
+            state.innings1.deliveries = [];
+            state.innings1.totalRuns = 0;
+            state.innings1.wickets = 0;
+            state.innings1.legalBalls = 0;
+            state.innings1.currentPartnership = { runs: 0, balls: 0 };
+          }
+          tossSanitized = true;
+        }
+      }
+
+      if (squadAChanged || squadBChanged || tossSanitized) {
         state.teamASquad = reconciledSquadA;
         state.teamBSquad = reconciledSquadB;
         state.lastUpdated = new Date().toISOString();
@@ -474,30 +505,124 @@ export async function POST(
       }
     }
 
-    // 3. TOSS UPDATE
-    else if (action === 'update_toss') {
-      const { winner, decision } = body;
-      const text = `${winner} won toss & elected to ${decision} first`;
-      state.toss = { winner, decision, text };
+    // 3. CONDUCT COIN TOSS & SET INNINGS / SQUADS
+    else if (action === 'conduct_toss' || action === 'update_toss') {
+      const { winner, decision, strikerName, nonStrikerName, openingBowlerName, startLive = true } = body;
 
-      // Re-assign batting and bowling teams if before ball 1
-      if (state.innings1.deliveries.length === 0) {
-        const teamA = state.teamASquad?.[0]?.name ? state.innings1.battingTeam : state.innings1.battingTeam;
-        const teamB = state.innings1.bowlingTeam;
+      // Resolve original fixture teams to correctly map A vs B
+      const tournamentSlug = state.tournament || 'ddpl-3-0';
+      const schedule = await getStoreData<any>(`tournament_schedule_${tournamentSlug}`, `schedule_${tournamentSlug}.json`, null);
+      const fixture = schedule?.matches?.find((m: any) => m.id === matchId);
 
-        const battingTeam = decision === 'bat' ? winner : (winner === teamA ? teamB : teamA);
-        const bowlingTeam = battingTeam === teamA ? teamB : teamA;
+      const teamA = fixture?.teamA?.name || state.innings1.battingTeam;
+      const teamAShort = fixture?.teamA?.short || state.innings1.battingTeamShort || 'FA';
+      const teamB = fixture?.teamB?.name || state.innings1.bowlingTeam;
+      const teamBShort = fixture?.teamB?.short || state.innings1.bowlingTeamShort || 'QA';
 
-        state.innings1.battingTeam = battingTeam;
-        state.innings1.bowlingTeam = bowlingTeam;
+      const isWinnerTeamA = (winner || '').trim().toLowerCase() === teamA.trim().toLowerCase();
+      const battingTeam = decision === 'bat' ? (isWinnerTeamA ? teamA : teamB) : (isWinnerTeamA ? teamB : teamA);
+      const bowlingTeam = battingTeam === teamA ? teamB : teamA;
+      const battingShort = battingTeam === teamA ? teamAShort : teamBShort;
+      const bowlingShort = bowlingTeam === teamA ? teamAShort : teamBShort;
+
+      const battingSquad = battingTeam === teamA ? state.teamASquad : state.teamBSquad;
+      const bowlingSquad = battingTeam === teamA ? state.teamBSquad : state.teamASquad;
+
+      const tossText = `${winner} won toss & elected to ${decision === 'bat' ? 'bat' : 'bowl'} first`;
+      state.toss = {
+        winner,
+        decision,
+        text: tossText,
+        isCompleted: true,
+      };
+
+      state.innings1.battingTeam = battingTeam;
+      state.innings1.battingTeamShort = battingShort;
+      state.innings1.bowlingTeam = bowlingTeam;
+      state.innings1.bowlingTeamShort = bowlingShort;
+
+      // Set opening batters if provided, or from squad
+      const striker = battingSquad?.find((p: any) => p.name?.toLowerCase() === (strikerName || '').toLowerCase()) || battingSquad?.[0];
+      const nonStriker = battingSquad?.find((p: any) => p.name?.toLowerCase() === (nonStrikerName || '').toLowerCase() && p.name !== striker?.name) || battingSquad?.[1];
+      const openingBowler = bowlingSquad?.find((p: any) => p.name?.toLowerCase() === (openingBowlerName || '').toLowerCase()) || bowlingSquad?.[bowlingSquad.length - 1] || bowlingSquad?.[0];
+
+      if (striker && nonStriker) {
+        state.innings1.batters = [
+          {
+            id: striker.id || 'b-1',
+            name: striker.name,
+            avatar: (striker as any).avatar || (striker as any).photo,
+            runs: 0,
+            balls: 0,
+            fours: 0,
+            sixes: 0,
+            isOut: false,
+            dismissal: null,
+            strikeRate: 0,
+          },
+          {
+            id: nonStriker.id || 'b-2',
+            name: nonStriker.name,
+            avatar: (nonStriker as any).avatar || (nonStriker as any).photo,
+            runs: 0,
+            balls: 0,
+            fours: 0,
+            sixes: 0,
+            isOut: false,
+            dismissal: null,
+            strikeRate: 0,
+          },
+        ];
+        state.innings1.strikerIndex = 0;
+        state.innings1.nonStrikerIndex = 1;
+      }
+
+      if (openingBowler) {
+        state.innings1.bowlers = [
+          {
+            id: openingBowler.id || 'bw-1',
+            name: openingBowler.name,
+            avatar: (openingBowler as any).avatar || (openingBowler as any).photo,
+            overs: 0,
+            ballsInOver: 0,
+            oversStr: '0.0',
+            maidens: 0,
+            runsConceded: 0,
+            wickets: 0,
+            economy: 0,
+            dots: 0,
+            noBalls: 0,
+            wides: 0,
+          },
+        ];
+        state.innings1.currentBowlerIndex = 0;
+      }
+
+      state.innings1.currentPartnership = { runs: 0, balls: 0 };
+
+      if (startLive) {
+        state.status = 'live';
       }
 
       state.matchNotes.unshift({
         id: `note-toss-${Date.now()}`,
-        text,
+        text: `🪙 Coin Toss: ${tossText}. ${battingTeam} batting 1st, ${bowlingTeam} bowling 1st.${startLive ? ' Match is LIVE!' : ''}`,
         timestamp: new Date().toISOString(),
-        type: 'info',
+        type: 'milestone',
       });
+      state.lastUpdated = new Date().toISOString();
+    }
+
+    // 3B. GO LIVE / START MATCH DIRECTLY
+    else if (action === 'start_match' || action === 'go_live') {
+      state.status = 'live';
+      state.lastUpdated = new Date().toISOString();
+    }
+
+    // 3C. COMPLETE MATCH MANUALLY
+    else if (action === 'complete_match' || action === 'end_match') {
+      state.status = 'completed';
+      if (body.result) state.result = body.result;
       state.lastUpdated = new Date().toISOString();
     }
 

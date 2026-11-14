@@ -25,6 +25,7 @@ interface ScorerConsoleProps {
   onUndoBall: () => Promise<void>;
   onSwitchInnings: () => Promise<void>;
   onUpdateToss: (winner: string, decision: 'bat' | 'bowl') => Promise<void>;
+  onOpenConductToss?: () => void;
   onApplyDls?: (params: {
     revisedOvers: number;
     revisedTarget: number;
@@ -41,6 +42,7 @@ export function ScorerConsole({
   onUndoBall,
   onSwitchInnings,
   onUpdateToss,
+  onOpenConductToss,
   onApplyDls,
   onOpenManageCrease,
   isSubmitting = false,
@@ -186,7 +188,7 @@ export function ScorerConsole({
           {/* Toss Setup (if match upcoming or 0 balls) */}
           {currentInnings.deliveries.length === 0 && (
             <button
-              onClick={() => setTossModalOpen(true)}
+              onClick={() => (onOpenConductToss ? onOpenConductToss() : setTossModalOpen(true))}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/30 text-[#F2D69A] text-xs font-bold transition-all cursor-pointer shadow-sm"
               title="Set Toss Winner & Decision"
             >
