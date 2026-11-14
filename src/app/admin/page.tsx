@@ -118,7 +118,7 @@ const KNOCKOUT_PRESETS: Record<string, {
       {
         title: 'Stage 1: Multi-Pool League',
         badge: 'Group Stage',
-        desc: 'Franchises compete in Group A & Group B. Top 2 teams from each pool advance to the Cross-Group Playoffs.',
+        desc: 'Franchises compete in Group A & Group B. Top 2 teams from each pool advance to the Cross-Group Semi-Finals.',
       },
       {
         title: 'Stage 2: Cross-Group Semi-Finals',
@@ -1131,7 +1131,7 @@ export default function AdminDashboardPage() {
 
   const [manualTeamA, setManualTeamA] = useState('');
   const [manualTeamB, setManualTeamB] = useState('');
-  const [manualVenue, setManualVenue] = useState('Arena Ground 1');
+  const [manualVenue, setManualVenue] = useState('AC Block Football Ground');
   const [manualOvers, setManualOvers] = useState(10);
   const [manualDate, setManualDate] = useState('');
   const [manualTime, setManualTime] = useState('10:00 AM');
@@ -1259,7 +1259,7 @@ export default function AdminDashboardPage() {
             group: isDual ? (teamGroupAssignments[t.name] || teamGroupAssignments[t.id] || t.group || 'Group A') : undefined,
           })),
           overs: auctionRules.matchOvers || (selectedTournament === 'ddpl' ? 10 : 12),
-          venue: auctionRules.groundName || auctionRules.venue || 'Arena Ground 1',
+          venue: auctionRules.groundName || auctionRules.venue || 'AC Block Football Ground',
         }),
       });
 
@@ -1275,7 +1275,7 @@ export default function AdminDashboardPage() {
             teamA: m.teamA?.name || m.teamA,
             teamB: m.teamB?.name || m.teamB,
             round: m.stage || `Match ${m.matchNumber}`,
-            venue: m.venue || auctionRules.groundName || 'Arena Ground 1',
+            venue: m.venue || auctionRules.groundName || 'AC Block Football Ground',
             overs: selectedTournament === 'ddpl' ? (auctionRules.matchOvers || 10) : 12,
             matchDate: m.matchDate || null,
             matchTime: m.matchTime || '10:00 AM',
@@ -1607,8 +1607,8 @@ export default function AdminDashboardPage() {
     minSquadSize: 7,
     matchOvers: 10,
     maxBowlerOvers: 2,
-    groundName: 'Arena Ground 1',
-    venue: 'Arena Ground 1',
+    groundName: 'AC Block Football Ground',
+    venue: 'AC Block Football Ground',
     wideBallPenalty: '+1 Run & Extra Ball',
     noBallPenalty: '+1 Run + Free Hit',
     pointsPerWin: 2,
@@ -1616,27 +1616,27 @@ export default function AdminDashboardPage() {
     pointsPerNR: 1,
     pointsPerLoss: 0,
     bidSteps: [50, 100, 200, 500],
-    knockoutFormat: 'ipl_playoffs',
-    pathwayTitle: 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
-    pathwayBadge: 'Official League Structure',
+    knockoutFormat: 'group_stage_knockout',
+    pathwayTitle: 'Knockout Pathway: Dual Group Stage ➔ Semi-Finals ➔ Grand Final',
+    pathwayBadge: 'Dual Groups (A & B)',
     stages: [
       {
-        title: 'Stage 1: Group League',
-        badge: 'Round Robin',
-        desc: 'Franchises play round-robin matches. Top teams on points and NRR advance to the Playoffs.',
+        title: 'Stage 1: Multi-Pool League',
+        badge: 'Group Stage',
+        desc: 'Franchises compete in Group A & Group B. Top 2 teams from each pool advance to the Cross-Group Semi-Finals.',
       },
       {
-        title: 'Stage 2: Playoffs',
+        title: 'Stage 2: Cross-Group Semi-Finals',
         badge: 'Top 4 Teams',
-        desc: 'Qualifier 1, Eliminator, and Qualifier 2. The 2 victorious teams advance to the Grand Final.',
+        desc: 'Pool A Leader vs Pool B Runner-Up, and Pool B Leader vs Pool A Runner-Up clash for a place in the Grand Final.',
       },
       {
         title: 'Stage 3: Grand Final',
         badge: 'Championship',
-        desc: 'The two playoff champions compete in the Grand Final for the official corporate tournament trophy!',
+        desc: 'The two victorious semi-finalists face off in the Grand Final for the official corporate tournament trophy!',
       },
     ],
-    qualificationRule: 'Top 4 franchises secure direct playoff qualification based on points and Net Run Rate (NRR).',
+    qualificationRule: 'Top 2 teams from each pool advance to the Cross-Group Semi-Finals.',
   });
   const [isSavingRules, setIsSavingRules] = useState(false);
 
@@ -1793,15 +1793,15 @@ export default function AdminDashboardPage() {
 
             const resolvedDefaultBase = data.rules.defaultPlayerBasePrice !== undefined ? data.rules.defaultPlayerBasePrice : 100;
             setAuctionRules({
-              basePurse: data.rules.basePurse || 10000,
+              basePurse: data.rules.basePurse || 7000,
               ownerBlockedPrice: data.rules.ownerBlockedPrice !== undefined ? data.rules.ownerBlockedPrice : 100,
               defaultPlayerBasePrice: resolvedDefaultBase,
-              maxSquadSize: data.rules.maxSquadSize || 11,
-              minSquadSize: data.rules.minSquadSize || 7,
+              maxSquadSize: data.rules.maxSquadSize || 8,
+              minSquadSize: data.rules.minSquadSize || 8,
               matchOvers: rOvers,
               maxBowlerOvers: rBowlerLimit,
-              groundName: data.rules.groundName || data.rules.venue || 'Arena Ground 1',
-              venue: data.rules.groundName || data.rules.venue || 'Arena Ground 1',
+              groundName: data.rules.groundName || data.rules.venue || 'AC Block Football Ground',
+              venue: data.rules.groundName || data.rules.venue || 'AC Block Football Ground',
               wideBallPenalty: data.rules.wideBallPenalty || '+1 Run & Extra Ball',
               noBallPenalty: data.rules.noBallPenalty || '+1 Run + Free Hit',
               pointsPerWin: data.rules.pointsPerWin !== undefined ? data.rules.pointsPerWin : 2,
@@ -1809,9 +1809,9 @@ export default function AdminDashboardPage() {
               pointsPerNR: data.rules.pointsPerNR !== undefined ? data.rules.pointsPerNR : 1,
               pointsPerLoss: data.rules.pointsPerLoss !== undefined ? data.rules.pointsPerLoss : 0,
               bidSteps: data.rules.bidSteps || [50, 100, 200, 500],
-              knockoutFormat: data.rules.knockoutFormat || 'ipl_playoffs',
-              pathwayTitle: data.rules.pathwayTitle || 'Knockout Pathway: League Stage ➔ Playoffs ➔ Grand Final',
-              pathwayBadge: data.rules.pathwayBadge || 'Official League Structure',
+              knockoutFormat: data.rules.knockoutFormat || 'group_stage_knockout',
+              pathwayTitle: data.rules.pathwayTitle || 'Knockout Pathway: Dual Group Stage ➔ Semi-Finals ➔ Grand Final',
+              pathwayBadge: data.rules.pathwayBadge || 'Dual Groups (A & B)',
               stages: Array.isArray(data.rules.stages) && data.rules.stages.length > 0 ? data.rules.stages : defaultStages,
               qualificationRule: data.rules.qualificationRule || 'Top 4 franchises secure direct playoff qualification based on points and Net Run Rate (NRR).',
             });
@@ -1896,7 +1896,7 @@ export default function AdminDashboardPage() {
                   teamA: m.teamA?.name || m.teamA,
                   teamB: m.teamB?.name || m.teamB,
                   round: m.stage || `Match ${m.matchNumber}`,
-                  venue: m.venue || 'Arena Ground 1',
+                  venue: m.venue || 'AC Block Football Ground',
                   overs: m.overs || 10,
                   matchDate: m.matchDate || null,
                   matchTime: m.matchTime || '10:00 AM',

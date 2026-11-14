@@ -237,8 +237,11 @@ export default function TournamentsPage() {
           const slug = cfg.slug || 'ddpl-3-0';
           const tourneyAuctionData = allAuctionTourneys[slug] || (slug === 'ddpl-3-0' ? aData?.data : null);
           const teamsCount = tourneyAuctionData?.teams?.length || 0;
-          const tourneyRules = allRulesTourneys[slug];
+          const tourneyRules = allRulesTourneys[slug] || (slug === 'ddpl-3-0' ? rulesData?.rules : null);
           const overs = Number(tourneyRules?.matchOvers) || Number(cfg.overs) || 10;
+          const knockoutFormat = tourneyRules?.knockoutFormat || cfg.knockoutFormat;
+          const groupsCount = tourneyRules?.groupsCount || cfg.groupsCount;
+          const isDualGroup = knockoutFormat === 'group_stage_knockout' || cfg.format === 'group-stage-playoffs' || (groupsCount && groupsCount > 1);
           const startDate = cfg.startDate || null;
           const endDate = cfg.endDate || null;
 
@@ -268,13 +271,13 @@ export default function TournamentsPage() {
             currencySymbol: cfg.currencySymbol || '₹',
             format: cfg.format || 'ddpl',
             formatTitle: cfg.formatTitle || (
-              cfg.knockoutFormat === 'group_stage_knockout' || cfg.format === 'group-stage-playoffs' || (cfg.groupsCount && cfg.groupsCount > 1)
-                ? `T${overs} • Dual Group Stage + SF & Final`
-                : cfg.knockoutFormat === 'ipl_playoffs'
+              isDualGroup
+                ? `T${overs} • Dual Groups & Semis`
+                : knockoutFormat === 'ipl_playoffs'
                 ? `T${overs} • Single Pool + IPL Playoffs`
-                : cfg.knockoutFormat === 'semis_final'
+                : knockoutFormat === 'semis_final'
                 ? `T${overs} • Single Pool + Top 4 Semis`
-                : cfg.knockoutFormat === 'direct_final'
+                : knockoutFormat === 'direct_final'
                 ? `T${overs} • Single Pool + Top 2 Final`
                 : (cfg.overs ? `T${overs} • ${cfg.format === 'game-of-run' ? 'Group Stage' : 'Round Robin'}` : 'Cricket League')
             ),

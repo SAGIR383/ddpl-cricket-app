@@ -387,13 +387,24 @@ export function HomePageClient() {
           };
         });
 
-        setTournaments(resolvedTourneys);
+        // Deduplicate tournaments by slug to protect against any race conditions
+        const dedupedTourneys: TournamentCardItem[] = [];
+        const seenSlugs = new Set<string>();
+        for (const tourney of resolvedTourneys) {
+          const sLower = tourney.slug.toLowerCase();
+          if (!seenSlugs.has(sLower)) {
+            seenSlugs.add(sLower);
+            dedupedTourneys.push(tourney);
+          }
+        }
+
+        setTournaments(dedupedTourneys);
 
         setStats({
-          tournamentsCount: resolvedTourneys.length,
+          tournamentsCount: dedupedTourneys.length,
           teamsCount: totalTeams,
           playersCount: totalPlayers,
-          seasonsCount: resolvedTourneys.length > 0 ? 1 : 0,
+          seasonsCount: dedupedTourneys.length > 0 ? 1 : 0,
           ddplTeamsCount: currentActiveTeams.length,
           ddplOvers,
           gorOvers,
@@ -689,7 +700,7 @@ export function HomePageClient() {
                 </div>
                 <div>
                   <div className="font-display font-extrabold text-lg text-white">
-                    {tournaments.length > 0 ? tournaments.map((t) => t.name).join(' & ') : 'Official Leagues'}
+                    {tournaments.length > 0 ? Array.from(new Set(tournaments.map((t) => t.name))).join(' & ') : 'Official Leagues'}
                   </div>
                   <p className="text-xs text-[#8793A5] mt-0.5">
                     {stats.teamsCount > 0 ? `${stats.teamsCount} Franchises confirmed.` : 'Franchise rosters being finalized.'} Official tournaments upcoming.

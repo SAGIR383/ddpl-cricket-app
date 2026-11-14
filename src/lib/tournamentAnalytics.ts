@@ -582,14 +582,17 @@ export function calculateHeadToHead(
     teamAWins,
     teamBWins,
     ties,
-    teamAHighestScore: teamAHighestScore || 110,
-    teamBHighestScore: teamBHighestScore || 105,
+    teamAHighestScore: teamAHighestScore,
+    teamBHighestScore: teamBHighestScore,
     predictedWinProbA: probA,
     predictedWinProbB: probB,
-    keyMatchups: [
+    keyMatchups: totalPlayed > 0 ? [
       `Historical meetings: ${totalPlayed} (${teamAName}: ${teamAWins} wins, ${teamBName}: ${teamBWins} wins)`,
-      `Powerplay scoring battle: Off-side boundary conversion will dictate pace`,
-      `Death-overs control: Bowling economy in final 3 overs proves decisive`,
+      `Powerplay scoring battle: Historical runs and boundary conversion`,
+      `Death-overs control: Bowling economy in final overs`,
+    ] : [
+      `Awaiting First Match: Official encounter pending tournament match schedule.`,
+      `Head-to-head records will populate live as matches are concluded.`,
     ],
   };
 }

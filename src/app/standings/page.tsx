@@ -191,11 +191,11 @@ export default function StandingsPage() {
         teamAWins: 0,
         teamBWins: 0,
         ties: 0,
-        teamAHighestScore: 110,
-        teamBHighestScore: 105,
+        teamAHighestScore: 0,
+        teamBHighestScore: 0,
         predictedWinProbA: 50,
         predictedWinProbB: 50,
-        keyMatchups: ['Both franchises neck and neck on net run rate.'],
+        keyMatchups: ['Awaiting tournament encounter between these two franchises.'],
       };
     }
     return calculateHeadToHead(h2hTeamA, h2hTeamB);
@@ -212,7 +212,7 @@ export default function StandingsPage() {
         title: r.pathwayTitle || `Knockout Pathway: ${cfg.name || 'Tournament'} Structure`,
         badge: r.pathwayBadge || 'Official Tournament Rules',
         stages: r.stages,
-        qualificationRule: r.qualificationRule || 'Top teams advance to the knockout playoffs based on points and Net Run Rate (NRR).',
+        qualificationRule: r.qualificationRule || 'Top teams advance to the knockout semi-finals / finals based on points and Net Run Rate (NRR).',
       };
     }
 
@@ -253,7 +253,7 @@ export default function StandingsPage() {
           {
             title: 'Stage 1: Multi-Pool League',
             badge: 'Group Stage',
-            desc: `Franchises compete within assigned pools (${gNames}). Top 2 teams from each pool advance to the Cross-Group Playoffs.`,
+            desc: `Franchises compete within assigned pools (${gNames}). Top 2 teams from each pool advance to the Cross-Group Semi-Finals.`,
           },
           {
             title: 'Stage 2: Cross-Group Semi-Finals',
@@ -358,7 +358,7 @@ export default function StandingsPage() {
             Points Table &amp; Net Run Rate
           </h1>
           <p className="text-sm text-[#8793A5] mt-1.5 max-w-2xl">
-            Live tournament standings calculated dynamically with official ICC NRR rules, playoff qualification indicators, and form guide.
+            Live tournament standings calculated dynamically with official ICC NRR rules, knockout qualification indicators, and form guide.
           </p>
         </div>
 
@@ -494,6 +494,25 @@ export default function StandingsPage() {
           </div>
         )}
 
+        {/* Pre-Match / Auction Phase Notification Banner */}
+        {completedMatches === 0 && (
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#08111F] border-b border-[#D8AD55]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0 shadow-sm shadow-amber-400/50" />
+              <div className="text-gray-300">
+                <strong className="text-[#F2D69A] uppercase tracking-wider">Tournament Auction &amp; Squad Formation Phase:</strong>{' '}
+                All 6 franchises are seeded at 0 PTS. Official Net Run Rate (NRR) and Semi-Final qualification standings will dynamically activate live as Group Stage matches are completed.
+              </div>
+            </div>
+            <Link
+              href="/auction"
+              className="btn-press shimmer-btn shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-bold text-xs shadow hover:brightness-110"
+            >
+              <span>Live Auction Room ➔</span>
+            </Link>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           {displayedStandings.length > 0 ? (
             <table className="w-full text-left text-sm table-nums">
@@ -514,7 +533,20 @@ export default function StandingsPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {displayedStandings.map((team, idx) => {
-                  const isPlayoffZone = idx < 2 || (selectedGroupTab === 'all' && idx < 4);
+                  const isMultiGroup = (activeTournamentConfig?.groupsCount || 1) > 1 || availableGroups.length > 1;
+                  const kFormat = activeTournamentRules?.knockoutFormat || (isMultiGroup ? 'group_stage_knockout' : 'ipl_playoffs');
+                  const qualificationLabel =
+                    kFormat === 'group_stage_knockout' || isMultiGroup
+                      ? 'Semi-Finals'
+                      : kFormat === 'direct_final'
+                      ? 'Final'
+                      : kFormat === 'semis_final'
+                      ? 'Semi-Finals'
+                      : 'Playoffs';
+
+                  // Crucial: Qualification indicators only display when matches have actually commenced and team has played
+                  const hasStartedMatches = completedMatches > 0 && team.played > 0;
+                  const isPlayoffZone = hasStartedMatches && (idx < 2 || (selectedGroupTab === 'all' && idx < 4));
                   return (
                     <tr
                       key={team.name}
@@ -528,7 +560,7 @@ export default function StandingsPage() {
                           {isPlayoffZone && (
                             <span
                               className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"
-                              title="Playoff Qualification Zone"
+                              title={`${qualificationLabel} Qualification Zone`}
                             />
                           )}
                         </div>
@@ -543,7 +575,7 @@ export default function StandingsPage() {
                           )}
                           {isPlayoffZone && (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 text-[9px] font-bold uppercase tracking-wider">
-                              Playoffs
+                              {qualificationLabel}
                             </span>
                           )}
                         </div>
@@ -700,15 +732,21 @@ export default function StandingsPage() {
             <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 text-center space-y-1">
               <span className="text-gray-400 uppercase font-semibold">Highest Head-to-Head Total</span>
               <div className="font-display font-black text-2xl text-[#F2D69A]">
-                {h2hStats.teamAHighestScore} vs {h2hStats.teamBHighestScore}
+                {h2hStats.totalPlayed > 0 && (h2hStats.teamAHighestScore > 0 || h2hStats.teamBHighestScore > 0)
+                  ? `${h2hStats.teamAHighestScore} vs ${h2hStats.teamBHighestScore}`
+                  : '—'}
               </div>
-              <div className="text-[11px] text-[#8793A5]">Match high points</div>
+              <div className="text-[11px] text-[#8793A5]">
+                {h2hStats.totalPlayed > 0 ? 'Match high points' : 'Pending tournament match'}
+              </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#08111F] border border-white/5 text-center space-y-1">
               <span className="text-gray-400 uppercase font-semibold">Key Rivalry Factor</span>
               <div className="font-display font-bold text-xs text-white line-clamp-2 mt-1">
-                {h2hStats.keyMatchups[1] || 'Boundary conversion in death overs'}
+                {h2hStats.totalPlayed > 0
+                  ? (h2hStats.keyMatchups[1] || 'Boundary conversion in death overs')
+                  : 'Awaiting first head-to-head encounter'}
               </div>
             </div>
           </div>
