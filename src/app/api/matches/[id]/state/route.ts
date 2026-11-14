@@ -16,6 +16,124 @@ import {
 } from '@/lib/matchEngine';
 import { MatchFixture, TournamentScheduleState } from '@/app/api/matches/route';
 
+const cleanPlayerName = (n: string) => (n || '').replace(/\s*\((?:c|vc|captain|owner|wk)\)/gi, '').trim();
+
+const isPlaceholderName = (n: string) => {
+  const lower = (n || '').toLowerCase().trim();
+  if (!lower) return true;
+  if (lower.includes('to be assigned')) return true;
+  if (/^(?:[a-z]{1,4}\s+)?player\s+\d+$/i.test(lower)) return true;
+  if (/^(?:[a-z]{1,4}\s+)?batter\s+\d+$/i.test(lower)) return true;
+  if (/^(?:[a-z]{1,4}\s+)?bowler\s+\d+$/i.test(lower)) return true;
+  return false;
+};
+
+function reconcileSquadWithAuction(
+  existingSquad: SquadPlayer[] | undefined,
+  teamName: string,
+  teamShort: string,
+  teamsList: any[],
+  soldTxList: any[],
+  registrations: any[]
+): SquadPlayer[] {
+  const findPhoto = (playerName: string): string | undefined => {
+    if (!playerName || !Array.isArray(registrations)) return undefined;
+    const clean = cleanPlayerName(playerName).toLowerCase();
+    const reg = registrations.find((r: any) => cleanPlayerName(r.name || '').toLowerCase() === clean);
+    return reg?.avatarUrl || reg?.photo || undefined;
+  };
+
+  const teamMeta = (teamsList || []).find(
+    (t: any) =>
+      t.name?.toLowerCase() === teamName?.toLowerCase() ||
+      t.short?.toLowerCase() === teamShort?.toLowerCase() ||
+      t.shortName?.toLowerCase() === teamShort?.toLowerCase()
+  );
+
+  const cleanOwner = cleanPlayerName(teamMeta?.owner || '');
+  const resultSquad: SquadPlayer[] = [];
+
+  // 1. Owner MUST ALWAYS be slot 1 (Owner & Captain)
+  if (cleanOwner && !isPlaceholderName(cleanOwner)) {
+    const existingOwner = existingSquad?.find(
+      (p) => cleanPlayerName(p.name).toLowerCase() === cleanOwner.toLowerCase()
+    );
+    const photo = existingOwner?.photo || existingOwner?.avatar || findPhoto(cleanOwner);
+    resultSquad.push({
+      id: existingOwner?.id || `p-owner-${teamMeta?.id || teamShort}`,
+      name: cleanOwner,
+      isCaptain: true,
+      role: 'Owner & Captain',
+      avatar: photo,
+      photo: photo,
+    });
+  }
+
+  // 2. Fetch all sold transactions for this franchise
+  const teamSold = (soldTxList || []).filter((tx: any) => {
+    const txTeam = (tx.team || '').trim().toLowerCase();
+    return (
+      txTeam === teamName?.toLowerCase() ||
+      txTeam === teamShort?.toLowerCase() ||
+      (teamMeta && txTeam === (teamMeta.name || '').toLowerCase())
+    );
+  });
+
+  const soldPlayersMap = new Map<string, any>();
+  for (const tx of teamSold) {
+    const pName = cleanPlayerName(tx.player || '');
+    if (!pName || isPlaceholderName(pName)) continue;
+    if (cleanOwner && pName.toLowerCase() === cleanOwner.toLowerCase()) continue;
+    if (tx.role?.toLowerCase()?.includes('owner')) continue;
+    soldPlayersMap.set(pName.toLowerCase(), { tx, cleanName: pName });
+  }
+
+  // Preserve existing squad players if they are legitimate sold players
+  if (Array.isArray(existingSquad)) {
+    for (const p of existingSquad) {
+      const cName = cleanPlayerName(p.name);
+      if (!cName || isPlaceholderName(cName)) continue;
+      if (cleanOwner && cName.toLowerCase() === cleanOwner.toLowerCase()) continue;
+
+      const soldEntry = soldPlayersMap.get(cName.toLowerCase());
+      if (soldEntry) {
+        if (!resultSquad.some((rp) => cleanPlayerName(rp.name).toLowerCase() === cName.toLowerCase())) {
+          if (resultSquad.length < 8) {
+            const photo = p.photo || p.avatar || soldEntry.tx.photo || soldEntry.tx.avatarUrl || findPhoto(cName);
+            resultSquad.push({
+              ...p,
+              name: cName,
+              role: p.role && !p.role.includes('Player') ? p.role : (soldEntry.tx.role || 'Player'),
+              avatar: photo,
+              photo: photo,
+              isWicketKeeper: p.isWicketKeeper || soldEntry.tx.role?.toLowerCase().includes('keeper') || soldEntry.tx.role?.toLowerCase().includes('wk'),
+            });
+          }
+        }
+        soldPlayersMap.delete(cName.toLowerCase());
+      }
+    }
+  }
+
+  // Add remaining newly sold players from auction (up to 8 total players)
+  Array.from(soldPlayersMap.values()).forEach(({ tx, cleanName }) => {
+    if (resultSquad.length >= 8) return;
+    if (!resultSquad.some((rp) => cleanPlayerName(rp.name).toLowerCase() === cleanName.toLowerCase())) {
+      const photo = tx.photo || tx.avatarUrl || findPhoto(cleanName);
+      resultSquad.push({
+        id: tx.id ? `p-${tx.id}` : `p-sold-${cleanName.replace(/\s+/g, '-').toLowerCase()}`,
+        name: cleanName,
+        role: tx.role || 'Player',
+        avatar: photo,
+        photo: photo,
+        isWicketKeeper: tx.role?.toLowerCase().includes('keeper') || tx.role?.toLowerCase().includes('wk'),
+      });
+    }
+  });
+
+  return resultSquad;
+}
+
 // Helper to bootstrap match state if not yet saved in store
 async function bootstrapMatchState(matchId: string, requestedTournament?: string): Promise<MatchLiveState> {
   // 1. Determine tournament slug dynamically
@@ -78,98 +196,22 @@ async function bootstrapMatchState(matchId: string, requestedTournament?: string
   const teamBName = fixture?.teamB?.name || defaultTeamB.name;
   const teamBShort = fixture?.teamB?.short || defaultTeamB.short || defaultTeamB.shortName || teamBName.slice(0, 3).toUpperCase();
 
-  const findPhoto = (playerName: string): string | undefined => {
-    if (!playerName || !Array.isArray(registrations)) return undefined;
-    const reg = registrations.find((r: any) => r.name?.toLowerCase() === playerName?.toLowerCase());
-    return reg?.avatarUrl || reg?.photo || undefined;
-  };
-
-  // Build team squads strictly from real tournament data
-  const buildSquad = (teamName: string, short: string): SquadPlayer[] => {
-    const teamMeta = teamsList.find(
-      (t) => t.name?.toLowerCase() === teamName.toLowerCase() || t.short?.toLowerCase() === short.toLowerCase() || t.shortName?.toLowerCase() === short.toLowerCase()
-    );
-
-    const players: SquadPlayer[] = [];
-    if (teamMeta) {
-      if (teamMeta.owner) {
-        players.push({
-          id: `p-owner-${teamMeta.id || short}`,
-          name: teamMeta.owner,
-          isCaptain: true,
-          role: 'Owner & Player',
-          avatar: findPhoto(teamMeta.owner),
-          photo: findPhoto(teamMeta.owner),
-        });
-      }
-      if (teamMeta.captain && teamMeta.captain !== teamMeta.owner) {
-        players.push({
-          id: `p-c-${teamMeta.id || short}`,
-          name: teamMeta.captain,
-          isCaptain: true,
-          role: 'Captain',
-          avatar: findPhoto(teamMeta.captain),
-          photo: findPhoto(teamMeta.captain),
-        });
-      }
-      if (teamMeta.viceCaptain && teamMeta.viceCaptain !== teamMeta.captain && teamMeta.viceCaptain !== teamMeta.owner) {
-        players.push({
-          id: `p-vc-${teamMeta.id || short}`,
-          name: teamMeta.viceCaptain,
-          role: 'Vice Captain',
-          avatar: findPhoto(teamMeta.viceCaptain),
-          photo: findPhoto(teamMeta.viceCaptain),
-        });
-      }
-    }
-
-    const teamSold = soldTxList.filter((tx) => tx.team?.toLowerCase() === teamName.toLowerCase());
-    teamSold.forEach((tx, idx) => {
-      if (!players.some((p) => p.name.toLowerCase() === tx.player?.toLowerCase())) {
-        const photo = tx.photo || tx.avatarUrl || findPhoto(tx.player);
-        players.push({
-          id: `p-${idx}-${tx.player}`,
-          name: tx.player,
-          role: tx.role || 'Player',
-          avatar: photo,
-          photo: photo,
-          isWicketKeeper: tx.role?.toLowerCase().includes('keeper') || tx.role?.toLowerCase().includes('wk'),
-        });
-      }
-    });
-
-    const targetSquadSize = currentRules.maxSquadSize || 8;
-    const defaultRoles = [
-      'Top-Order Batter',
-      'Opening Batter',
-      'Middle-Order Batter',
-      'All-Rounder',
-      'Wicket-Keeper Batter',
-      'All-Rounder',
-      'Pace Bowler',
-      'Spin Bowler',
-      'Bowler',
-      'Bowler',
-    ];
-    let fillIdx = 1;
-    while (players.length < targetSquadSize) {
-      const pName = `${short} Player ${fillIdx}`;
-      if (!players.some((p) => p.name.toLowerCase() === pName.toLowerCase())) {
-        const role = defaultRoles[players.length % defaultRoles.length];
-        players.push({
-          id: `p-${short}-${fillIdx}`,
-          name: pName,
-          role,
-        });
-      }
-      fillIdx++;
-    }
-
-    return players;
-  };
-
-  const squadA = buildSquad(teamAName, teamAShort);
-  const squadB = buildSquad(teamBName, teamBShort);
+  const squadA = reconcileSquadWithAuction(
+    undefined,
+    teamAName,
+    teamAShort,
+    teamsList,
+    soldTxList,
+    registrations
+  );
+  const squadB = reconcileSquadWithAuction(
+    undefined,
+    teamBName,
+    teamBShort,
+    teamsList,
+    soldTxList,
+    registrations
+  );
 
   const initialInnings1 = createInitialInnings(
     teamAName,
@@ -267,48 +309,63 @@ export async function GET(
     if (!state || isLegacyMock) {
       state = await bootstrapMatchState(matchId, queryTournament || undefined);
     } else if (state) {
-      const targetSquadSize = state.rules?.maxSquadSize || 8;
-      let stateModified = false;
-
-      const ensureFullSquad = (squad: SquadPlayer[] | undefined, teamShort: string) => {
-        const currentList: SquadPlayer[] = [...(squad || [])];
-        const defaultRoles = [
-          'Top-Order Batter',
-          'Opening Batter',
-          'Middle-Order Batter',
-          'All-Rounder',
-          'Wicket-Keeper Batter',
-          'All-Rounder',
-          'Pace Bowler',
-          'Spin Bowler',
-          'Bowler',
-          'Bowler',
-        ];
-        let fillIdx = 1;
-        while (currentList.length < targetSquadSize) {
-          const pName = `${teamShort} Player ${fillIdx}`;
-          if (!currentList.some((p) => p.name.toLowerCase() === pName.toLowerCase())) {
-            const role = defaultRoles[currentList.length % defaultRoles.length];
-            currentList.push({
-              id: `p-${teamShort}-${fillIdx}`,
-              name: pName,
-              role,
-            });
-            stateModified = true;
-          }
-          fillIdx++;
-        }
-        return currentList;
-      };
-
-      if (!state.teamASquad || state.teamASquad.length < targetSquadSize) {
-        state.teamASquad = ensureFullSquad(state.teamASquad, state.innings1.battingTeamShort || 'FA');
-      }
-      if (!state.teamBSquad || state.teamBSquad.length < targetSquadSize) {
-        state.teamBSquad = ensureFullSquad(state.teamBSquad, state.innings1.bowlingTeamShort || 'QA');
+      let tournamentSlug = state.tournament || queryTournament || 'ddpl-3-0';
+      if (matchId.includes('-m')) {
+        tournamentSlug = matchId.substring(0, matchId.lastIndexOf('-m')).toLowerCase();
       }
 
-      if (stateModified) {
+      const [allAuction, registrations, schedule] = await Promise.all([
+        getStoreData<any>('auction_data_ddpl', 'auction_data.json', { tournaments: {} }),
+        getStoreData<any[]>(`tournament_registrations_${tournamentSlug}`, `registrations_${tournamentSlug}.json`, []),
+        getStoreData<TournamentScheduleState | null>(`tournament_schedule_${tournamentSlug}`, `schedule_${tournamentSlug}.json`, null),
+      ]);
+
+      let regList = registrations;
+      if ((!Array.isArray(regList) || regList.length === 0) && (tournamentSlug === 'ddpl' || tournamentSlug === 'ddpl-3-0')) {
+        const altSlug = tournamentSlug === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
+        regList = await getStoreData<any[]>(`tournament_registrations_${altSlug}`, `registrations_${altSlug}.json`, []);
+      }
+
+      const tourneyAuction =
+        allAuction?.tournaments?.[tournamentSlug] ||
+        allAuction?.tournaments?.[tournamentSlug === 'ddpl' ? 'ddpl-3-0' : 'ddpl'] ||
+        allAuction?.tournaments?.['ddpl-3-0'] ||
+        allAuction?.tournaments?.['ddpl'] ||
+        {};
+      const teamsList: any[] = tourneyAuction?.teams || [];
+      const soldTxList: any[] = tourneyAuction?.soldTransactions || [];
+
+      const fixture = schedule?.matches?.find((m) => m.id === matchId);
+      const teamAName = fixture?.teamA?.name || state.innings1?.battingTeam || teamsList[0]?.name || 'MATRIX';
+      const teamAShort = fixture?.teamA?.short || state.innings1?.battingTeamShort || teamsList[0]?.short || 'MA';
+      const teamBName = fixture?.teamB?.name || state.innings1?.bowlingTeam || teamsList[1]?.name || 'APEX';
+      const teamBShort = fixture?.teamB?.short || state.innings1?.bowlingTeamShort || teamsList[1]?.short || 'AP';
+
+      const reconciledSquadA = reconcileSquadWithAuction(
+        state.teamASquad,
+        teamAName,
+        teamAShort,
+        teamsList,
+        soldTxList,
+        regList
+      );
+      const reconciledSquadB = reconcileSquadWithAuction(
+        state.teamBSquad,
+        teamBName,
+        teamBShort,
+        teamsList,
+        soldTxList,
+        regList
+      );
+
+      const squadAChanged = JSON.stringify(reconciledSquadA) !== JSON.stringify(state.teamASquad);
+      const squadBChanged = JSON.stringify(reconciledSquadB) !== JSON.stringify(state.teamBSquad);
+
+      if (squadAChanged || squadBChanged) {
+        state.teamASquad = reconciledSquadA;
+        state.teamBSquad = reconciledSquadB;
+        state.lastUpdated = new Date().toISOString();
+
         await setStoreData(`match_state_${matchId}`, state, `match_state_${matchId}.json`);
         invalidateStoreCache(`match_state_${matchId}`);
       }

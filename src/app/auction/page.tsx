@@ -1002,7 +1002,13 @@ export default function AuctionPage() {
           tournament: tourneyKey,
         }),
       });
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(rawText || 'Server returned invalid response');
+      }
       if (data.success) {
         showToast(data.message || `Successfully synced ${data.count} players!`);
         // Immediately fetch refreshed state
@@ -1114,7 +1120,13 @@ export default function AuctionPage() {
         throw new Error(errMsg);
       }
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(rawText || 'Server returned invalid response');
+      }
       if (data.success) {
         showToast(data.message || 'Auction successfully reset!');
         const freshState = data.data;

@@ -16,7 +16,19 @@ export function SquadsTab({ state }: SquadsTabProps) {
   const teamBName = state.innings1.bowlingTeam;
   const teamBShort = state.innings1.bowlingTeamShort;
 
-  // Build team A roster (starting with batters that appeared in the innings, followed by remaining squad members)
+  // Clean helper
+  const cleanPlayerName = (n: string) => (n || '').replace(/\s*\((?:c|vc|captain|owner|wk)\)/gi, '').trim();
+  const isPlaceholderName = (n: string) => {
+    const lower = (n || '').toLowerCase().trim();
+    if (!lower) return true;
+    if (lower.includes('to be assigned')) return true;
+    if (/^(?:[a-z]{1,4}\s+)?player\s+\d+$/i.test(lower)) return true;
+    if (/^(?:[a-z]{1,4}\s+)?batter\s+\d+$/i.test(lower)) return true;
+    if (/^(?:[a-z]{1,4}\s+)?bowler\s+\d+$/i.test(lower)) return true;
+    return false;
+  };
+
+  // Build team roster (starting with batters that appeared in the innings, followed by remaining squad members)
   const buildTeamRoster = (
     squad: SquadPlayer[] = [],
     battersInInnings: { name: string; runs?: number; balls?: number; isOut?: boolean }[] = []
@@ -26,13 +38,16 @@ export function SquadsTab({ state }: SquadsTabProps) {
 
     // 1. Add batters who have batted or are batting first
     battersInInnings.forEach((b) => {
-      const matchSquad = squad.find((s) => s.name?.toLowerCase() === b.name?.toLowerCase());
-      addedNames.add(b.name?.toLowerCase());
+      const cName = cleanPlayerName(b.name);
+      if (!cName || isPlaceholderName(cName)) return;
+
+      const matchSquad = squad.find((s) => cleanPlayerName(s.name).toLowerCase() === cName.toLowerCase());
+      addedNames.add(cName.toLowerCase());
       list.push({
-        id: matchSquad?.id || `p-${b.name}`,
-        name: b.name,
+        id: matchSquad?.id || `p-${cName}`,
+        name: cName,
         role: matchSquad?.role || 'Batter',
-        isCaptain: matchSquad?.isCaptain,
+        isCaptain: matchSquad?.isCaptain || matchSquad?.role?.toLowerCase().includes('captain'),
         isWicketKeeper: matchSquad?.isWicketKeeper,
         avatar: matchSquad?.avatar,
         photo: matchSquad?.photo || matchSquad?.avatar,
@@ -42,11 +57,15 @@ export function SquadsTab({ state }: SquadsTabProps) {
       });
     });
 
-    // 2. Add remaining squad members
+    // 2. Add remaining squad members (filter out any dummy players)
     squad.forEach((s) => {
-      if (!addedNames.has(s.name?.toLowerCase())) {
+      const cName = cleanPlayerName(s.name);
+      if (!cName || isPlaceholderName(cName)) return;
+      if (!addedNames.has(cName.toLowerCase())) {
+        addedNames.add(cName.toLowerCase());
         list.push({
           ...s,
+          name: cName,
           hasBatted: false,
         });
       }
@@ -87,18 +106,18 @@ export function SquadsTab({ state }: SquadsTabProps) {
                 {teamName}
               </h4>
               <div className="text-[11px] text-[#8793A5]">
-                {roster.length} Players Registered
+                <span className="text-[#F2D69A] font-bold">{roster.length}</span>/8 Players Acquired
               </div>
             </div>
           </div>
 
-          <span className="px-2.5 py-1 rounded-full bg-[#08111F] border border-white/10 text-[10px] font-black text-[#D8AD55] uppercase">
-            Playing XI
+          <span className="px-2.5 py-1 rounded-full bg-[#D8AD55]/15 border border-[#D8AD55]/40 text-[10px] font-black text-[#F2D69A] uppercase tracking-wider">
+            Squad (8 Max)
           </span>
         </div>
 
         {/* Players List */}
-        <div className="divide-y divide-white/5 p-2 sm:p-3 flex-1">
+        <div className="divide-y divide-white/5 p-2 sm:p-3 flex-1 space-y-1">
           {roster.map((player, idx) => {
             const role = player.role || 'Player';
             const isCaptain = player.isCaptain || player.role?.toLowerCase().includes('captain');
@@ -167,6 +186,34 @@ export function SquadsTab({ state }: SquadsTabProps) {
                     </div>
                   )}
                 </div>
+              </div>
+            );
+          })}
+
+          {/* Open / Awaiting Auction Slots */}
+          {Array.from({ length: Math.max(0, 8 - roster.length) }).map((_, i) => {
+            const slotNum = roster.length + i + 1;
+            return (
+              <div
+                key={`open-slot-${slotNum}`}
+                className="p-3 sm:px-4 rounded-2xl flex items-center justify-between gap-3 border border-dashed border-white/10 bg-[#08111F]/30"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl border border-dashed border-white/15 bg-white/[0.02] flex items-center justify-center font-display font-bold text-xs text-[#8793A5]/50">
+                    #{slotNum}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-[#8793A5]/70">
+                      Slot {slotNum} • Awaiting Auction Pick
+                    </div>
+                    <div className="text-[11px] text-[#8793A5]/40">
+                      Open Franchise Slot
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[#8793A5]/60">
+                  Vacant
+                </span>
               </div>
             );
           })}

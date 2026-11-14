@@ -1256,6 +1256,25 @@ export async function POST(req: Request) {
       invalidateStoreCache('auction_data_ddpl');
       await setStoreData('auction_data_ddpl', allAuction, 'auction_data.json');
 
+      // Invalidate match states so tournament squads immediately sync with clean slate
+      try {
+        const schedule = await getStoreData<any>(
+          `tournament_schedule_${tSlug}`,
+          `schedule_${tSlug}.json`,
+          null
+        );
+        if (schedule?.matches?.length) {
+          for (const m of schedule.matches) {
+            invalidateStoreCache(`match_state_${m.id}`);
+          }
+        }
+        invalidateStoreCache('match_state_ddpl-3-0-m1');
+        invalidateStoreCache('match_state_ddpl-3-0-m4');
+        invalidateStoreCache('match_state_ddpl-3-0-m19');
+      } catch (err) {
+        console.warn('Could not invalidate match states on reset:', err);
+      }
+
       return NextResponse.json({
         success: true,
         message: `Auction reset to clean slate! 6 franchises restored, ${freshPool.length} registered players loaded into auction pool!`,
