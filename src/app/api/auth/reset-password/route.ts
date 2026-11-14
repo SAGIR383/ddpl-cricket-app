@@ -47,17 +47,17 @@ export async function POST(req: NextRequest) {
       console.warn('[Supabase Profile Lookup Warn]:', profileErr);
     }
 
-    // Lookup in Supabase Auth users
+    // Lookup in Supabase Auth users (paginated up to 1000 users)
     try {
-      const { data: usersData } = await adminClient.auth.admin.listUsers();
-      const sbUser = usersData?.users?.find((u) => u.email?.toLowerCase() === cleanEmail);
+      const { data: usersData } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const sbUser = usersData?.users?.find((u) => u.email?.trim().toLowerCase() === cleanEmail);
       if (sbUser) {
         sbAuthUserId = sbUser.id;
         if (!userRecord) {
           userRecord = {
             id: sbUser.id,
             email: cleanEmail,
-            full_name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0],
+            full_name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email?.split('@')[0],
           };
         }
       }
@@ -65,12 +65,13 @@ export async function POST(req: NextRequest) {
       console.warn('[Supabase Auth User Lookup Warn]:', sbLookupErr);
     }
 
-    // Fallback: Check Super Admin / Tournament Host accounts in store
+    // Fallback: Check Super Admin, Player Registrations & Tournament Host accounts in store
     if (!userRecord) {
       try {
-        const [adminAccounts, configs] = await Promise.all([
+        const [adminAccounts, configs, registrationsData] = await Promise.all([
           getStoreData<Record<string, any>>('super_admin_accounts', 'super_admin_accounts.json', {}),
           getStoreData<Record<string, any>>('tournament_configs', 'tournament_configs.json', {}),
+          getStoreData<any>('tournament_registrations_ddpl-3-0', 'registrations.json', []),
         ]);
 
         if (adminAccounts[cleanEmail]) {
@@ -80,17 +81,28 @@ export async function POST(req: NextRequest) {
             full_name: adminAccounts[cleanEmail].name || 'Admin',
           };
         } else {
-          for (const cfg of Object.values(configs)) {
-            if (
-              cfg?.creatorEmail?.toLowerCase() === cleanEmail ||
-              (Array.isArray(cfg?.adminEmails) && cfg.adminEmails.some((e: string) => e?.toLowerCase() === cleanEmail))
-            ) {
-              userRecord = {
-                id: `host-${cleanEmail}`,
-                email: cleanEmail,
-                full_name: cfg.creatorName || 'Host',
-              };
-              break;
+          // Check tournament registrations
+          const regsList = Array.isArray(registrationsData) ? registrationsData : (registrationsData?.registrations || []);
+          const foundPlayer = regsList.find((p: any) => p.email?.trim().toLowerCase() === cleanEmail);
+          if (foundPlayer) {
+            userRecord = {
+              id: foundPlayer.id || `player-${cleanEmail}`,
+              email: cleanEmail,
+              full_name: foundPlayer.name || foundPlayer.fullName || cleanEmail.split('@')[0],
+            };
+          } else {
+            for (const cfg of Object.values(configs)) {
+              if (
+                cfg?.creatorEmail?.toLowerCase() === cleanEmail ||
+                (Array.isArray(cfg?.adminEmails) && cfg.adminEmails.some((e: string) => e?.toLowerCase() === cleanEmail))
+              ) {
+                userRecord = {
+                  id: `host-${cleanEmail}`,
+                  email: cleanEmail,
+                  full_name: cfg.creatorName || 'Host',
+                };
+                break;
+              }
             }
           }
         }
@@ -108,7 +120,7 @@ export async function POST(req: NextRequest) {
 
     const userName = userRecord.full_name || cleanEmail.split('@')[0];
 
-    // 2. Direct password update (Instant update without needing email delivery)
+    // 2. Direct password update (Instant update in Supabase Auth & Profiles without needing email delivery)
     if (newPassword || action === 'direct_reset' || action === 'verify_otp') {
       if (!newPassword || newPassword.length < 6) {
         return NextResponse.json(
@@ -117,12 +129,32 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Update in Supabase Auth
+      // Update in Supabase Auth if user exists
       if (sbAuthUserId) {
         try {
-          await adminClient.auth.admin.updateUserById(sbAuthUserId, { password: newPassword });
+          await adminClient.auth.admin.updateUserById(sbAuthUserId, {
+            password: newPassword,
+            email_confirm: true,
+          });
         } catch (authUpdateErr) {
           console.warn('[Supabase Auth Password Update Warn]:', authUpdateErr);
+        }
+      } else {
+        // If user was in profiles or registrations but not yet in Supabase Auth, auto-create
+        try {
+          const { data: createdAuthUser } = await adminClient.auth.admin.createUser({
+            email: cleanEmail,
+            password: newPassword,
+            email_confirm: true,
+            user_metadata: {
+              full_name: userRecord.full_name,
+            },
+          });
+          if (createdAuthUser?.user) {
+            sbAuthUserId = createdAuthUser.user.id;
+          }
+        } catch (createAuthErr) {
+          console.warn('[Supabase Auth User Auto-Create Warn]:', createAuthErr);
         }
       }
 
@@ -150,7 +182,7 @@ export async function POST(req: NextRequest) {
 
       // Generate direct recovery action link via Supabase Admin
       try {
-        const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
+        const { data: linkData } = await adminClient.auth.admin.generateLink({
           type: 'recovery',
           email: cleanEmail,
           options: {
@@ -171,6 +203,8 @@ export async function POST(req: NextRequest) {
         });
         if (!sendErr) {
           emailSent = true;
+        } else {
+          console.warn('[Supabase resetPasswordForEmail Error]:', sendErr.message);
         }
       } catch (sendErr) {
         console.warn('[Supabase resetPasswordForEmail Warn]:', sendErr);
@@ -183,8 +217,10 @@ export async function POST(req: NextRequest) {
         emailSent,
         actionLink,
         message: emailSent
-          ? `Password reset link sent to ${cleanEmail}! Please check your inbox or spam folder.`
-          : `Password reset link generated for ${cleanEmail}! You can use the link or reset your password directly on this page.`,
+          ? `Password reset link sent to ${cleanEmail}! Please check your inbox and spam folder.`
+          : actionLink
+          ? `Password reset link generated for ${cleanEmail}! You can click the instant recovery link below or reset your password directly on this page.`
+          : `Account verified for ${userName}! Please set your new password directly below.`,
       });
     }
 
