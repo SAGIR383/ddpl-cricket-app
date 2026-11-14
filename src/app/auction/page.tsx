@@ -156,12 +156,22 @@ export default function AuctionPage() {
 
   useEffect(() => {
     setIsAudioMuted(auctionAudio.isMuted());
+    setIsVoiceMuted(auctionAudio.isVoiceMuted());
   }, []);
+
+  const [isVoiceMuted, setIsVoiceMuted] = useState<boolean>(false);
+  const hasAnnouncedFirstPlayerRef = useRef<boolean>(false);
 
   const handleToggleSound = () => {
     const next = auctionAudio.toggleMute();
     setIsAudioMuted(next);
     showToast(next ? '🔇 Auction Sound Effects Muted' : '🔊 Auction Sound Effects Enabled');
+  };
+
+  const handleToggleVoice = () => {
+    const next = auctionAudio.toggleVoiceMute();
+    setIsVoiceMuted(next);
+    showToast(next ? '🔇 Voice Commentary Muted' : '🎙️ Indian English Female Voice Commentary Activated');
   };
 
   // Franchise Owner Detection (Supports all 6 DDPL 3.0 franchises reliably)
@@ -355,6 +365,14 @@ export default function AuctionPage() {
             if (data.currentLot) {
               const lotName = data.currentLot.name?.trim().toLowerCase();
               const lotPhoto = data.currentLot.avatarUrl || data.currentLot.photo || photoMap[lotName] || null;
+              if (currentLot?.name !== data.currentLot.name) {
+                if (!hasAnnouncedFirstPlayerRef.current) {
+                  hasAnnouncedFirstPlayerRef.current = true;
+                  auctionAudio.announceFirstPlayer(data.currentLot.name, data.currentLot.role, data.currentLot.basePrice || 100);
+                } else {
+                  auctionAudio.announceNextPlayer(data.currentLot.name, data.currentLot.role, data.currentLot.basePrice || 100);
+                }
+              }
               setCurrentLot({ ...data.currentLot, avatarUrl: lotPhoto });
             } else {
               setCurrentLot(null);
@@ -378,6 +396,17 @@ export default function AuctionPage() {
               ...data.mascotEvent,
               id: data.mascotEvent.id || `${data.mascotEvent.type}-${data.mascotEvent.player}-${Date.now()}`,
             });
+            if (data.mascotEvent.type === 'sold') {
+              auctionAudio.playGavelStrike();
+              auctionAudio.announceSold(
+                data.mascotEvent.player,
+                data.mascotEvent.team || 'Franchise',
+                data.mascotEvent.price || 100
+              );
+            } else if (data.mascotEvent.type === 'unsold') {
+              auctionAudio.playUnsoldBuzzer();
+              auctionAudio.announceUnsold(data.mascotEvent.player);
+            }
           }
           setLastSyncTime(new Date().toLocaleTimeString());
         }
@@ -708,6 +737,15 @@ export default function AuctionPage() {
       const roundTimer = isAcceleratedRoundRef.current ? 30 : 120;
       setCountdown(roundTimer);
       broadcastAuctionState({ currentLot: newLot, countdown: roundTimer });
+
+      // Voice commentary for boarded player
+      if (!hasAnnouncedFirstPlayerRef.current) {
+        hasAnnouncedFirstPlayerRef.current = true;
+        auctionAudio.announceFirstPlayer(next.name, next.role, next.basePrice || 100);
+      } else {
+        auctionAudio.announceNextPlayer(next.name, next.role, next.basePrice || 100);
+      }
+
       return newLot;
     } else {
       setCurrentLot(null);
@@ -759,8 +797,9 @@ export default function AuctionPage() {
     };
     setActiveMascotEvent(soldEvent);
 
-    // Play resonant gavel hammer sound effect
+    // Play resonant gavel hammer sound effect and Indian English female voice announcement
     auctionAudio.playGavelStrike();
+    auctionAudio.announceSold(soldPlayer, winningTeamName, finalPrice);
 
     const msg = isAuto
       ? `⏰ 2m Timer Expired! AUTO-SOLD: ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 4s...`
@@ -788,8 +827,9 @@ export default function AuctionPage() {
     if (isAutoTransitioning) return;
     setIsAutoTransitioning(true);
 
-    // Play unsold double buzzer sound effect
+    // Play unsold double buzzer sound effect and Indian English female voice announcement
     auctionAudio.playUnsoldBuzzer();
+    auctionAudio.announceUnsold(unsoldPlayer);
 
     const newUnsold = [...unsoldPlayers, unsoldPlayer];
     setUnsoldPlayers(newUnsold);
@@ -1069,6 +1109,7 @@ export default function AuctionPage() {
           setAuctionStatus('stopped');
           setBiddingAccessEnabled(true);
           setTeamBiddingAccess({});
+          hasAnnouncedFirstPlayerRef.current = false;
           broadcastAuctionState({
             auctionStatus: 'stopped',
             biddingAccessEnabled: true,
@@ -1652,7 +1693,18 @@ export default function AuctionPage() {
         {/* Full-Width Active Player on the Block & Bidding Keypad */}
         <div className="w-full space-y-6">
               {currentLot ? (
-                <div className="bg-[#0D1B2A]/95 backdrop-blur-md rounded-3xl overflow-hidden border border-[#D8AD55]/40 shadow-2xl space-y-6">
+                <div className="bg-[#0D1B2A]/95 backdrop-blur-md rounded-3xl overflow-hidden border border-[#D8AD55]/40 shadow-2xl space-y-6 relative">
+                  {/* 3D Live Auction Mascot Reaction Anchored Directly Inside Bidding Block */}
+                  {activeMascotEvent && (
+                    <ErrorBoundary fallback={null}>
+                      <AuctionMascotOverlay
+                        contained={true}
+                        event={activeMascotEvent}
+                        onDismiss={() => setActiveMascotEvent(null)}
+                      />
+                    </ErrorBoundary>
+                  )}
+
                   {/* Lot Hero Header */}
                   <div className="p-6 sm:p-8 bg-gradient-to-r from-[#08111F] via-[#0D1B2A] to-[#111D2D] border-b border-[#D8AD55]/20 text-center space-y-5 relative">
                     <div className="flex items-center justify-between">
@@ -1661,8 +1713,27 @@ export default function AuctionPage() {
                         <span>Live on the Block</span>
                       </div>
 
-                      {/* 2-Minute (120-Second) Live Broadcast Circular Countdown Dial */}
-                      <div className="flex items-center gap-3">
+                      {/* 2-Minute (120-Second) Live Broadcast Circular Countdown Dial & Voice Commentary Toggle */}
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        {/* Indian English Sweet Female Voice Commentary Button */}
+                        <button
+                          onClick={handleToggleVoice}
+                          title={isVoiceMuted ? 'Unmute Indian English female voice commentary' : 'Mute voice commentary'}
+                          className={`px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${
+                            isVoiceMuted
+                              ? 'bg-[#08111F] border-red-500/40 text-red-300 hover:bg-[#111D2D]'
+                              : 'bg-[#D8AD55]/15 border-[#D8AD55]/50 text-[#F2D69A] hover:bg-[#D8AD55]/25'
+                          }`}
+                        >
+                          {isVoiceMuted ? (
+                            <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                          ) : (
+                            <Volume2 className="w-3.5 h-3.5 text-[#D8AD55] animate-pulse" />
+                          )}
+                          <span className="hidden sm:inline font-mono">
+                            {isVoiceMuted ? 'Voice: OFF' : 'Voice: ON'}
+                          </span>
+                        </button>
                         <div className="relative w-16 h-16 flex items-center justify-center">
                           {/* Circular SVG Ring */}
                           <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 56 56">
@@ -2196,7 +2267,17 @@ export default function AuctionPage() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-[#0D1B2A]/95 backdrop-blur-md p-10 sm:p-14 text-center space-y-5 rounded-3xl border border-[#D8AD55]/40 shadow-2xl">
+                <div className="bg-[#0D1B2A]/95 backdrop-blur-md p-10 sm:p-14 text-center space-y-5 rounded-3xl border border-[#D8AD55]/40 shadow-2xl relative overflow-hidden">
+                  {/* 3D Live Auction Mascot Reaction Anchored Directly Inside Bidding Block */}
+                  {activeMascotEvent && (
+                    <ErrorBoundary fallback={null}>
+                      <AuctionMascotOverlay
+                        contained={true}
+                        event={activeMascotEvent}
+                        onDismiss={() => setActiveMascotEvent(null)}
+                      />
+                    </ErrorBoundary>
+                  )}
                   {unsoldPlayers.length > 0 ? (
                     <>
                       <div className="w-16 h-16 rounded-2xl bg-[#D8AD55]/15 text-[#D8AD55] flex items-center justify-center mx-auto border border-[#D8AD55]/30 shadow-xl">
@@ -2881,15 +2962,6 @@ export default function AuctionPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 3D LIVE AUCTION MASCOT TRANSPARENT OVERLAY (12 SOLD + 12 UNSOLD VARIATIONS) */}
-      {/* ========================================================================= */}
-      <ErrorBoundary fallback={null}>
-        <AuctionMascotOverlay
-          event={activeMascotEvent}
-          onDismiss={() => setActiveMascotEvent(null)}
-        />
-      </ErrorBoundary>
     </div>
   );
 }

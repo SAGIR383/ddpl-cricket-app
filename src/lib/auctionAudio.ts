@@ -1,14 +1,35 @@
 // Audio Engine for CricPlus Live Auction
-// Powered by browser Web Audio API for zero-latency, offline-capable synthesized sound effects.
+// Powered by browser Web Audio API for zero-latency, offline-capable synthesized sound effects
+// and Web Speech API for sweet Indian English female voice commentary & announcements.
 
 class AuctionSoundEngine {
   private ctx: AudioContext | null = null;
   private muted: boolean = false;
+  private voiceMuted: boolean = false;
+  private voices: SpeechSynthesisVoice[] = [];
 
   constructor() {
     if (typeof window !== 'undefined') {
       const savedMute = localStorage.getItem('cricplus_auction_muted');
       this.muted = savedMute === 'true';
+      const savedVoiceMute = localStorage.getItem('cricplus_auction_voice_muted');
+      this.voiceMuted = savedVoiceMute === 'true';
+
+      if ('speechSynthesis' in window) {
+        this.loadVoices();
+        if (typeof window.speechSynthesis.onvoiceschanged !== 'undefined') {
+          window.speechSynthesis.onvoiceschanged = () => this.loadVoices();
+        }
+      }
+    }
+  }
+
+  private loadVoices() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      this.voices = window.speechSynthesis.getVoices() || [];
+    } catch {
+      this.voices = [];
     }
   }
 
@@ -43,6 +64,147 @@ class AuctionSoundEngine {
     if (typeof window !== 'undefined') {
       localStorage.setItem('cricplus_auction_muted', String(this.muted));
     }
+  }
+
+  public isVoiceMuted(): boolean {
+    return this.voiceMuted;
+  }
+
+  public toggleVoiceMute(): boolean {
+    this.voiceMuted = !this.voiceMuted;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cricplus_auction_voice_muted', String(this.voiceMuted));
+      if (this.voiceMuted && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch {}
+      }
+    }
+    return this.voiceMuted;
+  }
+
+  public setVoiceMute(muted: boolean) {
+    this.voiceMuted = muted;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cricplus_auction_voice_muted', String(this.voiceMuted));
+      if (this.voiceMuted && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch {}
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Sweet Indian English Female Voice Selector
+  // --------------------------------------------------------------------------
+  private getPreferredVoice(): SpeechSynthesisVoice | null {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+    if (!this.voices || this.voices.length === 0) {
+      this.loadVoices();
+    }
+    if (!this.voices || this.voices.length === 0) return null;
+
+    // Priority 1: Indian English Female Voice (Neerja, Heera, Swara, Google en-IN Female, etc.)
+    const enInFemale = this.voices.find((v) => {
+      const isEnIn = v.lang === 'en-IN' || v.lang === 'en_IN' || v.lang.toLowerCase().startsWith('en-in');
+      const n = (v.name || '').toLowerCase();
+      return (
+        isEnIn &&
+        (n.includes('female') ||
+          n.includes('neerja') ||
+          n.includes('heera') ||
+          n.includes('swara') ||
+          n.includes('veena') ||
+          n.includes('ananya') ||
+          n.includes('priya') ||
+          n.includes('natural') ||
+          n.includes('google'))
+      );
+    });
+    if (enInFemale) return enInFemale;
+
+    // Priority 2: Any English (India) voice
+    const anyEnIn = this.voices.find(
+      (v) => v.lang === 'en-IN' || v.lang === 'en_IN' || v.lang.toLowerCase().startsWith('en-in')
+    );
+    if (anyEnIn) return anyEnIn;
+
+    // Priority 3: Sweet, clear English Female voices (Zira, Samantha, Jenny, Ava, Sonia, Aria)
+    const enFemale = this.voices.find((v) => {
+      const n = (v.name || '').toLowerCase();
+      return (
+        (v.lang || '').startsWith('en') &&
+        (n.includes('female') ||
+          n.includes('zira') ||
+          n.includes('samantha') ||
+          n.includes('jenny') ||
+          n.includes('ava') ||
+          n.includes('sonia') ||
+          n.includes('aria') ||
+          n.includes('natural'))
+      );
+    });
+    if (enFemale) return enFemale;
+
+    // Priority 4: Any standard English voice
+    const anyEn = this.voices.find((v) => (v.lang || '').startsWith('en'));
+    return anyEn || this.voices[0] || null;
+  }
+
+  // --------------------------------------------------------------------------
+  // Voice Announcements
+  // --------------------------------------------------------------------------
+  public announce(text: string) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (this.voiceMuted || this.muted) return;
+
+    try {
+      window.speechSynthesis.cancel(); // Stop any pending utterance
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = this.getPreferredVoice();
+      if (voice) {
+        utterance.voice = voice;
+      }
+      utterance.pitch = 1.05; // Slightly elevated pitch for a sweet tone
+      utterance.rate = 0.95;  // Clear, professional commentary pacing
+      utterance.volume = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('[AuctionAudio] Announce error:', e);
+    }
+  }
+
+  public announceFirstPlayer(player: string, role?: string, basePrice: number = 100) {
+    const cleanPlayer = (player || '').replace(/\s*\([^)]*\)/g, '').trim();
+    const roleStr = role ? role.trim() : 'All-Rounder';
+    const text = `Welcome to DDPL 3.0 live auction! The first player on the block is ${cleanPlayer}, ${roleStr}. Base price is ${basePrice} points.`;
+    this.announce(text);
+  }
+
+  public announceNextPlayer(player: string, role?: string, basePrice: number = 100) {
+    const cleanPlayer = (player || '').replace(/\s*\([^)]*\)/g, '').trim();
+    const roleStr = role ? role.trim() : 'Player';
+    const text = `Next player on the block is ${cleanPlayer}, ${roleStr}. Base price is ${basePrice} points.`;
+    this.announce(text);
+  }
+
+  public announceSold(player: string, team: string, price: number) {
+    const cleanPlayer = (player || '').replace(/\s*\([^)]*\)/g, '').trim();
+    const cleanTeam = (team || '').replace(/\s*\([^)]*\)/g, '').trim();
+    // 200ms delay so gavel hammer resonates first
+    setTimeout(() => {
+      const text = `Sold! ${cleanPlayer} is acquired by Team ${cleanTeam} for ${price} points! Congratulations ${cleanTeam}!`;
+      this.announce(text);
+    }, 200);
+  }
+
+  public announceUnsold(player: string) {
+    const cleanPlayer = (player || '').replace(/\s*\([^)]*\)/g, '').trim();
+    setTimeout(() => {
+      const text = `Unsold. ${cleanPlayer} remains unsold and moves to the unsold pool.`;
+      this.announce(text);
+    }, 200);
   }
 
   // 1. Crystal Clear Bell / Chime on New Bid

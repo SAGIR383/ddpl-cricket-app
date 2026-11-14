@@ -34,12 +34,14 @@ interface AuctionMascotOverlayProps {
   event: MascotEventData | null;
   onDismiss?: () => void;
   soundEnabled?: boolean;
+  contained?: boolean;
 }
 
 export default function AuctionMascotOverlay({
   event,
   onDismiss,
   soundEnabled = true,
+  contained = false,
 }: AuctionMascotOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -400,17 +402,30 @@ export default function AuctionMascotOverlay({
   return (
     <div
       ref={containerRef}
-      style={{
-        position: 'fixed',
-        top: '52%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-      }}
-      className={`z-40 pointer-events-none flex flex-col items-center justify-center transition-all duration-500 ${
+      style={
+        contained
+          ? {
+              position: 'absolute',
+              inset: 0,
+              zIndex: 35,
+            }
+          : {
+              position: 'fixed',
+              top: '52%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 45,
+            }
+      }
+      className={`pointer-events-auto flex flex-col items-center justify-center p-4 transition-all duration-500 overflow-hidden ${
+        contained
+          ? 'bg-[#060D17]/92 backdrop-blur-md rounded-3xl'
+          : 'pointer-events-none'
+      } ${
         mascotState === 'entering'
-          ? 'opacity-0 scale-90 -translate-y-[45%]'
+          ? 'opacity-0 scale-95'
           : mascotState === 'exiting'
-          ? 'opacity-0 scale-90 -translate-y-[48%]'
+          ? 'opacity-0 scale-95'
           : 'opacity-100 scale-100'
       }`}
       aria-live="polite"
@@ -418,7 +433,7 @@ export default function AuctionMascotOverlay({
       {/* ------------------------------------------------------------------- */}
       {/* 1. COMPACT RESULT NOTIFICATION BANNER (Centered Above Mascot) */}
       {/* ------------------------------------------------------------------- */}
-      <div className="w-[300px] sm:w-[350px] pointer-events-auto mb-2 animate-fade-in">
+      <div className="w-full max-w-[380px] pointer-events-auto mb-2 animate-fade-in px-2">
         <div
           className={`relative rounded-2xl p-3 sm:p-4 shadow-2xl backdrop-blur-xl border transition-all ${
             isSold
@@ -510,12 +525,12 @@ export default function AuctionMascotOverlay({
       </div>
 
       {/* ------------------------------------------------------------------- */}
-      {/* 2. MEDIUM-SIZED CENTERED MASCOT STAGE (280-340px, min(40vh, 340px)) */}
+      {/* 2. MEDIUM-SIZED CENTERED MASCOT STAGE */}
       {/* ------------------------------------------------------------------- */}
       <div 
         style={{
-          height: 'min(40vh, 340px)',
-          width: 'min(85vw, 320px)',
+          height: contained ? 'min(30vh, 230px)' : 'min(40vh, 340px)',
+          width: contained ? 'min(75vw, 290px)' : 'min(85vw, 320px)',
         }}
         className="relative pointer-events-none flex items-end justify-center"
       >
