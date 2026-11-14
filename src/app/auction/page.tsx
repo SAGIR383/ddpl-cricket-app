@@ -1044,6 +1044,18 @@ export default function AuctionPage() {
           tournament: tourneyKey,
         }),
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        let errMsg = 'Failed to reset auction';
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed.error) errMsg = parsed.error;
+        } catch {
+          errMsg = errText || `Server error (${res.status})`;
+        }
+        throw new Error(errMsg);
+      }
+
       const data = await res.json();
       if (data.success) {
         showToast(data.message || 'Auction successfully reset!');
@@ -1055,9 +1067,11 @@ export default function AuctionPage() {
           if (Array.isArray(freshState.playerPool)) setPlayerPool(freshState.playerPool);
           if (freshState.currentLot) setCurrentLot(freshState.currentLot);
           setAuctionStatus('stopped');
+          setBiddingAccessEnabled(true);
+          setTeamBiddingAccess({});
           broadcastAuctionState({
             auctionStatus: 'stopped',
-            biddingAccessEnabled: false,
+            biddingAccessEnabled: true,
             currentLot: freshState.currentLot || null,
             teams: freshState.teams || [],
             soldTransactions: freshState.soldTransactions || [],
@@ -1067,7 +1081,7 @@ export default function AuctionPage() {
         }
         setTimeout(() => {
           window.location.reload();
-        }, 1000);
+        }, 800);
       } else {
         alert(data.error || 'Failed to reset auction');
       }

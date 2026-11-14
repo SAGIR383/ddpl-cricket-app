@@ -1091,11 +1091,15 @@ export default function AdminDashboardPage() {
   const handleToggleMasterBidding = async (enabled: boolean) => {
     try {
       setBiddingAccessEnabled(enabled);
-      await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
+      const res = await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ biddingAccessEnabled: enabled }),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Server error ${res.status}`);
+      }
       showNotification(enabled ? 'All Franchise Bidding Enabled!' : 'Franchise Bidding Globally Locked!');
     } catch (err: any) {
       alert(`Failed to update bidding access: ${err.message}`);
@@ -1109,11 +1113,15 @@ export default function AdminDashboardPage() {
     setTeamBiddingAccess(updated);
 
     try {
-      await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
+      const res = await fetch(`/api/auction/data?tournament=${selectedTournament}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teamBiddingAccess: updated }),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Server error ${res.status}`);
+      }
       showNotification(
         newAccess
           ? `Bidding access GRANTED for ${teamName}!`

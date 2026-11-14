@@ -1054,7 +1054,7 @@ export async function POST(req: Request) {
         name: r.name.trim(),
         role: r.role || 'All-rounder',
         basePrice: r.basePrice || defaultBase,
-        avatarUrl: r.avatarUrl,
+        avatarUrl: null, // Client resolves high-res photo from photoMap without bloating state
         battingStyle: r.battingStyle,
         bowlingStyle: r.bowlingStyle,
         phone: r.phone,
@@ -1149,7 +1149,6 @@ export async function POST(req: Request) {
 
       // Reconstruct 6 clean teams (each with only the retained owner)
       const freshTeams = franchiseConfigs.map((fc) => {
-        const ownerPhoto = photoLookup.get(fc.owner.toLowerCase()) || null;
         return {
           id: `t-${fc.name.toLowerCase()}`,
           name: fc.name,
@@ -1169,7 +1168,7 @@ export async function POST(req: Request) {
               name: fc.owner,
               role: 'All-rounder (Franchise Owner)',
               price: targetOwnerPrice,
-              avatarUrl: ownerPhoto,
+              avatarUrl: null, // Client resolves photo seamlessly from photoMap
             },
           ],
         };
@@ -1182,7 +1181,7 @@ export async function POST(req: Request) {
         team: t.name,
         price: targetOwnerPrice,
         role: 'Franchise Owner',
-        avatarUrl: t.players[0].avatarUrl,
+        avatarUrl: null,
       }));
 
       // Filter out franchise owners to get the pure pool
@@ -1206,7 +1205,7 @@ export async function POST(req: Request) {
           name: r.name.trim(),
           role: r.role || 'All-rounder',
           basePrice: r.basePrice || targetBasePrice,
-          avatarUrl: r.avatarUrl || photoLookup.get(r.name.trim().toLowerCase()) || null,
+          avatarUrl: null, // Client resolves photo seamlessly from photoMap
           battingStyle: r.battingStyle || null,
           bowlingStyle: r.bowlingStyle || null,
           phone: r.phone || null,
@@ -1216,7 +1215,7 @@ export async function POST(req: Request) {
         id: freshPool[0].id,
         name: freshPool[0].name,
         role: freshPool[0].role,
-        avatarUrl: freshPool[0].avatarUrl,
+        avatarUrl: null,
         basePrice: freshPool[0].basePrice || targetBasePrice,
         currentBid: freshPool[0].basePrice || targetBasePrice,
         leadingTeam: null,
@@ -1231,7 +1230,7 @@ export async function POST(req: Request) {
         currentLotIndex: 0,
         lastUpdated: new Date().toISOString(),
         auctionStatus: 'stopped',
-        biddingAccessEnabled: false,
+        biddingAccessEnabled: true,
         teamBiddingAccess: {},
         timerSeconds: 120,
         timerRunning: false,

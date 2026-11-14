@@ -105,25 +105,8 @@ export async function GET(req: Request) {
       }
     }
 
-    if (Array.isArray(tournamentData.playerPool)) {
-      tournamentData.playerPool = tournamentData.playerPool.map((p: any) => {
-        const pName = p.name?.trim().toLowerCase();
-        if (!p.avatarUrl && pName && photoMap.has(pName)) {
-          return { ...p, avatarUrl: photoMap.get(pName) };
-        }
-        return p;
-      });
-    }
-
-    if (Array.isArray(tournamentData.soldTransactions)) {
-      tournamentData.soldTransactions = tournamentData.soldTransactions.map((tx: any) => {
-        const txName = (tx.player || tx.name)?.trim().toLowerCase();
-        if (!tx.avatarUrl && txName && photoMap.has(txName)) {
-          return { ...tx, avatarUrl: photoMap.get(txName) };
-        }
-        return tx;
-      });
-    }
+    // Keep playerPool and soldTransactions lightweight (client renders photos via photoMap)
+    // This prevents massive multi-megabyte payloads that crash Vercel serverless functions
 
     // Auto-reconciliation: Ensure every registered franchise owner is present in teams & soldTransactions
     if (Array.isArray(registrations) && registrations.length > 0) {
@@ -303,10 +286,30 @@ export async function POST(req: Request) {
       lastUpdated: new Date().toISOString(),
     };
 
-    allData.tournaments[tournament] = updatedTournamentData;
+    // Strip oversized base64 data URLs to keep store payload lightweight (< 50 KB)
+    const stripOversizedDataUrls = (obj: any): any => {
+      if (!obj) return obj;
+      if (Array.isArray(obj)) return obj.map(stripOversizedDataUrls);
+      if (typeof obj === 'object') {
+        const out: any = {};
+        for (const [k, v] of Object.entries(obj)) {
+          if ((k === 'avatarUrl' || k === 'photo') && typeof v === 'string' && (v.startsWith('data:image/') || v.length > 500)) {
+            out[k] = null;
+          } else {
+            out[k] = stripOversizedDataUrls(v);
+          }
+        }
+        return out;
+      }
+      return obj;
+    };
+
+    const cleanedTournamentData = stripOversizedDataUrls(updatedTournamentData);
+
+    allData.tournaments[tournament] = cleanedTournamentData;
     if (tournament === 'ddpl' || tournament === 'ddpl-3-0') {
       const alt = tournament === 'ddpl' ? 'ddpl-3-0' : 'ddpl';
-      allData.tournaments[alt] = { ...updatedTournamentData };
+      allData.tournaments[alt] = { ...cleanedTournamentData };
     }
 
     await saveAllAuctionData(allData);
@@ -315,7 +318,7 @@ export async function POST(req: Request) {
       success: true,
       message: `Auction state for ${tournament.toUpperCase()} synchronized successfully`,
       tournament,
-      data: updatedTournamentData,
+      data: cleanedTournamentData,
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
