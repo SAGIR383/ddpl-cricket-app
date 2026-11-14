@@ -802,8 +802,8 @@ export default function AuctionPage() {
     auctionAudio.announceSold(soldPlayer, winningTeamName, finalPrice);
 
     const msg = isAuto
-      ? `⏰ 2m Timer Expired! AUTO-SOLD: ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 4s...`
-      : `🔨 HAMMER SOLD! ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 4s...`;
+      ? `⏰ 2m Timer Expired! AUTO-SOLD: ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 6s...`
+      : `🔨 HAMMER SOLD! ${soldPlayer} won by ${winningTeamName} for ${currencySymbol}${finalPrice.toLocaleString()}! Boarding next player in 6s...`;
     setTransitionMessage(msg);
 
     broadcastAuctionState({
@@ -813,13 +813,13 @@ export default function AuctionPage() {
       transitionMessage: msg,
     });
 
-    // Automatic Boarding of Next Player after 4s celebration
+    // Automatic Boarding of Next Player after 6s celebration (allowing speech & mascot to complete)
     setTimeout(() => {
       advanceToNextPlayer(newSold, unsoldPlayers);
       setIsAutoTransitioning(false);
       setTransitionMessage(null);
       setCountdown(isAcceleratedRoundRef.current ? 30 : 120);
-    }, 4000);
+    }, 6000);
   }
 
   // Execute Unsold (Manual or Auto-Timeout)
@@ -843,8 +843,8 @@ export default function AuctionPage() {
     setActiveMascotEvent(unsoldEvent);
 
     const msg = isAuto
-      ? `⏰ 2m Timer Expired with 0 bids! ${unsoldPlayer} marked as UNSOLD (moved to Phase 2 Pool). Boarding next player in 4s...`
-      : `🔨 PASS AS UNSOLD: ${unsoldPlayer} moved to Phase 2 Pool. Boarding next player in 4s...`;
+      ? `⏰ 2m Timer Expired with 0 bids! ${unsoldPlayer} marked as UNSOLD (moved to Phase 2 Pool). Boarding next player in 5s...`
+      : `🔨 PASS AS UNSOLD: ${unsoldPlayer} moved to Phase 2 Pool. Boarding next player in 5s...`;
     setTransitionMessage(msg);
 
     broadcastAuctionState({
@@ -853,13 +853,31 @@ export default function AuctionPage() {
       transitionMessage: msg,
     });
 
-    // Automatic Boarding of Next Player after 4s
+    // Automatic Boarding of Next Player after 5.5s
     setTimeout(() => {
       advanceToNextPlayer(soldTransactions, newUnsold);
       setIsAutoTransitioning(false);
       setTransitionMessage(null);
       setCountdown(isAcceleratedRoundRef.current ? 30 : 120);
-    }, 4000);
+    }, 5500);
+  }
+
+  // Master Handler: Start Live Auction & Announce 1st Player on Block
+  function handleStartLiveAuction() {
+    setAuctionStatus('live');
+    setBiddingAccessEnabled(true);
+    broadcastAuctionState({ auctionStatus: 'live', biddingAccessEnabled: true });
+    showToast('Auction is now LIVE!');
+
+    if (!currentLot) {
+      advanceToNextPlayer();
+    } else {
+      hasAnnouncedFirstPlayerRef.current = true;
+      const pName = currentLot.name;
+      const pRole = currentLot.role || 'Player';
+      const pPrice = currentLot.basePrice || currentLot.currentBid || 100;
+      auctionAudio.announceFirstPlayer(pName, pRole, pPrice);
+    }
   }
 
   // Right to Match (RTM) Card Invocation
@@ -1309,12 +1327,7 @@ export default function AuctionPage() {
               <>
                 {auctionStatus === 'stopped' ? (
                   <button
-                    onClick={() => {
-                      setAuctionStatus('live');
-                      broadcastAuctionState({ auctionStatus: 'live', biddingAccessEnabled: true });
-                      if (!currentLot) advanceToNextPlayer();
-                      showToast('Auction is now LIVE!');
-                    }}
+                    onClick={handleStartLiveAuction}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow hover:brightness-110 transition-all cursor-pointer"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
@@ -1529,14 +1542,7 @@ export default function AuctionPage() {
             <div className="flex flex-wrap items-center gap-2">
               {auctionStatus === 'stopped' ? (
                 <button
-                  onClick={() => {
-                    setAuctionStatus('live');
-                    broadcastAuctionState({ auctionStatus: 'live', biddingAccessEnabled: true });
-                    if (!currentLot) {
-                      advanceToNextPlayer();
-                    }
-                    showToast('Auction is now LIVE!');
-                  }}
+                  onClick={handleStartLiveAuction}
                   className="btn-press shimmer-btn flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg hover:brightness-110 transition-all cursor-pointer"
                   title="Activate live auction and board the first player"
                 >
@@ -2339,12 +2345,7 @@ export default function AuctionPage() {
                       {isAccessAllowed && (
                         <div className="flex flex-wrap justify-center gap-3 pt-2">
                           <button
-                            onClick={() => {
-                              setAuctionStatus('live');
-                              broadcastAuctionState({ auctionStatus: 'live', biddingAccessEnabled: true });
-                              advanceToNextPlayer();
-                              showToast('Auction is now LIVE!');
-                            }}
+                            onClick={handleStartLiveAuction}
                             className="btn-press shimmer-btn px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer"
                           >
                             <Play className="w-4 h-4 inline-block mr-1.5 fill-current" />

@@ -7,6 +7,8 @@ class AuctionSoundEngine {
   private muted: boolean = false;
   private voiceMuted: boolean = false;
   private voices: SpeechSynthesisVoice[] = [];
+  private isAnnouncingResult: boolean = false;
+  private pendingQueue: Array<() => void> = [];
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -153,21 +155,72 @@ class AuctionSoundEngine {
   }
 
   // --------------------------------------------------------------------------
-  // Voice Announcements
+  // Voice Announcements (With Guaranteed Completion Queue Protection)
   // --------------------------------------------------------------------------
-  public announce(text: string) {
+  private announceCritical(text: string) {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     if (this.voiceMuted || this.muted) return;
 
     try {
-      window.speechSynthesis.cancel(); // Stop any pending utterance
+      this.isAnnouncingResult = true;
+      this.pendingQueue = [];
+      window.speechSynthesis.cancel();
+
       const utterance = new SpeechSynthesisUtterance(text);
       const voice = this.getPreferredVoice();
       if (voice) {
         utterance.voice = voice;
       }
-      utterance.pitch = 1.05; // Slightly elevated pitch for a sweet tone
-      utterance.rate = 0.95;  // Clear, professional commentary pacing
+      utterance.pitch = 1.05; // Slightly elevated pitch for sweet tone
+      utterance.rate = 0.95;  // Clear, natural commentary pacing
+      utterance.volume = 1.0;
+
+      const finishCritical = () => {
+        this.isAnnouncingResult = false;
+        if (this.pendingQueue.length > 0) {
+          const nextFn = this.pendingQueue.shift();
+          if (nextFn) setTimeout(nextFn, 350);
+        }
+      };
+
+      utterance.onend = finishCritical;
+      utterance.onerror = finishCritical;
+
+      // Safety watchdog: In case browser drops onend, reset after 7.5 seconds
+      setTimeout(() => {
+        if (this.isAnnouncingResult) {
+          finishCritical();
+        }
+      }, 7500);
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      this.isAnnouncingResult = false;
+      console.warn('[AuctionAudio] AnnounceCritical error:', e);
+    }
+  }
+
+  public announce(text: string, force: boolean = false) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (this.voiceMuted || this.muted) return;
+
+    // If a Sold or Unsold result is speaking, queue this speech so it won't be truncated!
+    if (this.isAnnouncingResult && !force) {
+      this.pendingQueue.push(() => this.announce(text, true));
+      return;
+    }
+
+    try {
+      if (!this.isAnnouncingResult) {
+        window.speechSynthesis.cancel();
+      }
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = this.getPreferredVoice();
+      if (voice) {
+        utterance.voice = voice;
+      }
+      utterance.pitch = 1.05;
+      utterance.rate = 0.95;
       utterance.volume = 1.0;
       window.speechSynthesis.speak(utterance);
     } catch (e) {
@@ -179,7 +232,7 @@ class AuctionSoundEngine {
     const cleanPlayer = (player || '').replace(/\s*\([^)]*\)/g, '').trim();
     const roleStr = role ? role.trim() : 'All-Rounder';
     const text = `Welcome to DDPL 3.0 live auction! The first player on the block is ${cleanPlayer}, ${roleStr}. Base price is ${basePrice} points.`;
-    this.announce(text);
+    this.announce(text, true);
   }
 
   public announceNextPlayer(player: string, role?: string, basePrice: number = 100) {
@@ -192,19 +245,18 @@ class AuctionSoundEngine {
   public announceSold(player: string, team: string, price: number) {
     const cleanPlayer = (player || '').replace(/\s*\([^)]*\)/g, '').trim();
     const cleanTeam = (team || '').replace(/\s*\([^)]*\)/g, '').trim();
-    // 200ms delay so gavel hammer resonates first
+    const text = `Sold! ${cleanPlayer} is acquired by Team ${cleanTeam} for ${price} points! Congratulations ${cleanTeam}!`;
     setTimeout(() => {
-      const text = `Sold! ${cleanPlayer} is acquired by Team ${cleanTeam} for ${price} points! Congratulations ${cleanTeam}!`;
-      this.announce(text);
-    }, 200);
+      this.announceCritical(text);
+    }, 250);
   }
 
   public announceUnsold(player: string) {
     const cleanPlayer = (player || '').replace(/\s*\([^)]*\)/g, '').trim();
+    const text = `Unsold. ${cleanPlayer} remains unsold and moves to the unsold pool.`;
     setTimeout(() => {
-      const text = `Unsold. ${cleanPlayer} remains unsold and moves to the unsold pool.`;
-      this.announce(text);
-    }, 200);
+      this.announceCritical(text);
+    }, 250);
   }
 
   // 1. Crystal Clear Bell / Chime on New Bid
