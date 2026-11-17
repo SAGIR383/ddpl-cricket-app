@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Shield, Trophy, DollarSign, ChevronRight, Award, Gavel, UserCheck, Download, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
+import { Users, Shield, Trophy, DollarSign, ChevronRight, Award, Gavel, UserCheck, Download, FileSpreadsheet, CheckCircle2, Sparkles } from 'lucide-react';
+import FranchiseSquadCardModal, { FranchiseSquadModalData } from '@/components/team/FranchiseSquadCardModal';
 
 interface TeamRosterItem {
   id: string;
@@ -19,7 +20,7 @@ interface TeamRosterItem {
   ownerBlockedPrice: number;
   maxSquadCap: number;
   color: string;
-  players: { name: string; role: string; price: string }[];
+  players: { name: string; role: string; price: string; avatarUrl?: string | null }[];
 }
 
 import { fetchWithCache } from '@/lib/clientCache';
@@ -29,6 +30,7 @@ export default function TeamsPage() {
   const [tournamentsList, setTournamentsList] = useState<any[]>([]);
   const [teams, setTeams] = useState<TeamRosterItem[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
+  const [selectedModalTeam, setSelectedModalTeam] = useState<TeamRosterItem | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [loading, setLoading] = useState(false);
 
@@ -75,6 +77,17 @@ export default function TeamsPage() {
           const auctionTeams = data.data.teams;
           const soldTransactions = data.data.soldTransactions || [];
 
+          // Map photos from registration pool
+          const photoMap = new Map<string, string>();
+          if (Array.isArray(regData?.registrations)) {
+            for (const r of regData.registrations) {
+              const photo = r.avatarUrl || r.photo;
+              if (r.name && photo) {
+                photoMap.set(r.name.trim().toLowerCase(), photo);
+              }
+            }
+          }
+
           const colors = [
             'border-purple-500',
             'border-red-500',
@@ -93,11 +106,13 @@ export default function TeamsPage() {
                   name: tx.player,
                   role: tx.role,
                   price: `₹${(tx.price || 0).toLocaleString('en-IN')}`,
+                  avatarUrl: photoMap.get((tx.player || '').trim().toLowerCase()) || tx.avatarUrl || null,
                 }))
               : (t.players || []).map((p: any) => ({
                   name: p.name,
                   role: p.role || 'Player',
                   price: p.price ? `₹${p.price.toLocaleString('en-IN')}` : 'Squad Roster',
+                  avatarUrl: photoMap.get((p.name || '').trim().toLowerCase()) || p.avatarUrl || null,
                 }));
 
             const captainName = t.captain || (t.owner ? `${t.owner} (C)` : `${t.name} (C)`);
@@ -334,7 +349,7 @@ export default function TeamsPage() {
             return (
               <div
                 key={t.id}
-                onClick={() => setExpandedTeamId(isExpanded ? null : t.id)}
+                onClick={() => setSelectedModalTeam(t)}
                 className={`rounded-3xl p-6 sm:p-7 bg-[#0D1B2A]/90 backdrop-blur-md border space-y-5 shadow-2xl transition-all cursor-pointer hover:border-[#D8AD55]/60 hover:shadow-2xl hover:shadow-[#D8AD55]/10 ${
                   isExpanded ? 'border-[#D8AD55]/70 ring-1 ring-[#D8AD55]/40' : 'border-[#D8AD55]/25'
                 }`}
@@ -389,76 +404,90 @@ export default function TeamsPage() {
                   </div>
                 </div>
 
-                {/* Squad Roster Accordion */}
-                <div className="pt-1">
+                {/* Actions: View Official Squad Card & Poster */}
+                <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedModalTeam(t);
+                    }}
+                    className="btn-press flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-md hover:brightness-110 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    title="Open official squad digital poster with player photos to download and share"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#08111F]" />
+                    <span>View Official Squad Card &amp; Poster</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setExpandedTeamId(isExpanded ? null : t.id);
                     }}
-                    className="w-full flex items-center justify-between py-2.5 px-4 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/20 text-xs font-bold text-[#F2D69A] transition-all cursor-pointer"
+                    className="py-2.5 px-4 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/20 text-xs font-bold text-[#F2D69A] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <span>{isExpanded ? 'Hide Squad Roster' : `Tap to View Complete Squad (${t.players.length} Players)`}</span>
-                    <ChevronRight className={`w-4 h-4 text-[#D8AD55] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    <span>{isExpanded ? 'Hide' : 'Quick View'}</span>
+                    <ChevronRight className={`w-3.5 h-3.5 text-[#D8AD55] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                   </button>
-
-                  {isExpanded && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-3 divide-y divide-white/5 rounded-2xl bg-[#08111F]/90 border border-[#D8AD55]/20 p-4 text-xs space-y-2 max-h-96 overflow-y-auto pr-2 shadow-inner"
-                    >
-                      <div className="flex items-center justify-between pb-2 text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
-                        <span>Squad Roster ({t.players.length} Players)</span>
-                        <span>Acquisition Price</span>
-                      </div>
-                      {t.players.length === 0 ? (
-                        <div className="py-4 text-center text-[#8793A5] italic">
-                          No players acquired in the auction yet.
-                        </div>
-                      ) : (
-                        t.players.map((p, idx) => {
-                          const isOwner =
-                            p.role?.includes('Franchise Owner') ||
-                            (t.owner && p.name?.toLowerCase().trim() === t.owner.toLowerCase().trim());
-                          const isCaptain = t.captain?.toLowerCase().includes(p.name?.toLowerCase().trim());
-
-                          return (
-                            <div
-                              key={idx}
-                              className="py-2.5 flex items-center justify-between hover:bg-white/[0.02] px-2 rounded-xl transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="w-6 h-6 rounded-lg bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#D8AD55] font-mono font-bold text-xs flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <div>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-bold text-white text-sm">{p.name}</span>
-                                    {isOwner && (
-                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-400/40 uppercase">
-                                        Owner
-                                      </span>
-                                    )}
-                                    {isCaptain && (
-                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40 uppercase">
-                                        Captain
-                                      </span>
-                                    )}
-                                  </div>
-                                  <span className="text-[11px] text-[#8793A5]">{p.role}</span>
-                                </div>
-                              </div>
-                              <span className="font-display font-black text-sm text-[#F2D69A] bg-[#0D1B2A] px-2.5 py-1 rounded-lg border border-[#D8AD55]/20 shrink-0">
-                                {p.price}
-                              </span>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
                 </div>
+
+                {/* Inline Roster Expansion (Optional) */}
+                {isExpanded && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-3 divide-y divide-white/5 rounded-2xl bg-[#08111F]/90 border border-[#D8AD55]/20 p-4 text-xs space-y-2 max-h-96 overflow-y-auto pr-2 shadow-inner"
+                  >
+                    <div className="flex items-center justify-between pb-2 text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
+                      <span>Squad Roster ({t.players.length} Players)</span>
+                      <span>Acquisition Price</span>
+                    </div>
+                    {t.players.length === 0 ? (
+                      <div className="py-4 text-center text-[#8793A5] italic">
+                        No players acquired in the auction yet.
+                      </div>
+                    ) : (
+                      t.players.map((p, idx) => {
+                        const isOwner =
+                          p.role?.includes('Franchise Owner') ||
+                          (t.owner && p.name?.toLowerCase().trim() === t.owner.toLowerCase().trim());
+                        const isCaptain = t.captain?.toLowerCase().includes(p.name?.toLowerCase().trim());
+
+                        return (
+                          <div
+                            key={idx}
+                            className="py-2.5 flex items-center justify-between hover:bg-white/[0.02] px-2 rounded-xl transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-lg bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#D8AD55] font-mono font-bold text-xs flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              <div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-white text-sm">{p.name}</span>
+                                  {isOwner && (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-400/40 uppercase">
+                                      Owner
+                                    </span>
+                                  )}
+                                  {isCaptain && (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40 uppercase">
+                                      Captain
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-[#8793A5]">{p.role}</span>
+                              </div>
+                            </div>
+                            <span className="font-display font-black text-sm text-[#F2D69A] bg-[#0D1B2A] px-2.5 py-1 rounded-lg border border-[#D8AD55]/20 shrink-0">
+                              {p.price}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -479,6 +508,16 @@ export default function TeamsPage() {
           </Link>
         </div>
       )}
+
+      {/* Official Franchise Squad Digital Card Pop-up Modal */}
+      <FranchiseSquadCardModal
+        isOpen={!!selectedModalTeam}
+        onClose={() => setSelectedModalTeam(null)}
+        team={selectedModalTeam}
+        tournamentName={
+          tournamentsList.find((x) => x.slug === selectedTournament)?.name || 'DDPL 3.0'
+        }
+      />
     </div>
   );
 }
