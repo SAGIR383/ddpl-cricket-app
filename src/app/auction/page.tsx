@@ -304,32 +304,55 @@ export default function AuctionPage() {
           if (d.teamBiddingAccess) setTeamBiddingAccess(d.teamBiddingAccess);
           if (d.timerSeconds !== undefined) setCountdown(d.timerSeconds);
 
-          if (d.currentLot !== undefined && d.currentLot !== null) {
-            const curLotBase = d.currentLot.basePrice || resolvedDefaultBase;
-            const curName = d.currentLot.name?.trim().toLowerCase();
-            const curPhoto = d.currentLot.avatarUrl || (d.currentLot as any).photo || newPhotoMap[curName] || null;
-            setCurrentLot({
-              ...d.currentLot,
-              avatarUrl: curPhoto,
-              basePrice: curLotBase,
-              currentBid: d.currentLot.currentBid || curLotBase,
-            });
-          } else if (dedupedPool.length > 0) {
-            const p0 = dedupedPool[0];
-            const p0Name = p0.name?.trim().toLowerCase();
-            const p0Photo = p0.avatarUrl || (p0 as any).photo || newPhotoMap[p0Name] || null;
-            setCurrentLot({
-              id: p0.id,
-              name: p0.name,
-              role: p0.role,
-              avatarUrl: p0Photo,
-              basePrice: p0.basePrice || resolvedDefaultBase,
-              currentBid: p0.basePrice || resolvedDefaultBase,
-              leadingTeam: null,
-              history: [],
-            });
-          } else {
+          // Guard: Determine already sold players and squad capacities
+          const soldNamesSet = new Set(
+            (Array.isArray(d.soldTransactions) ? d.soldTransactions : []).map((tx: any) =>
+              (tx.player || '').trim().toLowerCase()
+            )
+          );
+          const allTeamsFull =
+            normalizedTeams.length > 0 &&
+            normalizedTeams.every((t: any) => (t.playersBought || (t.players || []).length) >= targetCap);
+
+          if (d.auctionStatus === 'completed' || allTeamsFull) {
             setCurrentLot(null);
+          } else if (d.currentLot !== undefined && d.currentLot !== null) {
+            const curName = d.currentLot.name?.trim().toLowerCase();
+            if (soldNamesSet.has(curName)) {
+              // Player is already acquired by a franchise; do not board on block
+              setCurrentLot(null);
+            } else {
+              const curLotBase = d.currentLot.basePrice || resolvedDefaultBase;
+              const curPhoto = d.currentLot.avatarUrl || (d.currentLot as any).photo || newPhotoMap[curName] || null;
+              setCurrentLot({
+                ...d.currentLot,
+                avatarUrl: curPhoto,
+                basePrice: curLotBase,
+                currentBid: d.currentLot.currentBid || curLotBase,
+              });
+            }
+          } else {
+            // Only board an unauctioned player if the live auction is actually running and player is NOT sold
+            const unauctioned = dedupedPool.filter(
+              (p) => !soldNamesSet.has((p.name || '').trim().toLowerCase())
+            );
+            if (d.auctionStatus === 'live' && unauctioned.length > 0) {
+              const p0 = unauctioned[0];
+              const p0Name = p0.name?.trim().toLowerCase();
+              const p0Photo = p0.avatarUrl || (p0 as any).photo || newPhotoMap[p0Name] || null;
+              setCurrentLot({
+                id: p0.id,
+                name: p0.name,
+                role: p0.role,
+                avatarUrl: p0Photo,
+                basePrice: p0.basePrice || resolvedDefaultBase,
+                currentBid: p0.basePrice || resolvedDefaultBase,
+                leadingTeam: null,
+                history: [],
+              });
+            } else {
+              setCurrentLot(null);
+            }
           }
         } else {
           setTeams([]);
@@ -1019,20 +1042,27 @@ export default function AuctionPage() {
             if (Array.isArray(fresh.data.playerPool)) {
               setPlayerPool(fresh.data.playerPool);
             }
-            if (fresh.data.currentLot) {
-              setCurrentLot(fresh.data.currentLot);
-            } else if (Array.isArray(fresh.data.playerPool) && fresh.data.playerPool.length > 0) {
-              const p0 = fresh.data.playerPool[0];
-              setCurrentLot({
-                id: p0.id,
-                name: p0.name,
-                role: p0.role,
-                avatarUrl: p0.avatarUrl || null,
-                basePrice: p0.basePrice || rules.defaultPlayerBasePrice || 100,
-                currentBid: p0.basePrice || rules.defaultPlayerBasePrice || 100,
-                leadingTeam: null,
-                history: [],
-              });
+            const freshSoldSet = new Set(
+              (Array.isArray(fresh.data.soldTransactions) ? fresh.data.soldTransactions : []).map((tx: any) =>
+                (tx.player || '').trim().toLowerCase()
+              )
+            );
+            const freshTeamsFull =
+              Array.isArray(fresh.data.teams) &&
+              fresh.data.teams.length > 0 &&
+              fresh.data.teams.every((t: any) => (t.playersBought || (t.players || []).length) >= (rules.maxSquadSize || 8));
+
+            if (fresh.data.auctionStatus === 'completed' || freshTeamsFull) {
+              setCurrentLot(null);
+            } else if (fresh.data.currentLot) {
+              const curName = fresh.data.currentLot.name?.trim().toLowerCase();
+              if (freshSoldSet.has(curName)) {
+                setCurrentLot(null);
+              } else {
+                setCurrentLot(fresh.data.currentLot);
+              }
+            } else {
+              setCurrentLot(null);
             }
             if (Array.isArray(fresh.data.teams)) {
               setTeams(fresh.data.teams);

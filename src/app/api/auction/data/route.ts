@@ -97,7 +97,13 @@ export async function GET(req: Request) {
 
     if (tournamentData.currentLot?.name) {
       const lotName = tournamentData.currentLot.name.trim().toLowerCase();
-      if (!tournamentData.currentLot.avatarUrl && photoMap.has(lotName)) {
+      // Guard: If currentLot is already sold in soldTransactions, clear it
+      const isAlreadySold = Array.isArray(tournamentData.soldTransactions) &&
+        tournamentData.soldTransactions.some((tx: any) => (tx.player || '').trim().toLowerCase() === lotName);
+
+      if (isAlreadySold || tournamentData.auctionStatus === 'completed') {
+        tournamentData.currentLot = null;
+      } else if (!tournamentData.currentLot.avatarUrl && photoMap.has(lotName)) {
         tournamentData.currentLot = {
           ...tournamentData.currentLot,
           avatarUrl: photoMap.get(lotName),
