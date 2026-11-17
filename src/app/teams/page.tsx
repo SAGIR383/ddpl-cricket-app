@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Shield, Trophy, DollarSign, ChevronRight, Award, Gavel, UserCheck } from 'lucide-react';
+import { Users, Shield, Trophy, DollarSign, ChevronRight, Award, Gavel, UserCheck, Download, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
 
 interface TeamRosterItem {
   id: string;
@@ -149,10 +149,93 @@ export default function TeamsPage() {
     loadTeamsData();
   }, [selectedTournament]);
 
+  const handleExportCSV = () => {
+    if (!teams || teams.length === 0) return;
+
+    const headers = [
+      'Franchise Name',
+      'Short Code',
+      'Group',
+      'Manager / Owner',
+      'Captain',
+      'Vice-Captain',
+      'Purse Allocated',
+      'Purse Spent',
+      'Purse Remaining',
+      'Squad Count',
+      'Player Name',
+      'Role',
+      'Sold Price',
+      'Designation',
+    ];
+
+    const rows: string[][] = [];
+
+    teams.forEach((t) => {
+      if (!t.players || t.players.length === 0) {
+        rows.push([
+          `"${t.name}"`,
+          `"${t.short}"`,
+          `"${t.group || 'N/A'}"`,
+          `"${t.owner}"`,
+          `"${t.captain}"`,
+          `"${t.viceCaptain}"`,
+          `"${t.budgetAllocated}"`,
+          `"${t.budgetSpent}"`,
+          `"${t.budgetLeft}"`,
+          `"${t.squadSize}/${t.maxSquadCap}"`,
+          `"No players acquired"`,
+          `""`,
+          `""`,
+          `""`,
+        ]);
+      } else {
+        t.players.forEach((p) => {
+          const isOwner =
+            p.role?.includes('Franchise Owner') ||
+            (t.owner && p.name?.toLowerCase().trim() === t.owner.toLowerCase().trim());
+          const isCaptain = t.captain?.toLowerCase().includes(p.name?.toLowerCase().trim());
+          let designation = 'Player';
+          if (isOwner && isCaptain) designation = 'Owner & Captain';
+          else if (isOwner) designation = 'Franchise Owner';
+          else if (isCaptain) designation = 'Captain';
+
+          rows.push([
+            `"${t.name}"`,
+            `"${t.short}"`,
+            `"${t.group || 'N/A'}"`,
+            `"${t.owner}"`,
+            `"${t.captain}"`,
+            `"${t.viceCaptain}"`,
+            `"${t.budgetAllocated}"`,
+            `"${t.budgetSpent}"`,
+            `"${t.budgetLeft}"`,
+            `"${t.squadSize}/${t.maxSquadCap}"`,
+            `"${p.name}"`,
+            `"${p.role}"`,
+            `"${p.price}"`,
+            `"${designation}"`,
+          ]);
+        });
+      }
+    });
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `DDPL_3_0_Franchise_Squad_Rosters_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-[#D8AD55]/15 pb-6">
         <div>
           <div className="flex items-center gap-2">
             <Users className="w-6 h-6 text-[#D8AD55]" />
@@ -165,29 +248,43 @@ export default function TeamsPage() {
           </p>
         </div>
 
-        {/* Tournament Selector: Only render if multiple tournaments exist */}
-        {tournamentsList.length > 1 && (
-          <div className="flex rounded-2xl bg-[#08111F] border border-[#D8AD55]/20 p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md shadow-inner">
-            {tournamentsList.map((t) => (
-              <button
-                key={t.slug}
-                onClick={() => setSelectedTournament(t.slug)}
-                className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
-                  selectedTournament === t.slug
-                    ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-md'
-                    : 'text-[#8793A5] hover:text-white'
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
-        )}
-        {tournamentsList.length === 1 && (
-          <div className="px-4 py-2 rounded-xl bg-[#08111F] border border-[#D8AD55]/20 text-[#F2D69A] text-xs font-bold shadow-inner">
-            {tournamentsList[0].name}
-          </div>
-        )}
+        {/* Action Controls: CSV Export & Tournament Selector */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={teams.length === 0}
+            className="btn-press px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D8AD55] via-[#F2D69A] to-[#D8AD55] text-[#08111F] font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-[#D8AD55]/20 hover:brightness-110 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Download franchise squads & player roster list as CSV"
+          >
+            <Download className="w-4 h-4 text-[#08111F]" />
+            <span>Export Squads (CSV)</span>
+          </button>
+
+          {/* Tournament Selector: Only render if multiple tournaments exist */}
+          {tournamentsList.length > 1 && (
+            <div className="flex rounded-2xl bg-[#08111F] border border-[#D8AD55]/20 p-1 text-xs font-bold overflow-x-auto max-w-xs sm:max-w-md shadow-inner">
+              {tournamentsList.map((t) => (
+                <button
+                  key={t.slug}
+                  onClick={() => setSelectedTournament(t.slug)}
+                  className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+                    selectedTournament === t.slug
+                      ? 'bg-gradient-to-r from-[#D8AD55] to-[#F2D69A] text-[#08111F] font-black shadow-md'
+                      : 'text-[#8793A5] hover:text-white'
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {tournamentsList.length === 1 && (
+            <div className="px-4 py-2 rounded-xl bg-[#08111F] border border-[#D8AD55]/20 text-[#F2D69A] text-xs font-bold shadow-inner">
+              {tournamentsList[0].name}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Group Filter Tabs (when groups exist) */}
@@ -237,7 +334,10 @@ export default function TeamsPage() {
             return (
               <div
                 key={t.id}
-                className="rounded-3xl p-6 sm:p-7 bg-[#0D1B2A]/90 backdrop-blur-md border border-[#D8AD55]/25 space-y-5 shadow-2xl transition-all hover:border-[#D8AD55]/50 hover:shadow-[#D8AD55]/5"
+                onClick={() => setExpandedTeamId(isExpanded ? null : t.id)}
+                className={`rounded-3xl p-6 sm:p-7 bg-[#0D1B2A]/90 backdrop-blur-md border space-y-5 shadow-2xl transition-all cursor-pointer hover:border-[#D8AD55]/60 hover:shadow-2xl hover:shadow-[#D8AD55]/10 ${
+                  isExpanded ? 'border-[#D8AD55]/70 ring-1 ring-[#D8AD55]/40' : 'border-[#D8AD55]/25'
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -292,29 +392,69 @@ export default function TeamsPage() {
                 {/* Squad Roster Accordion */}
                 <div className="pt-1">
                   <button
-                    onClick={() => setExpandedTeamId(isExpanded ? null : t.id)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedTeamId(isExpanded ? null : t.id);
+                    }}
                     className="w-full flex items-center justify-between py-2.5 px-4 rounded-xl bg-[#08111F] hover:bg-[#111D2D] border border-[#D8AD55]/20 text-xs font-bold text-[#F2D69A] transition-all cursor-pointer"
                   >
-                    <span>{isExpanded ? 'Hide Squad Roster' : `View Acquired Squad Players (${t.players.length})`}</span>
+                    <span>{isExpanded ? 'Hide Squad Roster' : `Tap to View Complete Squad (${t.players.length} Players)`}</span>
                     <ChevronRight className={`w-4 h-4 text-[#D8AD55] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                   </button>
 
                   {isExpanded && (
-                    <div className="mt-3 divide-y divide-white/5 rounded-2xl bg-[#08111F]/50 border border-[#D8AD55]/15 p-3 text-xs max-h-60 overflow-y-auto pr-2">
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-3 divide-y divide-white/5 rounded-2xl bg-[#08111F]/90 border border-[#D8AD55]/20 p-4 text-xs space-y-2 max-h-96 overflow-y-auto pr-2 shadow-inner"
+                    >
+                      <div className="flex items-center justify-between pb-2 text-[11px] font-bold text-[#8793A5] uppercase tracking-wider">
+                        <span>Squad Roster ({t.players.length} Players)</span>
+                        <span>Acquisition Price</span>
+                      </div>
                       {t.players.length === 0 ? (
                         <div className="py-4 text-center text-[#8793A5] italic">
                           No players acquired in the auction yet.
                         </div>
                       ) : (
-                        t.players.map((p, idx) => (
-                          <div key={idx} className="py-2.5 flex items-center justify-between">
-                            <div>
-                              <span className="font-bold text-white">{p.name}</span>
-                              <span className="text-[11px] text-[#8793A5] ml-2">({p.role})</span>
+                        t.players.map((p, idx) => {
+                          const isOwner =
+                            p.role?.includes('Franchise Owner') ||
+                            (t.owner && p.name?.toLowerCase().trim() === t.owner.toLowerCase().trim());
+                          const isCaptain = t.captain?.toLowerCase().includes(p.name?.toLowerCase().trim());
+
+                          return (
+                            <div
+                              key={idx}
+                              className="py-2.5 flex items-center justify-between hover:bg-white/[0.02] px-2 rounded-xl transition-colors"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="w-6 h-6 rounded-lg bg-[#0D1B2A] border border-[#D8AD55]/30 text-[#D8AD55] font-mono font-bold text-xs flex items-center justify-center shrink-0">
+                                  {idx + 1}
+                                </span>
+                                <div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-white text-sm">{p.name}</span>
+                                    {isOwner && (
+                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-400/40 uppercase">
+                                        Owner
+                                      </span>
+                                    )}
+                                    {isCaptain && (
+                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-[#D8AD55]/20 text-[#F2D69A] border border-[#D8AD55]/40 uppercase">
+                                        Captain
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[11px] text-[#8793A5]">{p.role}</span>
+                                </div>
+                              </div>
+                              <span className="font-display font-black text-sm text-[#F2D69A] bg-[#0D1B2A] px-2.5 py-1 rounded-lg border border-[#D8AD55]/20 shrink-0">
+                                {p.price}
+                              </span>
                             </div>
-                            <span className="font-display font-bold text-sm text-[#F2D69A]">{p.price}</span>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   )}
